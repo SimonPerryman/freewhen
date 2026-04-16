@@ -1,4 +1,4 @@
-.PHONY: dev dev-backend dev-frontend lint lint-backend lint-frontend fmt build
+.PHONY: dev dev-backend dev-frontend lint lint-backend lint-frontend fmt build test test-backend test-frontend test-integration
 
 # Run both backend and frontend in development mode
 dev:
@@ -24,6 +24,18 @@ lint-frontend:
 # Formatting
 fmt:
 	cd frontend && npx oxfmt --write src/
+
+# Testing
+test: test-backend test-frontend
+
+test-backend:
+	cd backend && go test ./...
+
+test-frontend:
+	cd frontend && npm test
+
+test-integration:
+	cd backend && go test -tags=integration ./...
 
 # Build
 build: build-backend build-frontend

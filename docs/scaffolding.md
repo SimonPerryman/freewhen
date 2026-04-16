@@ -51,6 +51,31 @@ freewhen/
 | JS/TS formatting| oxfmt                      | Faster Prettier alternative                  |
 | Dev workflow    | Makefile                   | Unified commands across both stacks          |
 
+## Testing
+
+| Stack    | Tool                     | Notes                                                        |
+|----------|--------------------------|--------------------------------------------------------------|
+| Backend  | `go test` (std library)  | Unit tests alongside code, integration tests via build tags  |
+| Frontend | Vitest                   | Fast, native ESM/TypeScript support                          |
+
+### Backend Testing
+
+- **Unit tests** - `_test.go` files next to the code they test (same package). Run with `go test ./...`.
+- **Integration tests** - `_test.go` files with a `//go:build integration` build tag. Skipped by default, run explicitly with `go test -tags=integration ./...`. These hit a real database.
+
+### Frontend Testing
+
+- Vitest as the test runner
+- Test files in `__tests__/` directories or as `*.test.ts(x)` files alongside components
+- `make test-frontend` to run
+
+### Makefile Targets
+
+- `make test` - run all unit tests (both stacks)
+- `make test-backend` - Go unit tests only
+- `make test-frontend` - Vitest only
+- `make test-integration` - Go integration tests (requires `DATABASE_URL`)
+
 ## Decisions
 
 - **No Docker Compose.** Database is hosted (free tier). No need for local Postgres.
