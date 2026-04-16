@@ -23,6 +23,7 @@ Roughly ordered by likely impact, but not committed to any sequence.
 - Calendars that last beyond a single event (recurring group planning)
 - Time-of-day availability, not just full days
 - Date range suggestions from the creator ("pick from these 2 weeks")
+- Week and day views alongside the default month view — useful for near-term planning or when time-of-day availability is added
 
 ### Real-Time & Notifications
 - Live updates when someone marks availability (WebSockets)

@@ -10,6 +10,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/freewhen/backend/internal/server"
+	"github.com/freewhen/backend/internal/store"
 )
 
 func main() {
@@ -26,6 +27,10 @@ func main() {
 
 	if err := db.Ping(); err != nil {
 		log.Fatalf("failed to ping database: %v", err)
+	}
+
+	if err := store.Migrate(db); err != nil {
+		log.Fatalf("failed to run migrations: %v", err)
 	}
 
 	srv := server.New(db)

@@ -61,6 +61,12 @@ Status: pending | in-progress | done
 
 ## Development
 
-- `make dev-backend` / `make dev-frontend` to run
-- `make lint` to lint both stacks
-- `make fmt` to format frontend
+- `make dev-backend` / `make dev-frontend` to run (backend :8080, frontend :3000)
+- `make lint` to lint both stacks (golangci-lint + oxlint)
+- `make fmt` to format frontend (oxfmt)
+- `make test` to run all tests
+- `make test-backend` / `make test-frontend` to run tests per stack
+- `make test-integration` to run Go integration tests (requires `-tags=integration`)
+- Frontend uses vitest with jsdom; `@` alias maps to `src/`
+- Single test file: `cd frontend && npx vitest run path/to/file`
+- Single Go test: `cd backend && go test ./internal/store/ -run TestName`
