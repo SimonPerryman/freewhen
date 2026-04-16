@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/freewhen/backend/internal/model"
@@ -48,6 +50,20 @@ func (s *Store) AddParticipant(ctx context.Context, calendarID, name string) (mo
 		return p, nil
 	}
 	return model.Participant{}, fmt.Errorf("failed to generate unique participant ID after %d attempts", maxRetries)
+}
+
+func (s *Store) GetParticipant(ctx context.Context, id string) (model.Participant, error) {
+	var p model.Participant
+	err := s.db.QueryRowContext(ctx,
+		`SELECT id, calendar_id, name, colour FROM participants WHERE id = $1`, id,
+	).Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.Participant{}, ErrNotFound
+		}
+		return model.Participant{}, fmt.Errorf("get participant: %w", err)
+	}
+	return p, nil
 }
 
 func (s *Store) participantCount(ctx context.Context, calendarID string) (int, error) {

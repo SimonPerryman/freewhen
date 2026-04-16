@@ -1,11 +1,11 @@
 package handler
 
-import "github.com/freewhen/backend/internal/store"
+import "github.com/freewhen/backend/internal/service"
 
 type Handler struct {
-	store *store.Store
+	service *service.Service
 }
 
-func New(s *store.Store) *Handler {
-	return &Handler{store: s}
+func New(s *service.Service) *Handler {
+	return &Handler{service: s}
 }
