@@ -7,8 +7,7 @@ import type {
   SetAvailabilityRequest,
 } from "./types";
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 export class ApiError extends Error {
   constructor(
@@ -50,10 +49,7 @@ function toCamelCaseKeys<T>(obj: unknown): T {
   return convertKeys<T>(obj, toCamelCase);
 }
 
-async function request<T>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {
     ...options,
     headers: {
@@ -71,9 +67,7 @@ async function request<T>(
   return toCamelCaseKeys<T>(body);
 }
 
-export async function createCalendar(
-  req: CreateCalendarRequest,
-): Promise<Calendar> {
+export async function createCalendar(req: CreateCalendarRequest): Promise<Calendar> {
   return request<Calendar>("/calendars", {
     method: "POST",
     body: JSON.stringify(toSnakeCaseKeys(req)),

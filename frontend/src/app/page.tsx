@@ -19,8 +19,7 @@ export default function Home() {
       const calendar = await createCalendar({ name: name.trim() });
       router.push(`/calendars/${calendar.id}`);
     } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : "Something went wrong";
+      const message = err instanceof ApiError ? err.message : "Something went wrong";
       setError(message);
       setSubmitting(false);
     }
@@ -30,9 +29,7 @@ export default function Home() {
     <div className={styles.page}>
       <main className={styles.card}>
         <h1 className={styles.heading}>Create a calendar</h1>
-        <p className={styles.subheading}>
-          Share a link and collect availability from your group.
-        </p>
+        <p className={styles.subheading}>Share a link and collect availability from your group.</p>
         <form className={styles.form} onSubmit={handleSubmit}>
           <label className={styles.label} htmlFor="calendar-name">
             Event name
@@ -47,11 +44,7 @@ export default function Home() {
             autoComplete="off"
             disabled={submitting}
           />
-          <button
-            type="submit"
-            className={styles.button}
-            disabled={submitting}
-          >
+          <button type="submit" className={styles.button} disabled={submitting}>
             {submitting ? "Creating…" : "Create calendar"}
           </button>
           {error ? (

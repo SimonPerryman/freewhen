@@ -1,11 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  createCalendar,
-  getCalendar,
-  addParticipant,
-  setAvailability,
-  ApiError,
-} from "./api";
+import { createCalendar, getCalendar, addParticipant, setAvailability, ApiError } from "./api";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -58,12 +52,8 @@ describe("getCalendar", () => {
     mockFetch.mockResolvedValue(
       jsonResponse({
         calendar: { id: "abc", name: "Trip", created_at: "2026-01-01T00:00:00Z" },
-        participants: [
-          { id: "p1", calendar_id: "abc", name: "Alice", colour: "#ff0000" },
-        ],
-        availability: [
-          { participant_id: "p1", calendar_id: "abc", date: "2026-03-01" },
-        ],
+        participants: [{ id: "p1", calendar_id: "abc", name: "Alice", colour: "#ff0000" }],
+        availability: [{ participant_id: "p1", calendar_id: "abc", date: "2026-03-01" }],
       }),
     );
 
@@ -90,22 +80,16 @@ describe("getCalendar", () => {
 describe("addParticipant", () => {
   it("sends POST to /calendars/:id/participants", async () => {
     mockFetch.mockResolvedValue(
-      jsonResponse(
-        { id: "p1", calendar_id: "abc", name: "Alice", colour: "#ff0000" },
-        201,
-      ),
+      jsonResponse({ id: "p1", calendar_id: "abc", name: "Alice", colour: "#ff0000" }, 201),
     );
 
     const result = await addParticipant("abc", { name: "Alice" });
 
-    expect(mockFetch).toHaveBeenCalledWith(
-      "http://localhost:8080/calendars/abc/participants",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "Alice" }),
-      },
-    );
+    expect(mockFetch).toHaveBeenCalledWith("http://localhost:8080/calendars/abc/participants", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Alice" }),
+    });
     expect(result).toEqual({
       id: "p1",
       calendarId: "abc",
@@ -115,9 +99,7 @@ describe("addParticipant", () => {
   });
 
   it("throws ApiError on 409 conflict", async () => {
-    mockFetch.mockResolvedValue(
-      jsonResponse({ error: "participant name already taken" }, 409),
-    );
+    mockFetch.mockResolvedValue(jsonResponse({ error: "participant name already taken" }, 409));
 
     await expect(addParticipant("abc", { name: "Alice" })).rejects.toMatchObject({
       status: 409,
@@ -135,27 +117,20 @@ describe("setAvailability", () => {
       dates: ["2026-03-01", "2026-03-02"],
     });
 
-    expect(mockFetch).toHaveBeenCalledWith(
-      "http://localhost:8080/calendars/abc/availability",
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          participant_id: "p1",
-          dates: ["2026-03-01", "2026-03-02"],
-        }),
-      },
-    );
+    expect(mockFetch).toHaveBeenCalledWith("http://localhost:8080/calendars/abc/availability", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        participant_id: "p1",
+        dates: ["2026-03-01", "2026-03-02"],
+      }),
+    });
   });
 
   it("throws ApiError on 400", async () => {
-    mockFetch.mockResolvedValue(
-      jsonResponse({ error: "participant_id is required" }, 400),
-    );
+    mockFetch.mockResolvedValue(jsonResponse({ error: "participant_id is required" }, 400));
 
-    await expect(
-      setAvailability("abc", { participantId: "", dates: [] }),
-    ).rejects.toMatchObject({
+    await expect(setAvailability("abc", { participantId: "", dates: [] })).rejects.toMatchObject({
       status: 400,
       message: "participant_id is required",
     });

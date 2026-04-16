@@ -1,20 +1,11 @@
 .page {
-  --background: #fafafa;
-  --foreground: #fff;
-  --border: #e5e5e5;
-  --text-primary: #111;
-  --text-secondary: #666;
-  --accent: #111;
-  --accent-hover: #333;
-  --error: #c2185b;
-
   display: flex;
   min-height: 100vh;
   align-items: center;
   justify-content: center;
   padding: 24px;
   font-family: var(--font-geist-sans);
-  background-color: var(--background);
+  background-color: var(--page-bg);
   color: var(--text-primary);
 }
 
@@ -24,7 +15,7 @@
   padding: 40px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: var(--foreground);
+  background: var(--card-bg);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
@@ -58,7 +49,7 @@
   font-size: 16px;
   font-family: inherit;
   color: var(--text-primary);
-  background: var(--foreground);
+  background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   outline: none;
@@ -79,7 +70,7 @@
   font-size: 15px;
   font-weight: 500;
   font-family: inherit;
-  color: #fff;
+  color: var(--accent-text);
   background: var(--accent);
   border: none;
   border-radius: 8px;
@@ -100,21 +91,4 @@
   margin: 4px 0 0;
   font-size: 14px;
   color: var(--error);
-}
-
-@media (prefers-color-scheme: dark) {
-  .page {
-    --background: #0a0a0a;
-    --foreground: #141414;
-    --border: #262626;
-    --text-primary: #ededed;
-    --text-secondary: #999;
-    --accent: #ededed;
-    --accent-hover: #bfbfbf;
-    --error: #f06292;
-  }
-
-  .button {
-    color: #0a0a0a;
-  }
 }

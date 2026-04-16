@@ -1,12 +1,30 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --page-bg: #fafafa;
+  --card-bg: #fff;
+  --border: #e5e5e5;
+  --text-primary: #111;
+  --text-secondary: #666;
+  --accent: #111;
+  --accent-hover: #333;
+  --accent-text: #fff;
+  --error: #c2185b;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --page-bg: #0a0a0a;
+    --card-bg: #141414;
+    --border: #262626;
+    --text-primary: #ededed;
+    --text-secondary: #999;
+    --accent: #ededed;
+    --accent-hover: #bfbfbf;
+    --accent-text: #0a0a0a;
+    --error: #f06292;
   }
 }
 
