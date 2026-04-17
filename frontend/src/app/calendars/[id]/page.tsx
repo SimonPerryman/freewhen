@@ -220,7 +220,7 @@ export default function CalendarPage({ params }: { params: Promise<{ id: string 
   if (loading) {
     return (
       <div className={styles.page}>
-        <div className={styles.card}>
+        <div className={styles.container}>
           <p className={styles.loading}>Loading…</p>
         </div>
       </div>
@@ -230,7 +230,7 @@ export default function CalendarPage({ params }: { params: Promise<{ id: string 
   if (error || !calendar) {
     return (
       <div className={styles.page}>
-        <div className={styles.card}>
+        <div className={styles.container}>
           <p className={styles.error}>{error ?? "Calendar not found"}</p>
         </div>
       </div>
@@ -241,7 +241,7 @@ export default function CalendarPage({ params }: { params: Promise<{ id: string 
 
   return (
     <div className={styles.page}>
-      <div className={styles.card}>
+      <div className={styles.container}>
         <div className={styles.header}>
           <h1 className={styles.heading}>{calendarName}</h1>
           <CopyLinkButton />
@@ -260,17 +260,23 @@ export default function CalendarPage({ params }: { params: Promise<{ id: string 
           </div>
         ) : null}
 
+        {calendar.participants.length === 0 && !currentParticipant ? (
+          <p className={styles.emptyHint}>
+            Share the link — when people join, you&apos;ll see their availability here.
+          </p>
+        ) : null}
+
+        <SummaryView
+          participants={calendar.participants}
+          freeByDate={freeByDate}
+        />
+
         <CalendarGrid
           participants={calendar.participants}
           freeByDate={freeByDate}
           currentParticipantId={currentParticipant?.id ?? null}
           onToggle={handleToggle}
           joined={!!currentParticipant}
-        />
-
-        <SummaryView
-          participants={calendar.participants}
-          freeByDate={freeByDate}
         />
 
         <ParticipantList

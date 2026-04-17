@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import type { Participant } from "@/lib/types";
 import { layoutSlots, sortParticipants, classifyDay } from "@/lib/overlap";
 import styles from "./CalendarGrid.module.css";
 
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_LETTERS = ["M", "T", "W", "T", "F", "S", "S"];
 const MONTH_SHORT = [
   "Jan",
   "Feb",
@@ -78,6 +79,18 @@ export default function CalendarGrid({
   joined,
 }: CalendarGridProps) {
   const [weekOffset, setWeekOffset] = useState(0);
+  const [pulsing, setPulsing] = useState<string | null>(null);
+  const pulseTimer = useRef<ReturnType<typeof setTimeout>>(null);
+
+  const handleDayClick = useCallback(
+    (dateStr: string) => {
+      if (pulseTimer.current) clearTimeout(pulseTimer.current);
+      setPulsing(dateStr);
+      pulseTimer.current = setTimeout(() => setPulsing(null), 200);
+      onToggle(dateStr);
+    },
+    [onToggle],
+  );
 
   const today = getToday();
   const baseMonday = getMonday(new Date());
@@ -148,9 +161,10 @@ export default function CalendarGrid({
       </div>
 
       <div className={styles.grid}>
-        {DAY_NAMES.map((name) => (
+        {DAY_NAMES.map((name, i) => (
           <div key={name} className={styles.dayHeader}>
-            {name}
+            <span className={styles.dayHeaderShort}>{DAY_LETTERS[i]}</span>
+            <span className={styles.dayHeaderFull}>{name}</span>
           </div>
         ))}
 
@@ -167,6 +181,7 @@ export default function CalendarGrid({
           if (isToday) classNames.push(styles.today);
           if (joined && !isPast) classNames.push(styles.clickable);
           if (everyoneFree && !isPast) classNames.push(styles.everyoneFree);
+          if (pulsing === dateStr) classNames.push(styles.pulse);
 
           const dateLabel = formatDateLabel(date);
           const ariaLabel = isPast ? dateLabel : buildAriaLabel(dateLabel, sorted, freeIds);
@@ -178,7 +193,7 @@ export default function CalendarGrid({
               type="button"
               className={classNames.join(" ")}
               onClick={() => {
-                if (joined && !isPast) onToggle(dateStr);
+                if (joined && !isPast) handleDayClick(dateStr);
               }}
               disabled={!joined || isPast}
               style={{ minHeight: `${cellMinHeight}px` }}

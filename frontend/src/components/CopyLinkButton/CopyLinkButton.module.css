@@ -1,19 +1,43 @@
 .button {
-  padding: 6px 14px;
-  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 14px;
   font-weight: 500;
   font-family: inherit;
-  color: var(--text-primary);
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  color: var(--accent-text);
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition:
-    border-color 0.15s,
-    color 0.15s;
+  transition: background 0.15s;
   white-space: nowrap;
 }
 
 .button:hover {
-  border-color: var(--accent);
+  background: var(--accent-hover);
+}
+
+.icon {
+  flex-shrink: 0;
+}
+
+@media (min-width: 640px) {
+  .button {
+    width: auto;
+    padding: 6px 14px;
+    font-size: 13px;
+    color: var(--text-primary);
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+
+  .button:hover {
+    border-color: var(--accent);
+    background: var(--card-bg);
+  }
 }

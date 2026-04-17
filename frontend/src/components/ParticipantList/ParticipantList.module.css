@@ -2,6 +2,48 @@
   margin-top: 24px;
 }
 
+.compactToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 0;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.dots {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.compactLabel {
+  white-space: nowrap;
+}
+
+.fullList {
+  display: none;
+}
+
+.fullListExpanded {
+  display: block;
+}
+
+@media (min-width: 640px) {
+  .compactToggle {
+    display: none;
+  }
+
+  .fullList {
+    display: block;
+  }
+}
+
 .heading {
   margin: 0 0 12px;
   font-size: 14px;

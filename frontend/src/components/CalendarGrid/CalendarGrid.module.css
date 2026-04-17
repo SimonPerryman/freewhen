@@ -13,14 +13,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   font-size: 20px;
   font-family: inherit;
   color: var(--text-primary);
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: border-color 0.15s;
 }
@@ -43,7 +43,13 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
+  gap: 3px;
+}
+
+@media (min-width: 640px) {
+  .grid {
+    gap: 4px;
+  }
 }
 
 .dayHeader {
@@ -52,6 +58,24 @@
   font-weight: 500;
   color: var(--text-secondary);
   padding: 4px 0 8px;
+}
+
+.dayHeaderFull {
+  display: none;
+}
+
+.dayHeaderShort {
+  display: inline;
+}
+
+@media (min-width: 640px) {
+  .dayHeaderFull {
+    display: inline;
+  }
+
+  .dayHeaderShort {
+    display: none;
+  }
 }
 
 .day {
@@ -65,7 +89,7 @@
   color: var(--text-primary);
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: default;
   transition:
     background-color 0.12s,
@@ -92,11 +116,13 @@
 
 .everyoneFree {
   border: 2px solid var(--accent);
-  background-color: color-mix(in srgb, var(--accent) 8%, var(--card-bg));
+  border-left: 3px solid var(--accent);
+  background-color: color-mix(in srgb, var(--accent) 14%, var(--card-bg));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .monthLabel {
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -114,6 +140,22 @@
   width: 100%;
   margin-top: 2px;
   flex: 1;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.pulse {
+  animation: pulse 0.2s ease-out;
 }
 
 .slotFree {

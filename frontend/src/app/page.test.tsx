@@ -27,7 +27,7 @@ beforeEach(() => {
 describe("Home (calendar creation page)", () => {
   it("renders the form", () => {
     render(<Home />);
-    expect(screen.getByRole("heading", { name: /create a calendar/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /freewhen/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/event name/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /create calendar/i })).toBeInTheDocument();
   });

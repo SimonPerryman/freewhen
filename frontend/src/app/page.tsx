@@ -27,9 +27,21 @@ export default function Home() {
 
   return (
     <div className={styles.page}>
-      <main className={styles.card}>
-        <h1 className={styles.heading}>Create a calendar</h1>
-        <p className={styles.subheading}>Share a link and collect availability from your group.</p>
+      <main className={styles.container}>
+        <h1 className={styles.heading}>FreeWhen</h1>
+        <p className={styles.subheading}>Find when everyone&apos;s free. No sign-ups, no fuss.</p>
+
+        <div className={styles.preview} aria-hidden="true">
+          <div className={styles.previewGrid}>
+            {Array.from({ length: 7 }, (_, i) => (
+              <div
+                key={i}
+                className={`${styles.previewCell} ${i === 2 || i === 5 ? styles.previewCellHighlight : ""}`}
+              />
+            ))}
+          </div>
+        </div>
+
         <form className={styles.form} onSubmit={handleSubmit}>
           <label className={styles.label} htmlFor="calendar-name">
             Event name

@@ -18,11 +18,6 @@ export default function NotFound() {
         style={{
           width: "100%",
           maxWidth: 480,
-          padding: 40,
-          border: "1px solid var(--border)",
-          borderRadius: 12,
-          background: "var(--card-bg)",
-          boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
           textAlign: "center",
         }}
       >

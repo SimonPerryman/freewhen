@@ -3,20 +3,32 @@
   min-height: 100vh;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  font-family: var(--font-geist-sans);
+  padding: 16px;
   background-color: var(--page-bg);
   color: var(--text-primary);
 }
 
-.card {
+@keyframes entrance {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.container {
   width: 100%;
   max-width: 480px;
-  padding: 40px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--card-bg);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  animation: entrance 0.4s ease-out;
+}
+
+@media (min-width: 640px) {
+  .page {
+    padding: 24px;
+  }
 }
 
 .heading {
@@ -30,6 +42,33 @@
   margin: 0 0 28px;
   font-size: 15px;
   color: var(--text-secondary);
+}
+
+.preview {
+  margin-bottom: 24px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent) 2%, var(--page-bg));
+}
+
+.previewGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.previewCell {
+  aspect-ratio: 1;
+  border-radius: var(--space-xs);
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+}
+
+.previewCellHighlight {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--card-bg));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .form {
@@ -51,7 +90,7 @@
   color: var(--text-primary);
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   outline: none;
   transition: border-color 0.15s;
 }
@@ -73,7 +112,7 @@
   color: var(--accent-text);
   background: var(--accent);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: background 0.15s;
 }

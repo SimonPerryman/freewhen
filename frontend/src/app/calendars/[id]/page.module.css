@@ -2,29 +2,36 @@
   display: flex;
   min-height: 100vh;
   justify-content: center;
-  padding: 40px 24px;
-  font-family: var(--font-geist-sans);
+  padding: 16px;
   background-color: var(--page-bg);
   color: var(--text-primary);
 }
 
-.card {
+.container {
   width: 100%;
   max-width: 540px;
-  padding: 32px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--card-bg);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   align-self: flex-start;
+}
+
+@media (min-width: 640px) {
+  .page {
+    padding: 40px 24px;
+  }
 }
 
 .header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   gap: 12px;
   margin-bottom: 24px;
+}
+
+@media (min-width: 640px) {
+  .header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
 }
 
 .heading {
@@ -61,7 +68,7 @@
   color: var(--error);
   background: var(--card-bg);
   border: 1px solid var(--error);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 
 .retryButton {
@@ -72,11 +79,22 @@
   color: var(--accent-text);
   background: var(--accent);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .retryButton:hover {
   background: var(--accent-hover);
+}
+
+.emptyHint {
+  margin: 0 0 8px;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--accent) 4%, var(--page-bg));
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  line-height: 1.5;
 }
