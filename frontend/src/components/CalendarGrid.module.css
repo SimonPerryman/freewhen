@@ -58,7 +58,6 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   min-height: 52px;
   padding: 4px 2px;
   font-family: inherit;
@@ -87,13 +86,13 @@
   cursor: not-allowed;
 }
 
-.selected {
-  color: #fff;
-  border-color: transparent;
-}
-
 .today {
   font-weight: 700;
+}
+
+.everyoneFree {
+  border: 2px solid var(--accent);
+  background-color: color-mix(in srgb, var(--accent) 8%, var(--card-bg));
 }
 
 .monthLabel {
@@ -105,28 +104,32 @@
   line-height: 1;
 }
 
-.selected .monthLabel {
-  color: rgba(255, 255, 255, 0.8);
-}
-
 .dayNumber {
   line-height: 1.2;
 }
 
-.dayNumberSelected {
-  line-height: 1.2;
-  color: #fff;
-}
-
-.dots {
-  display: flex;
-  gap: 2px;
+.slotGrid {
+  display: grid;
+  gap: 1px;
+  width: 100%;
   margin-top: 2px;
+  flex: 1;
 }
 
-.dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
+.slotFree {
+  border-radius: 1px;
+  min-height: 4px;
+  opacity: 1;
+}
+
+.slotFaint {
+  border-radius: 1px;
+  min-height: 4px;
+  opacity: 0.2;
+}
+
+.slotEmpty {
+  border-radius: 1px;
+  min-height: 4px;
+  background: transparent;
 }

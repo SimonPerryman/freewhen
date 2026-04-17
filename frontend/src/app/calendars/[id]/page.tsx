@@ -190,20 +190,31 @@ export default function CalendarPage({ params }: { params: Promise<{ id: string 
     [calendarId],
   );
 
-  // Compute other participants' availability grouped by date
-  const otherAvailability = useMemo(() => {
-    const map = new Map<string, Participant[]>();
-    if (!calendar || !currentParticipant) return map;
+  // Build freeByDate: for each date, the set of participant IDs that are free
+  const freeByDate = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    if (!calendar) return map;
+
+    // Include current user's optimistic selectedDates
     for (const a of calendar.availability) {
-      if (a.participantId === currentParticipant.id) continue;
-      const participant = calendar.participants.find((p) => p.id === a.participantId);
-      if (!participant) continue;
-      const list = map.get(a.date) ?? [];
-      list.push(participant);
-      map.set(a.date, list);
+      // Skip current user's backend availability — we use selectedDates instead
+      if (currentParticipant && a.participantId === currentParticipant.id) continue;
+      const set = map.get(a.date) ?? new Set<string>();
+      set.add(a.participantId);
+      map.set(a.date, set);
     }
+
+    // Layer in current user's local selection
+    if (currentParticipant) {
+      for (const date of selectedDates) {
+        const set = map.get(date) ?? new Set<string>();
+        set.add(currentParticipant.id);
+        map.set(date, set);
+      }
+    }
+
     return map;
-  }, [calendar, currentParticipant]);
+  }, [calendar, currentParticipant, selectedDates]);
 
   if (loading) {
     return (
@@ -249,10 +260,10 @@ export default function CalendarPage({ params }: { params: Promise<{ id: string 
         ) : null}
 
         <CalendarGrid
-          selectedDates={selectedDates}
-          otherAvailability={otherAvailability}
+          participants={calendar.participants}
+          freeByDate={freeByDate}
+          currentParticipantId={currentParticipant?.id ?? null}
           onToggle={handleToggle}
-          userColour={currentParticipant?.colour ?? null}
           joined={!!currentParticipant}
         />
 
