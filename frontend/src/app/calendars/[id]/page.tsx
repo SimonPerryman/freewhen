@@ -3,11 +3,11 @@
 import { useState, useEffect, useRef, useMemo, useCallback, use } from "react";
 import { getCalendar, addParticipant, setAvailability, ApiError } from "@/lib/api";
 import type { CalendarWithDetails, Participant } from "@/lib/types";
-import CalendarGrid from "@/components/CalendarGrid";
-import JoinForm from "@/components/JoinForm";
-import ParticipantList from "@/components/ParticipantList";
-import CopyLinkButton from "@/components/CopyLinkButton";
-import SummaryView from "@/components/SummaryView";
+import CalendarGrid from "@/components/CalendarGrid/CalendarGrid";
+import JoinForm from "@/components/JoinForm/JoinForm";
+import ParticipantList from "@/components/ParticipantList/ParticipantList";
+import CopyLinkButton from "@/components/CopyLinkButton/CopyLinkButton";
+import SummaryView from "@/components/SummaryView/SummaryView";
 import styles from "./page.module.css";
 
 const STORAGE_PREFIX = "freewhen:";

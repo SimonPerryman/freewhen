@@ -7,6 +7,16 @@ Group availability coordination tool. Go backend + Next.js frontend + Postgres.
 - `backend/` - Go API server using standard library `net/http`
 - `frontend/` - Next.js App Router with TypeScript
 - `docs/` - Project documentation (read these for context)
+  - `docs/api.md` - API endpoint reference
+  - `docs/infra-notes.md` - Hosting, deploy, and first-time setup
+
+## Runtime & Tooling
+
+- **Node 24 LTS** via `.nvmrc` — engines pinned to `>=24 <25` in `package.json`
+- **pnpm** via Corepack — version pinned in `packageManager` field
+- **Bun** is an optional speedup only (e.g. `bunx vitest`), not a runtime or package manager dependency
+- Backend uses structured logging with `log/slog` (JSON in prod, text in dev)
+- Every response includes an `X-Request-ID` header
 
 ## Backend Conventions
 
@@ -15,19 +25,31 @@ Group availability coordination tool. Go backend + Next.js frontend + Postgres.
 - Models in `internal/model/`
 - Database queries in `internal/store/`
 - Server setup and routing in `internal/server/`
-- SQL migrations in `migrations/`
+- Config in `internal/config/` — env vars read once at startup (`DATABASE_URL`, `PORT`, `ENV`, `CORS_ORIGIN`)
+- SQL migrations embedded in `internal/store/migrations/` — run on boot via `store.Migrate()`
+- Health check: `GET /health` (200 ok / 503 unhealthy with DB ping)
 
 ## Frontend Conventions
 
 - App Router (`src/app/`)
-- Components in `src/components/`
-- API client and utilities in `src/lib/`
+- Components in `src/components/<ComponentName>/<ComponentName>.tsx` (folder-per-component, no barrel files)
+- API client and utilities in `src/lib/` (flat)
+- Log wrapper in `src/lib/log.ts` — use `log.info`/`log.warn`/`log.error` instead of `console.*`
+- Error boundary in `src/app/error.tsx`, not-found page in `src/app/not-found.tsx`
 - Lint with oxlint, format with oxfmt
 
 ## Database
 
 - Hosted Postgres (no local Docker)
 - Connection string via `DATABASE_URL` env var
+
+## Deployment
+
+- **Frontend:** Vercel (auto-deploy from git)
+- **Backend:** Fly.io (deploy via `flyctl`, CI deploys on push to main)
+- **Database:** Neon (managed Postgres)
+- Migrations run on boot — no separate migration step needed
+- See `docs/infra-notes.md` for first-time setup checklist
 
 ## Plans
 
@@ -68,5 +90,5 @@ Status: pending | in-progress | done
 - `make test-backend` / `make test-frontend` to run tests per stack
 - `make test-integration` to run Go integration tests (requires `-tags=integration`)
 - Frontend uses vitest with jsdom; `@` alias maps to `src/`
-- Single test file: `cd frontend && npx vitest run path/to/file`
+- Single test file: `cd frontend && pnpm exec vitest run path/to/file`
 - Single Go test: `cd backend && go test ./internal/store/ -run TestName`

@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
-	"log"
+	"log/slog"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -13,7 +13,7 @@ import (
 //go:embed migrations/*.sql
 var migrations embed.FS
 
-func Migrate(db *sql.DB) error {
+func Migrate(db *sql.DB, logger *slog.Logger) error {
 	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY)`)
 	if err != nil {
 		return fmt.Errorf("create schema_migrations table: %w", err)
@@ -56,7 +56,7 @@ func Migrate(db *sql.DB) error {
 			return fmt.Errorf("record migration %s: %w", name, err)
 		}
 
-		log.Printf("applied migration: %s", version)
+		logger.Info("applied migration", "version", version)
 	}
 
 	return nil

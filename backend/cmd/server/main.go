@@ -3,46 +3,54 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
 	_ "github.com/lib/pq"
 
+	"github.com/freewhen/backend/internal/config"
 	"github.com/freewhen/backend/internal/server"
 	"github.com/freewhen/backend/internal/store"
 )
 
 func main() {
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		log.Fatal("DATABASE_URL environment variable is required")
+	cfg, err := config.Load()
+	if err != nil {
+		slog.Error("failed to load config", "error", err)
+		os.Exit(1)
 	}
 
-	db, err := sql.Open("postgres", databaseURL)
+	var logger *slog.Logger
+	if cfg.Env == "dev" {
+		logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
+	} else {
+		logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	}
+
+	db, err := sql.Open("postgres", cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("failed to connect to database: %v", err)
+		logger.Error("failed to connect to database", "error", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
 	if err := db.Ping(); err != nil {
-		log.Fatalf("failed to ping database: %v", err)
+		logger.Error("failed to ping database", "error", err)
+		os.Exit(1)
 	}
 
-	if err := store.Migrate(db); err != nil {
-		log.Fatalf("failed to run migrations: %v", err)
+	if err := store.Migrate(db, logger); err != nil {
+		logger.Error("failed to run migrations", "error", err)
+		os.Exit(1)
 	}
 
-	srv := server.New(db)
+	srv := server.New(db, logger, cfg.CORSOrigin)
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
-	addr := fmt.Sprintf(":%s", port)
-	log.Printf("server listening on %s", addr)
+	addr := fmt.Sprintf(":%s", cfg.Port)
+	logger.Info("server listening", "addr", addr)
 	if err := http.ListenAndServe(addr, srv); err != nil {
-		log.Fatalf("server error: %v", err)
+		logger.Error("server error", "error", err)
+		os.Exit(1)
 	}
 }

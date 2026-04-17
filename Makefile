@@ -10,7 +10,7 @@ dev-backend:
 	cd backend && go run ./cmd/server
 
 dev-frontend:
-	cd frontend && npm run dev
+	cd frontend && pnpm dev
 
 # Linting
 lint: lint-backend lint-frontend
@@ -19,11 +19,11 @@ lint-backend:
 	cd backend && golangci-lint run ./...
 
 lint-frontend:
-	cd frontend && npx oxlint
+	cd frontend && pnpm exec oxlint
 
 # Formatting
 fmt:
-	cd frontend && npx oxfmt --write src/
+	cd frontend && pnpm exec oxfmt --write src/
 
 # Testing
 test: test-backend test-frontend
@@ -32,7 +32,7 @@ test-backend:
 	cd backend && go test ./...
 
 test-frontend:
-	cd frontend && npm test
+	cd frontend && pnpm test
 
 test-integration:
 	cd backend && go test -tags=integration ./...
@@ -44,4 +44,4 @@ build-backend:
 	cd backend && go build -o bin/server ./cmd/server
 
 build-frontend:
-	cd frontend && npm run build
+	cd frontend && pnpm build

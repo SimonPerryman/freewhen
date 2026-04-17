@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -33,7 +34,9 @@ func setupTestServer(t *testing.T) *httptest.Server {
 	}
 	t.Cleanup(func() { db.Close() })
 
-	if err := store.Migrate(db); err != nil {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	if err := store.Migrate(db, logger); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 
@@ -43,7 +46,7 @@ func setupTestServer(t *testing.T) *httptest.Server {
 		}
 	}
 
-	ts := httptest.NewServer(server.New(db))
+	ts := httptest.NewServer(server.New(db, logger, "*"))
 	t.Cleanup(ts.Close)
 	return ts
 }
