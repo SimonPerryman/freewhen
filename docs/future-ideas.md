@@ -30,6 +30,11 @@ Roughly ordered by likely impact, but not committed to any sequence.
 - Reminders: "3 people have responded, waiting on 2 more"
 - Push notifications or email nudges
 
+### Internationalization (i18n)
+- Translate UI strings into multiple languages
+- Locale-aware date and time formatting (e.g. week starts on Sunday vs Monday)
+- Right-to-left layout support
+
 ## Further Out
 
 - Voting on preferred dates (not just available)
