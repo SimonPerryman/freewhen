@@ -1,0 +1,51 @@
+.section {
+  margin-top: 24px;
+}
+
+.heading {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+}
+
+.subHeading {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin: 0 0 4px;
+}
+
+.dateList {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dateItem {
+  font-size: 14px;
+  padding: 2px 0;
+  color: var(--text-primary);
+}
+
+.dateItemAccent {
+  font-size: 14px;
+  padding: 2px 0;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.countLabel {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.emptyState {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0 0 16px;
+  padding: 2px 0;
+}

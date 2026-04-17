@@ -7,6 +7,7 @@ import CalendarGrid from "@/components/CalendarGrid";
 import JoinForm from "@/components/JoinForm";
 import ParticipantList from "@/components/ParticipantList";
 import CopyLinkButton from "@/components/CopyLinkButton";
+import SummaryView from "@/components/SummaryView";
 import styles from "./page.module.css";
 
 const STORAGE_PREFIX = "freewhen:";
@@ -265,6 +266,11 @@ export default function CalendarPage({ params }: { params: Promise<{ id: string 
           currentParticipantId={currentParticipant?.id ?? null}
           onToggle={handleToggle}
           joined={!!currentParticipant}
+        />
+
+        <SummaryView
+          participants={calendar.participants}
+          freeByDate={freeByDate}
         />
 
         <ParticipantList
