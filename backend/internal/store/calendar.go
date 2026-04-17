@@ -67,7 +67,7 @@ func (s *Store) getParticipants(ctx context.Context, calendarID string) ([]model
 	}
 	defer rows.Close()
 
-	var participants []model.Participant
+	participants := []model.Participant{}
 	for rows.Next() {
 		var p model.Participant
 		if err := rows.Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour); err != nil {
@@ -87,7 +87,7 @@ func (s *Store) getAvailability(ctx context.Context, calendarID string) ([]model
 	}
 	defer rows.Close()
 
-	var availability []model.Availability
+	availability := []model.Availability{}
 	for rows.Next() {
 		var a model.Availability
 		if err := rows.Scan(&a.ParticipantID, &a.CalendarID, &a.Date); err != nil {
