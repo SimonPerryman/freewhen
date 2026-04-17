@@ -2,6 +2,10 @@
 
 Group availability coordination tool. Go backend + Next.js frontend + Postgres.
 
+## Principles
+
+- **Mobile first** — all UI must be designed for small screens first, then enhanced for larger viewports. Use min-width breakpoints, test on 375px as the baseline, and never ship a component that doesn't work on a phone.
+
 ## Architecture
 
 - `backend/` - Go API server using standard library `net/http`
