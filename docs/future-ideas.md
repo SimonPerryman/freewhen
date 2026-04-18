@@ -5,9 +5,10 @@ Roughly ordered by likely impact, but not committed to any sequence.
 ## V2 Candidates
 
 ### Authentication & Accounts
-- Optional login (Google, Apple, email)
-- Persistent identity across devices and calendars
-- See all calendars you're part of (past and present)
+- Creating a calendar requires sign-in (Google, Apple, email) — gives the creator durable identity for ownership, admin controls, finalise, notifications
+- Joining a calendar stays anonymous — zero friction for participants, just enter a name like today
+- Participants can optionally sign in for cross-device identity, "my calendars" list, and notifications
+- Features that need durable identity (admin, finalise, notifications) gracefully degrade for anonymous users
 
 ### Calendar Integrations
 - Import availability from Google Calendar / Apple Calendar / others
@@ -42,7 +43,7 @@ These stack with the access controls above (e.g. a password-protected calendar i
 ### Richer Calendars
 - Calendars that last beyond a single event (recurring group planning)
 - Time-of-day availability, not just full days
-- Date range suggestions from the creator ("pick from these 2 weeks")
+- Date range suggestions from the creator ("pick from these 2 weeks") — could be a hard constraint (only show those dates) or a soft highlight (full grid but suggested dates are visually emphasised). Might be a solution looking for a problem since people already just tap the dates they care about, but could improve UX by signalling which dates the creator had in mind
 - Week and day views alongside the default month view — useful for near-term planning or when time-of-day availability is added
 
 ### Visual Polish
@@ -58,6 +59,26 @@ These stack with the access controls above (e.g. a password-protected calendar i
 - Translate UI strings into multiple languages
 - Locale-aware date and time formatting (e.g. week starts on Sunday vs Monday)
 - Right-to-left layout support
+
+### Finalise a Date
+- Creator locks in the chosen date — calendar shows "Apr 26 confirmed!" and stops accepting changes
+- Completes the core user journey inside the app instead of relying on a side message in WhatsApp
+
+### Participant QoL
+- Undo / clear all availability and start over
+- Edit your name after joining
+- Multi-select / range tap — tapping 14 consecutive days on mobile is tedious; drag-to-select or "select all weekends" would speed things up
+
+### Sharing Improvements
+- Share with a pre-filled message via Web Share API ("Hey, pick your dates for Tennis: [link]") — reduces friction on mobile
+- Duplicate a calendar — "Tennis last month worked well, create another with the same people"
+
+### Housekeeping
+- Expiry / auto-archive — old calendars fade after X days of inactivity, keeps "my calendars" clean
+- "Who's missing?" — see who hasn't responded yet (needs auth or expected participant names up front)
+
+### Visual Customisation
+- Calendar colour themes — let the creator pick a vibe for their calendar
 
 ## Further Out
 
