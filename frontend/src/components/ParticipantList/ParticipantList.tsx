@@ -27,16 +27,10 @@ export default function ParticipantList({
       >
         <span className={styles.dots}>
           {participants.map((p) => (
-            <span
-              key={p.id}
-              className={styles.dot}
-              style={{ backgroundColor: p.colour }}
-            />
+            <span key={p.id} className={styles.dot} style={{ backgroundColor: p.colour }} />
           ))}
         </span>
-        <span className={styles.compactLabel}>
-          {participants.length} responded
-        </span>
+        <span className={styles.compactLabel}>{participants.length} responded</span>
         <span className={styles.count}>{participants.length}</span>
       </button>
 

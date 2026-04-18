@@ -272,15 +272,9 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           joined={!!currentParticipant}
         />
 
-        <BestDay
-          participants={calendar.participants}
-          freeByDate={freeByDate}
-        />
+        <BestDay participants={calendar.participants} freeByDate={freeByDate} />
 
-        <SummaryView
-          participants={calendar.participants}
-          freeByDate={freeByDate}
-        />
+        <SummaryView participants={calendar.participants} freeByDate={freeByDate} />
 
         <ShareButton calendarName={calendarName} />
 

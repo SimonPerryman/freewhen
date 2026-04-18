@@ -81,12 +81,7 @@ body {
 
 @media (prefers-color-scheme: dark) {
   body {
-    background:
-      radial-gradient(
-        ellipse 80% 70% at 50% 40%,
-        #1c1915 0%,
-        var(--background) 100%
-      );
+    background: radial-gradient(ellipse 80% 70% at 50% 40%, #1c1915 0%, var(--background) 100%);
     background-attachment: fixed;
   }
 

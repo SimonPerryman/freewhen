@@ -13,9 +13,7 @@ const participant = (overrides: Partial<Participant> = {}): Participant => ({
 
 describe("ParticipantList", () => {
   it("renders nothing when participants is empty", () => {
-    const { container } = render(
-      <ParticipantList participants={[]} currentParticipantId={null} />,
-    );
+    const { container } = render(<ParticipantList participants={[]} currentParticipantId={null} />);
     expect(container.firstChild).toBeNull();
   });
 
@@ -42,12 +40,7 @@ describe("ParticipantList", () => {
   });
 
   it("renders heading", () => {
-    render(
-      <ParticipantList
-        participants={[participant()]}
-        currentParticipantId={null}
-      />,
-    );
+    render(<ParticipantList participants={[participant()]} currentParticipantId={null} />);
     expect(screen.getByText("Participants")).toBeInTheDocument();
   });
 });

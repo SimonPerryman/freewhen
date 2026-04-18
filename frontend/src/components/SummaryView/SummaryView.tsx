@@ -50,7 +50,10 @@ export default function SummaryView({ participants, freeByDate }: SummaryViewPro
           <ul className={styles.dateList}>
             {summary.mostFree.map((d) => (
               <li key={d.date} className={styles.dateItem}>
-                {formatDate(d.date)} <span className={styles.countLabel}>— {d.freeCount}/{d.totalCount} free</span>
+                {formatDate(d.date)}{" "}
+                <span className={styles.countLabel}>
+                  — {d.freeCount}/{d.totalCount} free
+                </span>
               </li>
             ))}
           </ul>

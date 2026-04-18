@@ -16,7 +16,9 @@
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
   cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .compactToggle:hover {

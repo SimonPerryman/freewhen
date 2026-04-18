@@ -52,7 +52,9 @@ export default function BestDay({ participants, freeByDate }: BestDayProps) {
 
   return (
     <div className={styles.card}>
-      <span className={styles.icon} aria-hidden="true">&#x2713;</span>
+      <span className={styles.icon} aria-hidden="true">
+        &#x2713;
+      </span>
       <div className={styles.content}>
         <span className={styles.title}>Best day</span>
         <span className={styles.date}>{formatDate(bestDay.date)}</span>

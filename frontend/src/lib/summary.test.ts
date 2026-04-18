@@ -86,20 +86,16 @@ describe("computeSummary", () => {
     const d2 = makeDate(2);
     const d3 = makeDate(3);
     const freeByDate = new Map([
-      [d1, new Set(["a", "b"])],        // 2/4
-      [d2, new Set(["a", "b", "c"])],   // 3/4
-      [d3, new Set(["a", "b"])],        // 2/4
+      [d1, new Set(["a", "b"])], // 2/4
+      [d2, new Set(["a", "b", "c"])], // 3/4
+      [d3, new Set(["a", "b"])], // 2/4
     ]);
     const result = computeSummary(participants, freeByDate, today);
     expect(result.mostFree.map((d) => d.date)).toEqual([d2, d1, d3]);
   });
 
   it("caps mostFree at 5 entries", () => {
-    const participants = [
-      makeParticipant("a"),
-      makeParticipant("b"),
-      makeParticipant("c"),
-    ];
+    const participants = [makeParticipant("a"), makeParticipant("b"), makeParticipant("c")];
     const freeByDate = new Map<string, Set<string>>();
     for (let i = 1; i <= 8; i++) {
       freeByDate.set(makeDate(i), new Set(["a", "b"])); // 2/3 free
@@ -114,7 +110,7 @@ describe("computeSummary", () => {
     const d2 = makeDate(2);
     const freeByDate = new Map([
       [d1, new Set(["a", "b", "c"])], // everyone
-      [d2, new Set(["a", "b"])],      // most
+      [d2, new Set(["a", "b"])], // most
     ]);
     const result = computeSummary(participants, freeByDate, today);
     expect(result.everyoneFree).toHaveLength(1);

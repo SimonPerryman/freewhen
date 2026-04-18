@@ -31,9 +31,7 @@ describe("BestDay", () => {
       ["2026-06-11", new Set(["a", "b"])],
     ]);
 
-    const { container } = render(
-      <BestDay participants={participants} freeByDate={freeByDate} />,
-    );
+    const { container } = render(<BestDay participants={participants} freeByDate={freeByDate} />);
     expect(container.innerHTML).toBe("");
   });
 
@@ -49,11 +47,7 @@ describe("BestDay", () => {
   });
 
   it("renders 'X of Y free' when no universal date but one clear winner", () => {
-    const participants = [
-      makeParticipant("a"),
-      makeParticipant("b"),
-      makeParticipant("c"),
-    ];
+    const participants = [makeParticipant("a"), makeParticipant("b"), makeParticipant("c")];
     const freeByDate = new Map([
       ["2026-06-10", new Set(["a", "b"])],
       ["2026-06-11", new Set(["a"])],
@@ -67,19 +61,13 @@ describe("BestDay", () => {
   });
 
   it("renders nothing when top two dates are tied", () => {
-    const participants = [
-      makeParticipant("a"),
-      makeParticipant("b"),
-      makeParticipant("c"),
-    ];
+    const participants = [makeParticipant("a"), makeParticipant("b"), makeParticipant("c")];
     const freeByDate = new Map([
       ["2026-06-10", new Set(["a", "b"])],
       ["2026-06-11", new Set(["b", "c"])],
     ]);
 
-    const { container } = render(
-      <BestDay participants={participants} freeByDate={freeByDate} />,
-    );
+    const { container } = render(<BestDay participants={participants} freeByDate={freeByDate} />);
     expect(container.innerHTML).toBe("");
   });
 });

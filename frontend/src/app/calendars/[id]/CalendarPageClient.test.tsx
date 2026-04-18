@@ -33,7 +33,11 @@ let capturedJoinError: string | null = null;
 let _capturedDefaultName: string | undefined;
 
 vi.mock("@/components/JoinForm/JoinForm", () => ({
-  default: (props: { onJoin: (name: string) => Promise<void>; error: string | null; defaultName?: string }) => {
+  default: (props: {
+    onJoin: (name: string) => Promise<void>;
+    error: string | null;
+    defaultName?: string;
+  }) => {
     capturedOnJoin = props.onJoin;
     capturedJoinError = props.error;
     _capturedDefaultName = props.defaultName;

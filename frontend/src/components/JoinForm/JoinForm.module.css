@@ -33,7 +33,9 @@
   border-radius: var(--radius-md);
   outline: none;
   box-shadow: var(--shadow-sm);
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .input:focus {
@@ -56,7 +58,10 @@
   border-radius: var(--radius-md);
   cursor: pointer;
   box-shadow: var(--shadow-sm);
-  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+  transition:
+    background 0.15s,
+    box-shadow 0.15s,
+    transform 0.1s;
   white-space: nowrap;
 }
 
