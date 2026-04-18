@@ -64,6 +64,6 @@ These stack with the access controls above (e.g. a password-protected calendar i
 - Voting on preferred dates (not just available)
 - Comments / notes on specific dates ("I can do this but only evening")
 - Timezone support for distributed groups
-- Mobile app (or PWA)
+- Native mobile apps, and PWA upgrades beyond V1 basics (offline caching via service worker, push notifications, install prompts)
 - Group management (saved friend groups)
 - AI suggestions ("based on everyone's history, Saturdays work best")

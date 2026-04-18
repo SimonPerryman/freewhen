@@ -17,11 +17,29 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#e06449" },
+    { media: "(prefers-color-scheme: dark)", color: "#141210" },
+  ],
 };
 
 export const metadata: Metadata = {
   title: "FreeWhen",
   description: "Find when everyone's free. No sign-ups, no fuss.",
+  applicationName: "FreeWhen",
+  appleWebApp: {
+    capable: true,
+    title: "FreeWhen",
+    statusBarStyle: "default",
+  },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
   openGraph: {
     title: "FreeWhen",
     description: "Find when everyone's free. No sign-ups, no fuss.",
