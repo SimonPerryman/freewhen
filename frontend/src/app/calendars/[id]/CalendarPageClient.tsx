@@ -243,7 +243,6 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
       <div className={styles.container}>
         <div className={styles.header}>
           <h1 className={styles.heading}>{calendarName}</h1>
-          <ShareButton calendarName={calendarName} />
         </div>
 
         {!currentParticipant ? (
@@ -265,6 +264,14 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           </p>
         ) : null}
 
+        <CalendarGrid
+          participants={calendar.participants}
+          freeByDate={freeByDate}
+          currentParticipantId={currentParticipant?.id ?? null}
+          onToggle={handleToggle}
+          joined={!!currentParticipant}
+        />
+
         <BestDay
           participants={calendar.participants}
           freeByDate={freeByDate}
@@ -275,13 +282,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           freeByDate={freeByDate}
         />
 
-        <CalendarGrid
-          participants={calendar.participants}
-          freeByDate={freeByDate}
-          currentParticipantId={currentParticipant?.id ?? null}
-          onToggle={handleToggle}
-          joined={!!currentParticipant}
-        />
+        <ShareButton calendarName={calendarName} />
 
         <ParticipantList
           participants={calendar.participants}
