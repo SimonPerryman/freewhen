@@ -13,7 +13,7 @@ func TestCreateCalendar(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Weekend Trip")
+	cal, err := s.CreateCalendar(ctx, "Weekend Trip", "✨")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -26,8 +26,50 @@ func TestCreateCalendar(t *testing.T) {
 	if cal.Name != "Weekend Trip" {
 		t.Errorf("expected name %q, got %q", "Weekend Trip", cal.Name)
 	}
+	if cal.Emoji != "✨" {
+		t.Errorf("expected emoji %q, got %q", "✨", cal.Emoji)
+	}
 	if time.Since(cal.CreatedAt) > 5*time.Second {
 		t.Errorf("expected recent created_at, got %v", cal.CreatedAt)
+	}
+}
+
+func TestCreateCalendarNoEmoji(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	cal, err := s.CreateCalendar(ctx, "No Icon", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cal.Emoji != "" {
+		t.Errorf("expected empty emoji, got %q", cal.Emoji)
+	}
+
+	got, err := s.GetCalendar(ctx, cal.ID)
+	if err != nil {
+		t.Fatalf("get calendar: %v", err)
+	}
+	if got.Calendar.Emoji != "" {
+		t.Errorf("expected empty emoji on read, got %q", got.Calendar.Emoji)
+	}
+}
+
+func TestCreateCalendarEmojiRoundTrip(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	cal, err := s.CreateCalendar(ctx, "Round Trip", "🪩")
+	if err != nil {
+		t.Fatalf("create calendar: %v", err)
+	}
+
+	got, err := s.GetCalendar(ctx, cal.ID)
+	if err != nil {
+		t.Fatalf("get calendar: %v", err)
+	}
+	if got.Calendar.Emoji != "🪩" {
+		t.Errorf("expected emoji %q on read, got %q", "🪩", got.Calendar.Emoji)
 	}
 }
 
@@ -35,7 +77,7 @@ func TestCreateCalendarDefaultName(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "")
+	cal, err := s.CreateCalendar(ctx, "", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -48,7 +90,7 @@ func TestGetCalendar(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test")
+	cal, err := s.CreateCalendar(ctx, "Test", "🦊")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -98,7 +140,7 @@ func TestGetCalendarEmpty(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Empty")
+	cal, err := s.CreateCalendar(ctx, "Empty", "🌿")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}

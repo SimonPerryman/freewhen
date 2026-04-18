@@ -9,37 +9,48 @@ import (
 	"github.com/freewhen/backend/internal/model"
 )
 
-func (s *Store) CreateCalendar(ctx context.Context, name string) (model.Calendar, error) {
+func (s *Store) CreateCalendar(ctx context.Context, name, emoji string) (model.Calendar, error) {
 	const maxRetries = 3
 	for i := 0; i < maxRetries; i++ {
 		id := generateID(8)
 		var cal model.Calendar
+		var emojiCol sql.NullString
 		err := s.db.QueryRowContext(ctx,
-			`INSERT INTO calendars (id, name) VALUES ($1, $2) RETURNING id, name, created_at`,
-			id, name,
-		).Scan(&cal.ID, &cal.Name, &cal.CreatedAt)
+			`INSERT INTO calendars (id, name, emoji) VALUES ($1, $2, $3) RETURNING id, name, emoji, created_at`,
+			id, name, nullableString(emoji),
+		).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.CreatedAt)
 		if err != nil {
 			if isUniqueViolation(err) {
 				continue
 			}
 			return model.Calendar{}, fmt.Errorf("insert calendar: %w", err)
 		}
+		cal.Emoji = emojiCol.String
 		return cal, nil
 	}
 	return model.Calendar{}, fmt.Errorf("failed to generate unique calendar ID after %d attempts", maxRetries)
 }
 
+func nullableString(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
+}
+
 func (s *Store) GetCalendar(ctx context.Context, id string) (model.CalendarWithDetails, error) {
 	var cal model.Calendar
+	var emojiCol sql.NullString
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, name, created_at FROM calendars WHERE id = $1`, id,
-	).Scan(&cal.ID, &cal.Name, &cal.CreatedAt)
+		`SELECT id, name, emoji, created_at FROM calendars WHERE id = $1`, id,
+	).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.CalendarWithDetails{}, ErrNotFound
 		}
 		return model.CalendarWithDetails{}, fmt.Errorf("get calendar: %w", err)
 	}
+	cal.Emoji = emojiCol.String
 
 	participants, err := s.getParticipants(ctx, id)
 	if err != nil {

@@ -12,12 +12,16 @@ import (
 // mockStore implements Store for testing. Only GetParticipant and SetAvailability
 // are exercised; the rest panic if called unexpectedly.
 type mockStore struct {
+	createCalendar  func(name, emoji string) (model.Calendar, error)
 	getParticipant  func(ctx context.Context, id string) (model.Participant, error)
 	setAvailability func(ctx context.Context, participantID string, dates []string) error
 }
 
-func (m *mockStore) CreateCalendar(_ context.Context, _ string) (model.Calendar, error) {
-	panic("unexpected call to CreateCalendar")
+func (m *mockStore) CreateCalendar(_ context.Context, name, emoji string) (model.Calendar, error) {
+	if m.createCalendar == nil {
+		panic("unexpected call to CreateCalendar")
+	}
+	return m.createCalendar(name, emoji)
 }
 
 func (m *mockStore) GetCalendar(_ context.Context, _ string) (model.CalendarWithDetails, error) {
@@ -89,6 +93,42 @@ func TestSetAvailability_ParticipantWrongCalendar(t *testing.T) {
 	err := s.SetAvailability(context.Background(), "cal1", "p1", []string{"2026-05-01"})
 	if err != store.ErrNotFound {
 		t.Fatalf("err = %v, want ErrNotFound", err)
+	}
+}
+
+func TestPickRandomEmoji_ReturnsFromCuratedSet(t *testing.T) {
+	allowed := make(map[string]bool, len(defaultEmojis))
+	for _, e := range defaultEmojis {
+		allowed[e] = true
+	}
+	// Run a handful of iterations to make sure every result is in the set.
+	for i := 0; i < 50; i++ {
+		got := pickRandomEmoji()
+		if !allowed[got] {
+			t.Fatalf("pickRandomEmoji returned %q, not in curated set", got)
+		}
+	}
+}
+
+func TestCreateCalendar_PassesEmojiToStore(t *testing.T) {
+	var gotEmoji string
+	ms := &mockStore{
+		createCalendar: func(_, emoji string) (model.Calendar, error) {
+			gotEmoji = emoji
+			return model.Calendar{ID: "c1", Name: "x", Emoji: emoji}, nil
+		},
+	}
+
+	s := &Service{store: ms}
+	cal, err := s.CreateCalendar(context.Background(), "x")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotEmoji == "" {
+		t.Fatal("expected service to pass an emoji to the store, got empty string")
+	}
+	if cal.Emoji != gotEmoji {
+		t.Errorf("returned emoji %q, want %q", cal.Emoji, gotEmoji)
 	}
 }
 

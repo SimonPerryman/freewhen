@@ -23,6 +23,20 @@
   margin-bottom: 24px;
 }
 
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.emoji {
+  flex: 0 0 auto;
+  font-size: 28px;
+  line-height: 1;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", system-ui, sans-serif;
+}
+
 .heading {
   margin: 0;
   font-family: var(--font-display), system-ui, sans-serif;

@@ -5,6 +5,7 @@ import "time"
 type Calendar struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
+	Emoji     string    `json:"emoji,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
 

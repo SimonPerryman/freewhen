@@ -237,12 +237,20 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   }
 
   const calendarName = calendar.calendar.name || "Untitled Calendar";
+  const calendarEmoji = calendar.calendar.emoji;
 
   return (
     <div className={styles.page}>
       <div className={styles.container}>
         <div className={styles.header}>
-          <h1 className={styles.heading}>{calendarName}</h1>
+          <div className={styles.titleRow}>
+            {calendarEmoji ? (
+              <span className={styles.emoji} aria-hidden="true">
+                {calendarEmoji}
+              </span>
+            ) : null}
+            <h1 className={styles.heading}>{calendarName}</h1>
+          </div>
         </div>
 
         {!currentParticipant ? (

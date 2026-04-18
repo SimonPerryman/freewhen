@@ -94,7 +94,12 @@ const CALENDAR_ID = "cal-123";
 
 function makeCalendarData(overrides: Partial<CalendarWithDetails> = {}): CalendarWithDetails {
   return {
-    calendar: { id: CALENDAR_ID, name: "Team Meetup", createdAt: "2026-01-01T00:00:00Z" },
+    calendar: {
+      id: CALENDAR_ID,
+      name: "Team Meetup",
+      emoji: "✨",
+      createdAt: "2026-01-01T00:00:00Z",
+    },
     participants: [],
     availability: [],
     ...overrides,
@@ -132,6 +137,49 @@ describe("CalendarPageClient", () => {
     });
 
     expect(mockGetCalendar).toHaveBeenCalledWith(CALENDAR_ID);
+  });
+
+  it("renders the calendar emoji alongside the name when present", async () => {
+    mockGetCalendar.mockResolvedValue(
+      makeCalendarData({
+        calendar: {
+          id: CALENDAR_ID,
+          name: "Team Meetup",
+          emoji: "🦊",
+          createdAt: "2026-01-01T00:00:00Z",
+        },
+      }),
+    );
+
+    render(<CalendarPageClient calendarId={CALENDAR_ID} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Team Meetup")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("🦊")).toBeInTheDocument();
+  });
+
+  it("omits the emoji element when the calendar has no emoji set", async () => {
+    mockGetCalendar.mockResolvedValue(
+      makeCalendarData({
+        calendar: {
+          id: CALENDAR_ID,
+          name: "Team Meetup",
+          createdAt: "2026-01-01T00:00:00Z",
+        },
+      }),
+    );
+
+    render(<CalendarPageClient calendarId={CALENDAR_ID} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Team Meetup")).toBeInTheDocument();
+    });
+
+    // Heading present but no emoji span — query for any of the curated set.
+    expect(screen.queryByText("✨")).not.toBeInTheDocument();
+    expect(screen.queryByText("🦊")).not.toBeInTheDocument();
   });
 
   it("shows join form when no stored participant", async () => {
