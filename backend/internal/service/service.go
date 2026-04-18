@@ -7,11 +7,20 @@ import (
 	"github.com/freewhen/backend/internal/store"
 )
 
-type Service struct {
-	store *store.Store
+// Store defines the data operations the service needs.
+type Store interface {
+	CreateCalendar(ctx context.Context, name string) (model.Calendar, error)
+	GetCalendar(ctx context.Context, id string) (model.CalendarWithDetails, error)
+	AddParticipant(ctx context.Context, calendarID, name string) (model.Participant, error)
+	GetParticipant(ctx context.Context, id string) (model.Participant, error)
+	SetAvailability(ctx context.Context, participantID string, dates []string) error
 }
 
-func New(s *store.Store) *Service {
+type Service struct {
+	store Store
+}
+
+func New(s Store) *Service {
 	return &Service{store: s}
 }
 
