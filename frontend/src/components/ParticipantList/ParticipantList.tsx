@@ -35,8 +35,9 @@ export default function ParticipantList({
           ))}
         </span>
         <span className={styles.compactLabel}>
-          {participants.length} participant{participants.length !== 1 ? "s" : ""}
+          {participants.length} responded
         </span>
+        <span className={styles.count}>{participants.length}</span>
       </button>
 
       <div className={`${styles.fullList} ${expanded ? styles.fullListExpanded : ""}`}>

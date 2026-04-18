@@ -22,11 +22,13 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: border-color 0.15s;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .navButton:hover:not(:disabled) {
   border-color: var(--accent);
+  box-shadow: var(--shadow-md);
 }
 
 .navButton:disabled {
@@ -78,12 +80,33 @@
   }
 }
 
+@keyframes cellEntrance {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.cellEntrance {
+  animation: cellEntrance 0.25s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cellEntrance {
+    animation: none;
+  }
+}
+
 .day {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-height: 52px;
-  padding: 4px 2px;
+  min-height: 56px;
+  padding: 6px 2px;
   font-family: inherit;
   font-size: 14px;
   color: var(--text-primary);
@@ -91,9 +114,11 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   cursor: default;
+  box-shadow: var(--shadow-sm);
   transition:
     background-color 0.12s,
-    border-color 0.12s;
+    border-color 0.12s,
+    box-shadow 0.12s;
   position: relative;
 }
 
@@ -103,11 +128,13 @@
 
 .clickable:hover {
   border-color: var(--accent);
+  box-shadow: var(--shadow-md);
 }
 
 .past {
   opacity: 0.35;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .today {
@@ -116,8 +143,7 @@
 
 .everyoneFree {
   border: 2px solid var(--accent);
-  border-left: 3px solid var(--accent);
-  background-color: color-mix(in srgb, var(--accent) 14%, var(--card-bg));
+  background-color: var(--accent-subtle);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
@@ -142,20 +168,32 @@
   flex: 1;
 }
 
-@keyframes pulse {
+@keyframes toggle {
   0% {
     transform: scale(1);
+    box-shadow: var(--shadow-sm);
   }
-  50% {
-    transform: scale(1.08);
+  40% {
+    transform: scale(0.95);
+  }
+  70% {
+    transform: scale(1.04);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
   }
   100% {
     transform: scale(1);
+    box-shadow: var(--shadow-sm);
   }
 }
 
-.pulse {
-  animation: pulse 0.2s ease-out;
+.toggle {
+  animation: toggle 0.3s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toggle {
+    animation: none;
+  }
 }
 
 .slotFree {

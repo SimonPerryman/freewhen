@@ -32,11 +32,13 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   outline: none;
-  transition: border-color 0.15s;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .input:focus {
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 .input:disabled {
@@ -46,19 +48,25 @@
 .button {
   padding: 10px 20px;
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 600;
   font-family: inherit;
   color: var(--accent-text);
   background: var(--accent);
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background 0.15s;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
   white-space: nowrap;
 }
 
 .button:hover:not(:disabled) {
   background: var(--accent-hover);
+  box-shadow: var(--shadow-md);
+}
+
+.button:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .button:disabled {

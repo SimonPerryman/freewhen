@@ -71,6 +71,8 @@ function buildAriaLabel(dateLabel: string, sorted: Participant[], freeIds: Set<s
   return parts.join(" ");
 }
 
+const SWIPE_THRESHOLD = 50;
+
 export default function CalendarGrid({
   participants,
   freeByDate,
@@ -81,12 +83,39 @@ export default function CalendarGrid({
   const [weekOffset, setWeekOffset] = useState(0);
   const [pulsing, setPulsing] = useState<string | null>(null);
   const pulseTimer = useRef<ReturnType<typeof setTimeout>>(null);
+  const swipeStartX = useRef<number | null>(null);
+  const swipeStartY = useRef<number | null>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    swipeStartX.current = e.touches[0].clientX;
+    swipeStartY.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      if (swipeStartX.current === null || swipeStartY.current === null) return;
+      const dx = e.changedTouches[0].clientX - swipeStartX.current;
+      const dy = e.changedTouches[0].clientY - swipeStartY.current;
+      swipeStartX.current = null;
+      swipeStartY.current = null;
+
+      // Only trigger if horizontal swipe is dominant and exceeds threshold
+      if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dy) > Math.abs(dx)) return;
+
+      if (dx < 0) {
+        setWeekOffset((o) => o + 1);
+      } else if (weekOffset > 0) {
+        setWeekOffset((o) => o - 1);
+      }
+    },
+    [weekOffset],
+  );
 
   const handleDayClick = useCallback(
     (dateStr: string) => {
       if (pulseTimer.current) clearTimeout(pulseTimer.current);
       setPulsing(dateStr);
-      pulseTimer.current = setTimeout(() => setPulsing(null), 200);
+      pulseTimer.current = setTimeout(() => setPulsing(null), 300);
       onToggle(dateStr);
     },
     [onToggle],
@@ -126,19 +155,23 @@ export default function CalendarGrid({
 
   // Compute cell min-height based on slot count
   const cellMinHeight = useMemo(() => {
-    if (layout.rows === 0) return 52;
+    if (layout.rows === 0) return 56;
     const slotHeight = 6;
     const gapSize = 1;
     const dateLine = 20;
     const padding = 8;
     const computed = dateLine + layout.rows * slotHeight + (layout.rows - 1) * gapSize + padding;
-    return Math.max(52, Math.min(120, computed));
+    return Math.max(56, Math.min(120, computed));
   }, [layout.rows]);
 
   const totalSlots = layout.cols * layout.rows;
 
   return (
-    <div className={styles.container}>
+    <div
+      className={styles.container}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       <div className={styles.nav}>
         <button
           type="button"
@@ -160,7 +193,7 @@ export default function CalendarGrid({
         </button>
       </div>
 
-      <div className={styles.grid}>
+      <div className={styles.grid} key={weekOffset}>
         {DAY_NAMES.map((name, i) => (
           <div key={name} className={styles.dayHeader}>
             <span className={styles.dayHeaderShort}>{DAY_LETTERS[i]}</span>
@@ -168,7 +201,7 @@ export default function CalendarGrid({
           </div>
         ))}
 
-        {days.map((date) => {
+        {days.map((date, i) => {
           const dateStr = formatDate(date);
           const isPast = dateStr < today;
           const isToday = dateStr === today;
@@ -176,16 +209,28 @@ export default function CalendarGrid({
           const freeIds = freeByDate.get(dateStr) ?? new Set<string>();
           const { everyoneFree } = classifyDay(sorted, freeIds);
 
-          const classNames = [styles.day];
+          // Heat map: intensity from 0 (no one free) to 1 (everyone free)
+          const heatRatio = sorted.length > 0 && !isPast ? freeIds.size / sorted.length : 0;
+          const heatPercent = Math.round(heatRatio * 14); // max 14% mix for subtle tint
+
+          const classNames = [styles.day, styles.cellEntrance];
           if (isPast) classNames.push(styles.past);
           if (isToday) classNames.push(styles.today);
           if (joined && !isPast) classNames.push(styles.clickable);
           if (everyoneFree && !isPast) classNames.push(styles.everyoneFree);
-          if (pulsing === dateStr) classNames.push(styles.pulse);
+          if (pulsing === dateStr) classNames.push(styles.toggle);
 
           const dateLabel = formatDateLabel(date);
           const ariaLabel = isPast ? dateLabel : buildAriaLabel(dateLabel, sorted, freeIds);
           const titleText = isPast ? undefined : buildAriaLabel(dateLabel, sorted, freeIds);
+
+          const cellStyle: React.CSSProperties = {
+            minHeight: `${cellMinHeight}px`,
+            animationDelay: `${i * 15}ms`,
+          };
+          if (heatPercent > 0 && !everyoneFree) {
+            cellStyle.backgroundColor = `color-mix(in srgb, var(--accent) ${heatPercent}%, var(--card-bg))`;
+          }
 
           return (
             <button
@@ -196,7 +241,7 @@ export default function CalendarGrid({
                 if (joined && !isPast) handleDayClick(dateStr);
               }}
               disabled={!joined || isPast}
-              style={{ minHeight: `${cellMinHeight}px` }}
+              style={cellStyle}
               aria-label={ariaLabel}
               title={titleText}
             >

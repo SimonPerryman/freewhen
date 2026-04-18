@@ -36,9 +36,10 @@
 
 .heading {
   margin: 0;
-  font-size: 24px;
-  font-weight: 600;
-  letter-spacing: -0.3px;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -69,6 +70,7 @@
   background: var(--card-bg);
   border: 1px solid var(--error);
   border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .retryButton {
@@ -93,7 +95,7 @@
   padding: 12px 14px;
   font-size: 14px;
   color: var(--text-secondary);
-  background: color-mix(in srgb, var(--accent) 4%, var(--page-bg));
+  background: var(--accent-subtle);
   border: 1px dashed var(--border);
   border-radius: var(--radius-md);
   line-height: 1.5;

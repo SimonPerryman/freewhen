@@ -3,7 +3,8 @@
 }
 
 .heading {
-  font-size: 15px;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 17px;
   font-weight: 600;
   color: var(--text-primary);
   margin: 0 0 12px;

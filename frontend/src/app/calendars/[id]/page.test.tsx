@@ -1,6 +1,5 @@
-import { Suspense } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, act } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const getCalendarMock = vi.fn();
@@ -17,7 +16,7 @@ vi.mock("@/lib/api", async () => {
   };
 });
 
-import CalendarPage from "./page";
+import CalendarPageClient from "./CalendarPageClient";
 
 const mockCalendar = {
   calendar: { id: "cal-1", name: "Trip", createdAt: "2026-01-01T00:00:00Z" },
@@ -32,26 +31,20 @@ beforeEach(() => {
   localStorage.clear();
 });
 
-async function renderPage() {
-  await act(async () => {
-    render(
-      <Suspense fallback={<div>Suspending…</div>}>
-        <CalendarPage params={Promise.resolve({ id: "cal-1" })} />
-      </Suspense>,
-    );
-  });
+function renderPage() {
+  render(<CalendarPageClient calendarId="cal-1" />);
 }
 
 describe("CalendarPage", () => {
   it("renders loading state", async () => {
     getCalendarMock.mockReturnValue(new Promise(() => {})); // never resolves
-    await renderPage();
+    renderPage();
     expect(screen.getByText("Loading…")).toBeInTheDocument();
   });
 
   it("fetches and displays calendar data", async () => {
     getCalendarMock.mockResolvedValue(mockCalendar);
-    await renderPage();
+    renderPage();
 
     expect(await screen.findByText("Trip")).toBeInTheDocument();
     expect(screen.getByText(/Alice/)).toBeInTheDocument();
@@ -59,7 +52,7 @@ describe("CalendarPage", () => {
 
   it("shows join form when user is not a participant", async () => {
     getCalendarMock.mockResolvedValue(mockCalendar);
-    await renderPage();
+    renderPage();
 
     expect(await screen.findByLabelText(/your name/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /join/i })).toBeInTheDocument();
@@ -68,7 +61,7 @@ describe("CalendarPage", () => {
   it("skips join form when localStorage has a valid participant ID", async () => {
     localStorage.setItem("freewhen:cal-1", JSON.stringify({ participantId: "p-1", name: "Alice" }));
     getCalendarMock.mockResolvedValue(mockCalendar);
-    await renderPage();
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getByText("Trip")).toBeInTheDocument();
@@ -80,7 +73,7 @@ describe("CalendarPage", () => {
   it("handles calendar not found (404)", async () => {
     const { ApiError } = await import("@/lib/api");
     getCalendarMock.mockRejectedValue(new ApiError(404, "not found"));
-    await renderPage();
+    renderPage();
 
     expect(await screen.findByText("Calendar not found")).toBeInTheDocument();
   });
@@ -99,7 +92,7 @@ describe("CalendarPage", () => {
     });
 
     const user = userEvent.setup();
-    await renderPage();
+    renderPage();
 
     const nameInput = await screen.findByLabelText(/your name/i);
     await user.type(nameInput, "Bob");

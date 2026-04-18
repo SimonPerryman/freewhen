@@ -5,15 +5,23 @@
 .compactToggle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  padding: 8px 0;
+  padding: 10px 14px;
   font-size: 13px;
   font-family: inherit;
   color: var(--text-secondary);
-  background: none;
-  border: none;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.compactToggle:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
 }
 
 .dots {
@@ -24,6 +32,22 @@
 
 .compactLabel {
   white-space: nowrap;
+  font-weight: 500;
+}
+
+.count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-text);
+  background: var(--accent);
+  border-radius: 11px;
+  margin-left: auto;
 }
 
 .fullList {
@@ -46,7 +70,8 @@
 
 .heading {
   margin: 0 0 12px;
-  font-size: 14px;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
 }
