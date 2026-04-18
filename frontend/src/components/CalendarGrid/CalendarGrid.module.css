@@ -92,7 +92,7 @@
 }
 
 .cellEntrance {
-  animation: cellEntrance 0.25s ease-out both;
+  animation: cellEntrance 0.25s ease-out var(--entrance-delay, 0ms) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -187,7 +187,9 @@
 }
 
 .toggle {
-  animation: toggle 0.3s ease-out;
+  animation:
+    cellEntrance 0.25s ease-out var(--entrance-delay, 0ms) both,
+    toggle 0.3s ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {

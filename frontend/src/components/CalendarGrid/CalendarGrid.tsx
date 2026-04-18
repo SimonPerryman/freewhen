@@ -226,7 +226,7 @@ export default function CalendarGrid({
 
           const cellStyle: React.CSSProperties = {
             minHeight: `${cellMinHeight}px`,
-            animationDelay: `${i * 15}ms`,
+            ["--entrance-delay" as string]: `${i * 15}ms`,
           };
           if (heatPercent > 0 && !everyoneFree) {
             cellStyle.backgroundColor = `color-mix(in srgb, var(--accent) ${heatPercent}%, var(--card-bg))`;

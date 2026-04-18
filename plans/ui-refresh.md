@@ -82,6 +82,11 @@ Replace the current pulse (scale 1→1.08→1) with a richer interaction:
 
 **Files:** `CalendarGrid.module.css`
 
+**Gotcha — entrance + toggle animation interaction:**
+The `.cellEntrance` and `.toggle` classes both live on the same element. If `.toggle`'s `animation` shorthand replaces `.cellEntrance`'s, removing the toggle class restarts the entrance animation — the cell vanishes and fades back in after the pulse. Two rules to keep this from coming back:
+1. When both classes are active, the `animation` list must include `cellEntrance` (same name + params) so the browser treats it as continuing, not restarting.
+2. The per-cell entrance delay must be scoped to the entrance animation only — set it via a CSS custom property (`--entrance-delay`) inside the `.cellEntrance` rule, never via the inline `animation-delay` style (which applies to every animation in the list).
+
 ### 2c. Visual Identity Upgrade
 
 **Typography:**
@@ -162,3 +167,4 @@ Note: we only know about people who've joined — we don't track "invited but ha
 
 - 2025-04-18 — Created plan
 - 2025-04-18 20:36 — Implemented all three phases. Lint clean (0 errors), 71 tests passing, build succeeds with no warnings.
+- 2026-04-18 — Fixed regression where clicking a day caused the cell to vanish and fade back in. `.toggle` was replacing `.cellEntrance`'s animation shorthand, so removing the toggle class restarted the entrance animation. Fix: `.toggle` now carries both animations (`cellEntrance, toggle`) in its `animation` list, and the per-cell stagger delay is now passed through a `--entrance-delay` custom property instead of the inline `animationDelay` style so it only affects the entrance. See Gotcha note in 2b.
