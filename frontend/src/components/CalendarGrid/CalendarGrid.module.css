@@ -23,7 +23,9 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   box-shadow: var(--shadow-sm);
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .navButton:hover:not(:disabled) {
@@ -131,10 +133,11 @@
   box-shadow: var(--shadow-md);
 }
 
-.past {
-  opacity: 0.35;
-  cursor: not-allowed;
+.placeholder {
+  background: transparent;
+  border: none;
   box-shadow: none;
+  pointer-events: none;
 }
 
 .today {

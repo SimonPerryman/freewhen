@@ -136,6 +136,11 @@ export default function CalendarGrid({
     return result;
   }, [weekOffset, baseMonday.getTime()]);
 
+  const firstVisibleIdx = useMemo(() => {
+    const idx = days.findIndex((d) => formatDate(d) >= today);
+    return idx === -1 ? 0 : idx;
+  }, [days, today]);
+
   const rangeLabel = useMemo(() => {
     const first = days[0];
     const last = days[days.length - 1];
@@ -167,11 +172,7 @@ export default function CalendarGrid({
   const totalSlots = layout.cols * layout.rows;
 
   return (
-    <div
-      className={styles.container}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
+    <div className={styles.container} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       <div className={styles.nav}>
         <button
           type="button"
@@ -204,29 +205,40 @@ export default function CalendarGrid({
         {days.map((date, i) => {
           const dateStr = formatDate(date);
           const isPast = dateStr < today;
+
+          if (isPast) {
+            return (
+              <div
+                key={dateStr}
+                className={styles.placeholder}
+                data-testid="day-cell"
+                aria-hidden="true"
+              />
+            );
+          }
+
           const isToday = dateStr === today;
           const showMonth = date.getDate() === 1;
           const freeIds = freeByDate.get(dateStr) ?? new Set<string>();
           const { everyoneFree } = classifyDay(sorted, freeIds);
 
           // Heat map: intensity from 0 (no one free) to 1 (everyone free)
-          const heatRatio = sorted.length > 0 && !isPast ? freeIds.size / sorted.length : 0;
+          const heatRatio = sorted.length > 0 ? freeIds.size / sorted.length : 0;
           const heatPercent = Math.round(heatRatio * 14); // max 14% mix for subtle tint
 
           const classNames = [styles.day, styles.cellEntrance];
-          if (isPast) classNames.push(styles.past);
           if (isToday) classNames.push(styles.today);
-          if (joined && !isPast) classNames.push(styles.clickable);
-          if (everyoneFree && !isPast) classNames.push(styles.everyoneFree);
+          if (joined) classNames.push(styles.clickable);
+          if (everyoneFree) classNames.push(styles.everyoneFree);
           if (pulsing === dateStr) classNames.push(styles.toggle);
 
           const dateLabel = formatDateLabel(date);
-          const ariaLabel = isPast ? dateLabel : buildAriaLabel(dateLabel, sorted, freeIds);
-          const titleText = isPast ? undefined : buildAriaLabel(dateLabel, sorted, freeIds);
+          const ariaLabel = buildAriaLabel(dateLabel, sorted, freeIds);
 
+          const visibleIndex = i - firstVisibleIdx;
           const cellStyle: React.CSSProperties = {
             minHeight: `${cellMinHeight}px`,
-            ["--entrance-delay" as string]: `${i * 15}ms`,
+            ["--entrance-delay" as string]: `${visibleIndex * 15}ms`,
           };
           if (heatPercent > 0 && !everyoneFree) {
             cellStyle.backgroundColor = `color-mix(in srgb, var(--accent) ${heatPercent}%, var(--card-bg))`;
@@ -236,20 +248,21 @@ export default function CalendarGrid({
             <button
               key={dateStr}
               type="button"
+              data-testid="day-cell"
               className={classNames.join(" ")}
               onClick={() => {
-                if (joined && !isPast) handleDayClick(dateStr);
+                if (joined) handleDayClick(dateStr);
               }}
-              disabled={!joined || isPast}
+              disabled={!joined}
               style={cellStyle}
               aria-label={ariaLabel}
-              title={titleText}
+              title={ariaLabel}
             >
               {showMonth ? (
                 <span className={styles.monthLabel}>{MONTH_SHORT[date.getMonth()]}</span>
               ) : null}
               <span className={styles.dayNumber}>{date.getDate()}</span>
-              {!isPast && sorted.length > 0 ? (
+              {sorted.length > 0 ? (
                 <div
                   className={styles.slotGrid}
                   data-testid="slot-grid"

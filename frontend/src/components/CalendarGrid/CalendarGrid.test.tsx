@@ -43,7 +43,7 @@ describe("CalendarGrid", () => {
     onToggle = vi.fn();
   });
 
-  it("renders 35 day cells (5 weeks)", () => {
+  it("renders 35 day cell positions (5 weeks)", () => {
     render(
       <CalendarGrid
         participants={[]}
@@ -54,8 +54,8 @@ describe("CalendarGrid", () => {
       />,
     );
 
-    const buttons = screen.getAllByRole("button", { name: /\w+ \d+, \d{4}/ });
-    expect(buttons).toHaveLength(35);
+    const cells = screen.getAllByTestId("day-cell");
+    expect(cells).toHaveLength(35);
   });
 
   it("n=0: cells have no slot container", () => {
@@ -229,7 +229,7 @@ describe("CalendarGrid", () => {
     expect(button).toBeTruthy();
   });
 
-  it("past dates render no slots", () => {
+  it("past dates render as non-interactive placeholders", () => {
     const ps = makeParticipants(3);
     const past = pastDateStr(5);
     const freeByDate = new Map([[past, new Set([ps[0].id])]]);
@@ -244,14 +244,16 @@ describe("CalendarGrid", () => {
       />,
     );
 
-    // Past date cells should not have slot grids
-    // We can't easily target a specific past cell, but we can check
-    // that past cells (disabled + reduced opacity) don't have slot-grid children
-    const allButtons = screen.getAllByRole("button");
-    const pastButtons = allButtons.filter((b) => b.className.includes("past"));
-    for (const btn of pastButtons) {
-      const grid = btn.querySelector("[data-testid='slot-grid']");
-      expect(grid).toBeNull();
+    // Grid still holds 35 positions total
+    const cells = screen.getAllByTestId("day-cell");
+    expect(cells).toHaveLength(35);
+
+    // Placeholder cells are divs (not buttons), aria-hidden, with no content
+    const placeholders = cells.filter((c) => c.tagName === "DIV");
+    expect(placeholders.length).toBeGreaterThan(0);
+    for (const ph of placeholders) {
+      expect(ph.getAttribute("aria-hidden")).toBe("true");
+      expect(ph.children).toHaveLength(0);
     }
   });
 
