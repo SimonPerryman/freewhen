@@ -29,7 +29,7 @@ jobs:
 
       - uses: golangci/golangci-lint-action@v7
         with:
-          version: v2.4
+          version: v2.11
           working-directory: backend
 
       - name: Install frontend dependencies
