@@ -2,6 +2,11 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import type { CalendarWithDetails, Participant } from "@/lib/types";
 
+// --- Mock analytics ---
+vi.mock("@/lib/analytics", () => ({
+  default: { init: vi.fn(), identify: vi.fn(), reset: vi.fn(), capture: vi.fn() },
+}));
+
 // --- Mock @/lib/api ---
 
 const mockGetCalendar = vi.fn();
@@ -22,6 +27,8 @@ vi.mock("@/lib/api", () => {
     getCalendar: (...args: unknown[]) => mockGetCalendar(...args),
     addParticipant: (...args: unknown[]) => mockAddParticipant(...args),
     setAvailability: (...args: unknown[]) => mockSetAvailability(...args),
+    getMe: vi.fn().mockRejectedValue(new Error("not authenticated")),
+    logout: vi.fn().mockResolvedValue(undefined),
     ApiError,
   };
 });
@@ -86,6 +93,7 @@ Object.defineProperty(window, "localStorage", {
 
 // --- Import component under test after mocks ---
 
+import AuthProvider from "@/components/AuthProvider/AuthProvider";
 import CalendarPageClient from "./CalendarPageClient";
 
 // --- Test data ---
@@ -98,6 +106,7 @@ function makeCalendarData(overrides: Partial<CalendarWithDetails> = {}): Calenda
       id: CALENDAR_ID,
       name: "Team Meetup",
       emoji: "✨",
+      ownerId: "owner-1",
       createdAt: "2026-01-01T00:00:00Z",
     },
     participants: [],
@@ -130,7 +139,7 @@ describe("CalendarPageClient", () => {
   it("loads calendar and renders heading", async () => {
     mockGetCalendar.mockResolvedValue(makeCalendarData());
 
-    render(<CalendarPageClient calendarId={CALENDAR_ID} />);
+    render(<AuthProvider><CalendarPageClient calendarId={CALENDAR_ID} /></AuthProvider>);
 
     await waitFor(() => {
       expect(screen.getByText("Team Meetup")).toBeInTheDocument();
@@ -146,12 +155,13 @@ describe("CalendarPageClient", () => {
           id: CALENDAR_ID,
           name: "Team Meetup",
           emoji: "🦊",
+          ownerId: "owner-1",
           createdAt: "2026-01-01T00:00:00Z",
         },
       }),
     );
 
-    render(<CalendarPageClient calendarId={CALENDAR_ID} />);
+    render(<AuthProvider><CalendarPageClient calendarId={CALENDAR_ID} /></AuthProvider>);
 
     await waitFor(() => {
       expect(screen.getByText("Team Meetup")).toBeInTheDocument();
@@ -166,12 +176,13 @@ describe("CalendarPageClient", () => {
         calendar: {
           id: CALENDAR_ID,
           name: "Team Meetup",
+          ownerId: "owner-1",
           createdAt: "2026-01-01T00:00:00Z",
         },
       }),
     );
 
-    render(<CalendarPageClient calendarId={CALENDAR_ID} />);
+    render(<AuthProvider><CalendarPageClient calendarId={CALENDAR_ID} /></AuthProvider>);
 
     await waitFor(() => {
       expect(screen.getByText("Team Meetup")).toBeInTheDocument();
@@ -185,7 +196,7 @@ describe("CalendarPageClient", () => {
   it("shows join form when no stored participant", async () => {
     mockGetCalendar.mockResolvedValue(makeCalendarData());
 
-    render(<CalendarPageClient calendarId={CALENDAR_ID} />);
+    render(<AuthProvider><CalendarPageClient calendarId={CALENDAR_ID} /></AuthProvider>);
 
     await waitFor(() => {
       expect(screen.getByTestId("join-form")).toBeInTheDocument();
@@ -204,7 +215,7 @@ describe("CalendarPageClient", () => {
     );
     mockGetCalendar.mockResolvedValue(calendarData);
 
-    render(<CalendarPageClient calendarId={CALENDAR_ID} />);
+    render(<AuthProvider><CalendarPageClient calendarId={CALENDAR_ID} /></AuthProvider>);
 
     await waitFor(() => {
       expect(screen.getByText("Team Meetup")).toBeInTheDocument();
@@ -220,7 +231,7 @@ describe("CalendarPageClient", () => {
     const newParticipant = makeParticipant({ id: "p-new", name: "Bob" });
     mockAddParticipant.mockResolvedValue(newParticipant);
 
-    render(<CalendarPageClient calendarId={CALENDAR_ID} />);
+    render(<AuthProvider><CalendarPageClient calendarId={CALENDAR_ID} /></AuthProvider>);
 
     await waitFor(() => {
       expect(capturedOnJoin).not.toBeNull();
@@ -249,7 +260,7 @@ describe("CalendarPageClient", () => {
     const { ApiError } = await import("@/lib/api");
     mockGetCalendar.mockRejectedValue(new ApiError(404, "not found"));
 
-    render(<CalendarPageClient calendarId={CALENDAR_ID} />);
+    render(<AuthProvider><CalendarPageClient calendarId={CALENDAR_ID} /></AuthProvider>);
 
     await waitFor(() => {
       expect(
@@ -264,7 +275,7 @@ describe("CalendarPageClient", () => {
   it("renders a retry panel on generic load failure and retries on click", async () => {
     mockGetCalendar.mockRejectedValueOnce(new Error("network down"));
 
-    render(<CalendarPageClient calendarId={CALENDAR_ID} />);
+    render(<AuthProvider><CalendarPageClient calendarId={CALENDAR_ID} /></AuthProvider>);
 
     await waitFor(() => {
       expect(
@@ -288,7 +299,7 @@ describe("CalendarPageClient", () => {
   it("join flow: duplicate name shows 'already taken' error", async () => {
     mockGetCalendar.mockResolvedValue(makeCalendarData());
 
-    render(<CalendarPageClient calendarId={CALENDAR_ID} />);
+    render(<AuthProvider><CalendarPageClient calendarId={CALENDAR_ID} /></AuthProvider>);
 
     await waitFor(() => {
       expect(capturedOnJoin).not.toBeNull();

@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+vi.mock("@/lib/analytics", () => ({
+  default: { init: vi.fn(), identify: vi.fn(), reset: vi.fn(), capture: vi.fn() },
+}));
+
 const getCalendarMock = vi.fn();
 const addParticipantMock = vi.fn();
 const setAvailabilityMock = vi.fn();
@@ -13,13 +17,15 @@ vi.mock("@/lib/api", async () => {
     getCalendar: (...args: unknown[]) => getCalendarMock(...args),
     addParticipant: (...args: unknown[]) => addParticipantMock(...args),
     setAvailability: (...args: unknown[]) => setAvailabilityMock(...args),
+    getMe: vi.fn().mockRejectedValue(new Error("not authenticated")),
   };
 });
 
+import AuthProvider from "@/components/AuthProvider/AuthProvider";
 import CalendarPageClient from "./CalendarPageClient";
 
 const mockCalendar = {
-  calendar: { id: "cal-1", name: "Trip", createdAt: "2026-01-01T00:00:00Z" },
+  calendar: { id: "cal-1", name: "Trip", ownerId: "user-1", createdAt: "2026-01-01T00:00:00Z" },
   participants: [{ id: "p-1", calendarId: "cal-1", name: "Alice", colour: "#ef4444" }],
   availability: [{ participantId: "p-1", calendarId: "cal-1", date: "2026-04-20" }],
 };
@@ -32,7 +38,11 @@ beforeEach(() => {
 });
 
 function renderPage() {
-  render(<CalendarPageClient calendarId="cal-1" />);
+  render(
+    <AuthProvider>
+      <CalendarPageClient calendarId="cal-1" />
+    </AuthProvider>,
+  );
 }
 
 describe("CalendarPage", () => {

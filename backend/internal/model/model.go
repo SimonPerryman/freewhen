@@ -33,6 +33,7 @@ type User struct {
 	ID         string    `json:"id"`
 	Email      string    `json:"email"`
 	Name       string    `json:"name"`
+	IsAdmin    bool      `json:"is_admin"`
 	Provider   string    `json:"-"`
 	ProviderID string    `json:"-"`
 	CreatedAt  time.Time `json:"-"`

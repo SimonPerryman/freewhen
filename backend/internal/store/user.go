@@ -17,9 +17,9 @@ func (s *Store) CreateUser(ctx context.Context, email, name, provider, providerI
 		err := s.db.QueryRowContext(ctx,
 			`INSERT INTO users (id, email, name, provider, provider_id)
 			 VALUES ($1, $2, $3, $4, $5)
-			 RETURNING id, email, name, provider, provider_id, created_at`,
+			 RETURNING id, email, name, is_admin, provider, provider_id, created_at`,
 			id, email, name, provider, providerID,
-		).Scan(&u.ID, &u.Email, &u.Name, &u.Provider, &u.ProviderID, &u.CreatedAt)
+		).Scan(&u.ID, &u.Email, &u.Name, &u.IsAdmin, &u.Provider, &u.ProviderID, &u.CreatedAt)
 		if err != nil {
 			if isUniqueViolation(err) {
 				continue
@@ -34,8 +34,8 @@ func (s *Store) CreateUser(ctx context.Context, email, name, provider, providerI
 func (s *Store) FindUserByEmail(ctx context.Context, email string) (model.User, error) {
 	var u model.User
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, email, name, provider, provider_id, created_at FROM users WHERE email = $1`, email,
-	).Scan(&u.ID, &u.Email, &u.Name, &u.Provider, &u.ProviderID, &u.CreatedAt)
+		`SELECT id, email, name, is_admin, provider, provider_id, created_at FROM users WHERE email = $1`, email,
+	).Scan(&u.ID, &u.Email, &u.Name, &u.IsAdmin, &u.Provider, &u.ProviderID, &u.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.User{}, ErrNotFound
@@ -48,8 +48,8 @@ func (s *Store) FindUserByEmail(ctx context.Context, email string) (model.User, 
 func (s *Store) GetUser(ctx context.Context, id string) (model.User, error) {
 	var u model.User
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, email, name, provider, provider_id, created_at FROM users WHERE id = $1`, id,
-	).Scan(&u.ID, &u.Email, &u.Name, &u.Provider, &u.ProviderID, &u.CreatedAt)
+		`SELECT id, email, name, is_admin, provider, provider_id, created_at FROM users WHERE id = $1`, id,
+	).Scan(&u.ID, &u.Email, &u.Name, &u.IsAdmin, &u.Provider, &u.ProviderID, &u.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.User{}, ErrNotFound
@@ -62,9 +62,9 @@ func (s *Store) GetUser(ctx context.Context, id string) (model.User, error) {
 func (s *Store) FindUserByProviderID(ctx context.Context, provider, providerID string) (model.User, error) {
 	var u model.User
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, email, name, provider, provider_id, created_at FROM users WHERE provider = $1 AND provider_id = $2`,
+		`SELECT id, email, name, is_admin, provider, provider_id, created_at FROM users WHERE provider = $1 AND provider_id = $2`,
 		provider, providerID,
-	).Scan(&u.ID, &u.Email, &u.Name, &u.Provider, &u.ProviderID, &u.CreatedAt)
+	).Scan(&u.ID, &u.Email, &u.Name, &u.IsAdmin, &u.Provider, &u.ProviderID, &u.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.User{}, ErrNotFound

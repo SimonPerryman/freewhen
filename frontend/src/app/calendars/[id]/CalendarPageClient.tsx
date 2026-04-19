@@ -3,7 +3,9 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { getCalendar, addParticipant, setAvailability, ApiError } from "@/lib/api";
+import analytics from "@/lib/analytics";
 import type { CalendarWithDetails, Participant } from "@/lib/types";
+import { useAuth } from "@/components/AuthProvider/AuthProvider";
 import CalendarGrid from "@/components/CalendarGrid/CalendarGrid";
 import JoinForm from "@/components/JoinForm/JoinForm";
 import ParticipantList from "@/components/ParticipantList/ParticipantList";
@@ -44,6 +46,7 @@ function writeStorage(calendarId: string, data: StoredParticipant): void {
 }
 
 export default function CalendarPageClient({ calendarId }: { calendarId: string }) {
+  const { user } = useAuth();
   const [calendar, setCalendar] = useState<CalendarWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<LoadError | null>(null);
@@ -79,6 +82,10 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
         const data = await getCalendar(calendarId);
         if (cancelled) return;
         setCalendar(data);
+        analytics.capture("calendar_opened", {
+          calendar_id: calendarId,
+          is_owner: !!user && data.calendar.ownerId === user.id,
+        });
 
         // Check localStorage for existing participant
         const stored = readStorage(calendarId);
@@ -133,6 +140,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           participantId: pid,
           dates,
         });
+        analytics.capture("availability_marked", { calendar_id: calendarId });
       } catch {
         setSaveError(true);
         savingRef.current = false;
@@ -179,6 +187,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           participantId: participant.id,
           name,
         });
+        analytics.capture("participant_added", { calendar_id: calendarId });
         // Add participant to local calendar state
         setCalendar((prev) =>
           prev

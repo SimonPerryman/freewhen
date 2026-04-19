@@ -46,7 +46,7 @@ func setupTestServer(t *testing.T) *testServer {
 		t.Fatalf("migrate: %v", err)
 	}
 
-	for _, table := range []string{"availability", "participants", "sessions", "calendars", "users"} {
+	for _, table := range []string{"availability", "participants", "sessions", "magic_link_tokens", "calendars", "users"} {
 		if _, err := db.Exec("DELETE FROM " + table); err != nil {
 			t.Fatalf("clean %s: %v", table, err)
 		}
@@ -379,6 +379,65 @@ func TestSetAvailability_InvalidDate(t *testing.T) {
 	})
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestAdminMetrics_Forbidden(t *testing.T) {
+	ts := setupTestServer(t)
+
+	// Unauthenticated → 401
+	resp, _ := doJSON(t, ts, http.MethodGet, "/admin/metrics", nil)
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", resp.StatusCode)
+	}
+
+	// Authenticated but not admin → 403
+	resp, _ = doJSONAuth(t, ts, http.MethodGet, "/admin/metrics", nil)
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("expected 403, got %d", resp.StatusCode)
+	}
+}
+
+func TestAdminMetrics_OK(t *testing.T) {
+	ts := setupTestServer(t)
+
+	// Promote the test user to admin
+	dsn := os.Getenv("TEST_DATABASE_URL")
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`UPDATE users SET is_admin = true WHERE email = 'test@example.com'`); err != nil {
+		t.Fatalf("promote admin: %v", err)
+	}
+
+	resp, body := doJSONAuth(t, ts, http.MethodGet, "/admin/metrics", nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	var metrics struct {
+		Users struct {
+			Total   int `json:"total"`
+			Last7d  int `json:"last_7d"`
+			Last30d int `json:"last_30d"`
+		} `json:"users"`
+		Calendars struct {
+			Total     int `json:"total"`
+			Last7d    int `json:"last_7d"`
+			Active30d int `json:"active_30d"`
+		} `json:"calendars"`
+		Participants struct {
+			Total          int     `json:"total"`
+			AvgPerCalendar float64 `json:"avg_per_calendar"`
+		} `json:"participants"`
+	}
+	decodeJSON(t, body, &metrics)
+
+	// We created one test user in setupTestServer
+	if metrics.Users.Total < 1 {
+		t.Errorf("expected at least 1 user, got %d", metrics.Users.Total)
 	}
 }
 

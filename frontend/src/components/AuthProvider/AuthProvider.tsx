@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 import { getMe, logout as apiLogout, ApiError } from "@/lib/api";
+import analytics from "@/lib/analytics";
 import type { User } from "@/lib/types";
 
 interface AuthContextValue {
@@ -34,6 +35,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const me = await getMe();
       setUser(me);
+      analytics.identify(me.id, { email: me.email });
       return me;
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -59,6 +61,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setUser(null);
       setChecked(false);
+      analytics.reset();
     }
   }, []);
 

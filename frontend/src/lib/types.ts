@@ -2,6 +2,7 @@ export interface Calendar {
   id: string;
   name: string;
   emoji?: string;
+  ownerId: string;
   createdAt: string;
 }
 
@@ -41,6 +42,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  isAdmin: boolean;
 }
 
 export interface ApiError {

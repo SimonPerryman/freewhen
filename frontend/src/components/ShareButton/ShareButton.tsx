@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import analytics from "@/lib/analytics";
 import styles from "./ShareButton.module.css";
 
 interface ShareButtonProps {
@@ -27,6 +28,7 @@ export default function ShareButton({ calendarName }: ShareButtonProps) {
           text: "Mark your availability on FreeWhen",
           url,
         });
+        analytics.capture("invite_shared", { method: "native" });
         return; // share sheet handles its own feedback
       } catch (err) {
         // User cancelled or share failed — fall through to clipboard
@@ -37,6 +39,7 @@ export default function ShareButton({ calendarName }: ShareButtonProps) {
     if (canCopy) {
       try {
         await navigator.clipboard.writeText(url);
+        analytics.capture("invite_shared", { method: "clipboard" });
         setFeedback("Copied!");
         setTimeout(() => setFeedback(null), 2000);
       } catch {

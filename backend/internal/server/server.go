@@ -15,6 +15,7 @@ import (
 type Server struct {
 	handler    *handler.Handler
 	auth       *handler.AuthHandler
+	metrics    *handler.MetricsHandler
 	store      *store.Store
 	mux        *http.ServeMux
 	logger     *slog.Logger
@@ -33,10 +34,12 @@ func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 		emailSender = email.NewSender(cfg.ResendAPIKey, cfg.MagicLinkFromEmail)
 	}
 	ah := handler.NewAuth(st, emailSender, cfg, logger)
+	mh := handler.NewMetrics(st)
 
 	srv := &Server{
 		handler:    h,
 		auth:       ah,
+		metrics:    mh,
 		store:      st,
 		mux:        http.NewServeMux(),
 		logger:     logger,
@@ -58,6 +61,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /auth/logout", s.auth.Logout)
 	s.mux.HandleFunc("POST /auth/magic-link", s.auth.SendMagicLink)
 	s.mux.HandleFunc("GET /auth/magic-link/callback", s.auth.MagicLinkCallback)
+
+	// Admin routes
+	s.mux.HandleFunc("GET /admin/metrics", s.requireAdmin(s.metrics.GetMetrics))
 
 	// Calendar routes — POST requires auth
 	s.mux.HandleFunc("POST /calendars", s.requireAuth(s.handler.CreateCalendar))

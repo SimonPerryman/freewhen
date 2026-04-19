@@ -3,6 +3,7 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, createCalendar } from "@/lib/api";
+import analytics from "@/lib/analytics";
 import { useAuth } from "@/components/AuthProvider/AuthProvider";
 import styles from "./page.module.css";
 
@@ -29,6 +30,7 @@ export default function Home() {
     setSubmitting(true);
     try {
       const calendar = await createCalendar({ name: name.trim() });
+      analytics.capture("calendar_created", { calendar_id: calendar.id });
       router.push(`/calendars/${calendar.id}`);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {

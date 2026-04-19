@@ -58,6 +58,18 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// requireAdmin returns 403 if the authenticated user is not an admin.
+func (s *Server) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
+	return s.requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		user := handler.UserFromContext(r)
+		if user == nil || !user.IsAdmin {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (s *Server) authenticateRequest(r *http.Request) *model.User {
 	cookie, err := r.Cookie("session")
 	if err != nil {

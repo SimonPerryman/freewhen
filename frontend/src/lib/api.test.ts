@@ -8,6 +8,7 @@ function jsonResponse(body: unknown, status = 200) {
   return {
     ok: status >= 200 && status < 300,
     status,
+    headers: new Headers({ "X-Request-ID": "test-req-id" }),
     json: () => Promise.resolve(body),
   };
 }

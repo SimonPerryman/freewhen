@@ -32,6 +32,28 @@ If GitHub Actions minutes become a bottleneck:
 | WarpBuild | Free credit then ~$0.003/min Linux |
 | GitHub native | Cut hosted-runner prices up to 39% on Jan 1 2026 — gap is narrower |
 
+## Observability
+
+### Admin metrics endpoint
+
+`GET /admin/metrics` returns SQL-derived product metrics (users, calendars, participants). Requires `is_admin = true` on the user row.
+
+To grant admin to a user:
+
+```sql
+UPDATE users SET is_admin = true WHERE email = 'you@example.com';
+```
+
+### PostHog (analytics + session replay + error tracking)
+
+- **Project:** PostHog EU cloud (`https://eu.i.posthog.com`)
+- **SDK:** `posthog-js`, initialised in `frontend/src/lib/analytics.ts`
+- **Config:** `NEXT_PUBLIC_POSTHOG_KEY` and `NEXT_PUBLIC_POSTHOG_HOST` env vars on Vercel. If `NEXT_PUBLIC_POSTHOG_KEY` is unset, all analytics calls are no-ops (dev default).
+- **Person profiles:** `identified_only` — anonymous visitors are not profiled.
+- **Events tracked:** `calendar_created`, `invite_shared`, `calendar_opened`, `participant_added`, `availability_marked`
+
+**Consent banner required before wider rollout.** Session replay + analytics cookies need explicit consent under UK/EU rules. The `analytics.init()` call in `src/lib/analytics.ts` is the single hook point for gating behind a consent banner.
+
 ## Deploy Flow
 
 - **Backend:** CI runs `gcloud run deploy --source .` on push to main. Migrations run on boot. First request after idle pays a ~1s cold start.

@@ -28,6 +28,12 @@ Session-based auth with HTTP-only cookies. Creator must sign in to create a cale
 | POST | `/calendars/{id}/participants` | — | Join a calendar |
 | PUT | `/calendars/{id}/availability` | — | Update availability |
 
+## Admin
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/admin/metrics` | Admin | Product metrics (users, calendars, participants) |
+
 ## Health
 
 | Method | Path | Auth | Description |
@@ -172,6 +178,35 @@ Deletes the session and clears the session cookie.
 ```json
 {"ok": true}
 ```
+
+---
+
+### GET /admin/metrics
+
+Returns product metrics. Requires an authenticated admin user (`is_admin = true`).
+
+**Response 200**
+
+```json
+{
+  "users": {
+    "total": 42,
+    "last_7d": 5,
+    "last_30d": 18
+  },
+  "calendars": {
+    "total": 30,
+    "last_7d": 3,
+    "active_30d": 12
+  },
+  "participants": {
+    "total": 120,
+    "avg_per_calendar": 4.0
+  }
+}
+```
+
+**Errors:** 401 (not authenticated) | 403 (not admin)
 
 ---
 

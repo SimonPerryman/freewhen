@@ -5,6 +5,7 @@ Group availability coordination tool. Go backend + Next.js frontend + Postgres.
 ## Principles
 
 - **Mobile first** — all UI must be designed for small screens first, then enhanced for larger viewports. Use min-width breakpoints, test on 375px as the baseline, and never ship a component that doesn't work on a phone.
+- **Config over environment detection** ([12-factor](https://12factor.net/config)) — branch on explicit env vars (e.g. `POSTHOG_KEY` set/unset, `ENV=production`), never on `NODE_ENV`. Dev/prod parity means the same code path runs everywhere; only config changes.
 
 ## Architecture
 
