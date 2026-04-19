@@ -1,6 +1,6 @@
 # V1 Build Order
 
-Status: pending
+Status: done
 
 ## Goal
 
@@ -50,3 +50,4 @@ Sidebar or section listing "days everyone is free" and "days most people are fre
 ## Log
 
 - 2026-04-16 — Created build order plan
+- 2026-04-19 — All V1 steps complete. Marked done.
