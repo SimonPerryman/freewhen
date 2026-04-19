@@ -48,13 +48,28 @@ jobs:
     needs: [test]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
-      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA }}
 
-      - name: Deploy to Fly.io
-        run: flyctl deploy --remote-only
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy freewhen-api \
+            --source . \
+            --region europe-west2 \
+            --platform managed \
+            --allow-unauthenticated \
+            --min-instances 0 \
+            --max-instances 3 \
+            --memory 256Mi \
+            --set-secrets DATABASE_URL=freewhen-database-url:latest
         working-directory: backend
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

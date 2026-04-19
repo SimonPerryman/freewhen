@@ -37,7 +37,7 @@ Simple RESTful API between frontend and backend:
 
 ## Hosting
 
-TBD. Decide at deploy time. Options include Vercel (frontend) + Fly.io/Railway (backend), or similar.
+TBD. Decide at deploy time. Options include Vercel (frontend) + Cloud Run (backend), or similar.
 
 ## Future Considerations
 

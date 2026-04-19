@@ -5,14 +5,15 @@
 | Layer | Provider | Notes |
 |-------|----------|-------|
 | Frontend | Vercel | Auto-build from git, free hobby tier fits V1 |
-| Backend | Fly.io | Single Go binary, deploy via `flyctl` |
+| Backend | Google Cloud Run | Single Go binary, scale-to-zero, deploy via `gcloud run deploy --source .` |
 | Database | Neon | Managed Postgres, free tier, pooled connection string |
 
 ### Backend alternatives considered
 
-- **Render** — more point-and-click, fine if `flyctl` ergonomics grate
+- **Fly.io** — clean ergonomics, but $5/month minimum charge per app even when idle. Cloud Run scales to zero and stays in the free tier at our expected traffic.
+- **Render** — more point-and-click, fine if `gcloud` ergonomics grate
 - **Railway** — similar tier
-- Revisit if Fly bills get weird or cold-start latency bites
+- Revisit if Cloud Run cold-starts bite or GCP billing gets weird
 
 ## Runtime & Tooling
 
@@ -33,16 +34,36 @@ If GitHub Actions minutes become a bottleneck:
 
 ## Deploy Flow
 
-- **Backend:** CI runs `flyctl deploy` on push to main. Migrations run on boot.
+- **Backend:** CI runs `gcloud run deploy --source .` on push to main. Migrations run on boot. First request after idle pays a ~1s cold start.
 - **Frontend:** Vercel's git integration deploys on push. Preview deploys on PRs.
 
 ## First-Time Setup
 
-1. Create Neon project, copy `DATABASE_URL`
-2. `fly launch --no-deploy` in `backend/`, then set secrets:
+1. **Create the GCP project and enable APIs:**
    ```
-   fly secrets set DATABASE_URL=... CORS_ORIGIN=... ENV=prod
+   gcloud projects create freewhen --set-as-default
+   gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
+     secretmanager.googleapis.com artifactregistry.googleapis.com
    ```
-3. Create `FLY_API_TOKEN` (`fly tokens create deploy`), paste into GH repo secrets
-4. Import repo in Vercel, set root to `frontend/`, set `NEXT_PUBLIC_API_URL` to Fly app URL
-5. Point a custom domain (optional); update `CORS_ORIGIN` to match
+2. **Store the database URL in Secret Manager:**
+   ```
+   echo -n "$DATABASE_URL" | gcloud secrets create freewhen-database-url \
+     --data-file=- --replication-policy=automatic
+   ```
+3. **Set up Workload Identity Federation for GitHub Actions** following
+   [Google's guide](https://github.com/google-github-actions/auth#setting-up-workload-identity-federation).
+   Capture the provider resource name and the deploy service account email.
+   Grant the service account `roles/run.admin`, `roles/iam.serviceAccountUser`,
+   `roles/secretmanager.secretAccessor`, and `roles/artifactregistry.writer`.
+4. **Add the WIF values to GitHub repo secrets:**
+   - `GCP_WIF_PROVIDER` — full provider resource name
+   - `GCP_DEPLOY_SA` — deploy service account email
+5. **(Optional) Map a custom domain:**
+   ```
+   gcloud run domain-mappings create --service freewhen-api \
+     --domain api.freewhen.app --region europe-west2
+   ```
+   DNS propagation can take a few minutes; the `*.run.app` URL works immediately.
+6. **Point the frontend at the backend:** set `NEXT_PUBLIC_API_URL` in Vercel
+   to the Cloud Run URL (or your custom domain). Update `CORS_ORIGIN` on the
+   service to match the Vercel domain.

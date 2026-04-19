@@ -50,7 +50,7 @@ Group availability coordination tool. Go backend + Next.js frontend + Postgres.
 ## Deployment
 
 - **Frontend:** Vercel (auto-deploy from git)
-- **Backend:** Fly.io (deploy via `flyctl`, CI deploys on push to main)
+- **Backend:** Google Cloud Run (deploy via `gcloud`, CI deploys on push to main)
 - **Database:** Neon (managed Postgres)
 - Migrations run on boot — no separate migration step needed
 - See `docs/infra-notes.md` for first-time setup checklist
