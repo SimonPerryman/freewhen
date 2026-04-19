@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -18,6 +20,10 @@ type Config struct {
 }
 
 func Load() (*Config, error) {
+	if os.Getenv("ENV") != "prod" {
+		_ = godotenv.Load(".env.local", ".env")
+	}
+
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL environment variable is required")
@@ -35,7 +41,7 @@ func Load() (*Config, error) {
 
 	corsOrigin := os.Getenv("CORS_ORIGIN")
 	if corsOrigin == "" {
-		corsOrigin = "*"
+		corsOrigin = "http://localhost:3000"
 	}
 
 	return &Config{
