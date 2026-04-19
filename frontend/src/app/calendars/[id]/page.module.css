@@ -61,6 +61,55 @@
   font-size: 15px;
 }
 
+.errorPanel {
+  width: 100%;
+  max-width: 480px;
+  align-self: center;
+  text-align: center;
+  padding: 24px 8px;
+}
+
+.errorHeading {
+  margin: 0 0 8px;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  color: var(--text-primary);
+}
+
+.errorSub {
+  margin: 0 0 24px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.errorCta {
+  display: inline-block;
+  padding: 12px 16px;
+  font-size: 15px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--accent-text);
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.errorCta:hover {
+  background: var(--accent-hover);
+}
+
+@media (min-width: 640px) {
+  .errorHeading {
+    font-size: 28px;
+  }
+}
+
 .banner {
   display: flex;
   align-items: center;

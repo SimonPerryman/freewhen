@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import Link from "next/link";
 import { getCalendar, addParticipant, setAvailability, ApiError } from "@/lib/api";
 import type { CalendarWithDetails, Participant } from "@/lib/types";
 import CalendarGrid from "@/components/CalendarGrid/CalendarGrid";
@@ -10,6 +11,8 @@ import ShareButton from "@/components/ShareButton/ShareButton";
 import SummaryView from "@/components/SummaryView/SummaryView";
 import BestDay from "@/components/BestDay/BestDay";
 import styles from "./page.module.css";
+
+type LoadError = "not-found" | "load-failed";
 
 const STORAGE_PREFIX = "freewhen:";
 
@@ -43,7 +46,7 @@ function writeStorage(calendarId: string, data: StoredParticipant): void {
 export default function CalendarPageClient({ calendarId }: { calendarId: string }) {
   const [calendar, setCalendar] = useState<CalendarWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<LoadError | null>(null);
   const [currentParticipant, setCurrentParticipant] = useState<Participant | null>(null);
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
   const [saveError, setSaveError] = useState(false);
@@ -60,9 +63,16 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     participantIdRef.current = currentParticipant?.id ?? null;
   }, [currentParticipant]);
 
-  // Fetch calendar data on mount
+  // Fetch calendar data
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const retryLoad = useCallback(() => {
+    setLoadAttempt((n) => n + 1);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setError(null);
 
     async function load() {
       try {
@@ -92,9 +102,9 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
       } catch (err) {
         if (cancelled) return;
         if (err instanceof ApiError && err.status === 404) {
-          setError("Calendar not found");
+          setError("not-found");
         } else {
-          setError("Failed to load calendar");
+          setError("load-failed");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -105,7 +115,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     return () => {
       cancelled = true;
     };
-  }, [calendarId]);
+  }, [calendarId, loadAttempt]);
 
   // Serialized save logic
   const flushSave = useCallback(async () => {
@@ -227,10 +237,27 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   }
 
   if (error || !calendar) {
+    const kind: LoadError = error ?? "not-found";
+    const heading = kind === "not-found" ? "Calendar not found" : "Couldn't load this calendar";
+    const sub =
+      kind === "not-found"
+        ? "The link may be wrong or the calendar may have been removed."
+        : "Something went wrong on our end. Check your connection and try again.";
+
     return (
       <div className={styles.page}>
-        <div className={styles.container}>
-          <p className={styles.error}>{error ?? "Calendar not found"}</p>
+        <div className={styles.errorPanel}>
+          <h1 className={styles.errorHeading}>{heading}</h1>
+          <p className={styles.errorSub}>{sub}</p>
+          {kind === "not-found" ? (
+            <Link href="/" className={styles.errorCta}>
+              Back to home
+            </Link>
+          ) : (
+            <button type="button" className={styles.errorCta} onClick={retryLoad}>
+              Try again
+            </button>
+          )}
         </div>
       </div>
     );

@@ -245,6 +245,46 @@ describe("CalendarPageClient", () => {
     expect(screen.getByTestId("calendar-grid")).toBeInTheDocument();
   });
 
+  it("renders a friendly not-found panel with a home link on 404", async () => {
+    const { ApiError } = await import("@/lib/api");
+    mockGetCalendar.mockRejectedValue(new ApiError(404, "not found"));
+
+    render(<CalendarPageClient calendarId={CALENDAR_ID} />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: "Calendar not found" }),
+      ).toBeInTheDocument();
+    });
+
+    const cta = screen.getByRole("link", { name: "Back to home" });
+    expect(cta).toHaveAttribute("href", "/");
+  });
+
+  it("renders a retry panel on generic load failure and retries on click", async () => {
+    mockGetCalendar.mockRejectedValueOnce(new Error("network down"));
+
+    render(<CalendarPageClient calendarId={CALENDAR_ID} />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: "Couldn't load this calendar" }),
+      ).toBeInTheDocument();
+    });
+
+    // Second attempt succeeds
+    mockGetCalendar.mockResolvedValueOnce(makeCalendarData());
+
+    const retry = screen.getByRole("button", { name: "Try again" });
+    retry.click();
+
+    await waitFor(() => {
+      expect(screen.getByText("Team Meetup")).toBeInTheDocument();
+    });
+
+    expect(mockGetCalendar).toHaveBeenCalledTimes(2);
+  });
+
   it("join flow: duplicate name shows 'already taken' error", async () => {
     mockGetCalendar.mockResolvedValue(makeCalendarData());
 
