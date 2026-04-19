@@ -2,44 +2,59 @@
 
 ## Architecture
 
-Go backend + React (Next.js) frontend + Postgres. Two deployable pieces with clean separation.
+Go backend + Next.js frontend + Postgres. Two deployable pieces with clean separation.
 
-## Backend - Go
+## Backend — Go
 
 API server handling all business logic and data access.
 
-- Standard library `net/http` where possible, minimal dependencies
+- Standard library `net/http`, minimal dependencies
 - Single binary, cheap to run, easy to deploy
-- Connects to Postgres directly
+- Structured logging with `log/slog` (JSON in prod, text in dev)
+- Every response includes an `X-Request-ID` header
 
-## Frontend - Next.js (React)
+## Frontend — Next.js (React)
 
-The calendar UI. Chosen because we know React and the calendar interactions (colour segments, toggling days, visual overlap) will need fast iteration.
+App Router with TypeScript. Mobile-first calendar UI.
 
-## Database - Postgres
+- Node 24 LTS via `.nvmrc`, pnpm via Corepack
+- Bun is an optional speedup only (e.g. `bunx vitest`), not a runtime dependency
+- Lint with oxlint, format with oxfmt
 
-Hosted anywhere - Supabase, Neon, Railway, or a VPS. Decision deferred until deployment. All are just Postgres underneath, so portable.
+## Database — Postgres (Neon)
 
-### Schema (rough)
-
-- `calendars` - id, name, created_at
-- `participants` - id, calendar_id, name, colour
-- `availability` - participant_id, calendar_id, date
-
-## API - REST
-
-Simple RESTful API between frontend and backend:
-
-- `POST /calendars` - create a calendar
-- `GET /calendars/:id` - get calendar with participants and availability
-- `POST /calendars/:id/participants` - join a calendar
-- `PUT /calendars/:id/availability` - update your free days
+Managed Postgres on Neon (free tier). Connection via `DATABASE_URL` env var. Migrations are embedded in the Go binary and run on boot.
 
 ## Hosting
 
-TBD. Decide at deploy time. Options include Vercel (frontend) + Cloud Run (backend), or similar.
+| Layer | Provider | Notes |
+|-------|----------|-------|
+| Frontend | Vercel | Auto-deploy from git, free hobby tier |
+| Backend | Google Cloud Run | Scale-to-zero, deploy via CI on push to main |
+| Database | Neon | Managed Postgres, free tier, pooled connections |
 
-## Future Considerations
+## Auth
 
-- WebSockets for real-time updates (V2) - added alongside REST, not replacing it
-- Auth can be added in Go or via Supabase's built-in auth if we're on Supabase by then
+| Method | Provider | Status |
+|--------|----------|--------|
+| Google OAuth | Google Cloud OAuth | Implemented |
+| Email magic link | Resend | Planned |
+
+- Creator must sign in to create a calendar. Joiners stay anonymous.
+- Server-side sessions with HTTP-only cookies stored in Postgres (no JWTs).
+- Backend served on `api.` subdomain for same-site cookies.
+
+## Transactional Email — Resend
+
+Used for magic link authentication emails. 3,000 emails/month free tier.
+
+- Simple HTTP API, no SDK needed
+- Domain verification via DNS records
+
+## API Style
+
+RESTful JSON API. Snake_case wire format, frontend client converts to/from camelCase. See `docs/api.md` for endpoint reference.
+
+## CI
+
+GitHub Actions. Backend: `golangci-lint` + `go test`. Frontend: `oxlint` + `vitest`. Deploy to Cloud Run on push to main.

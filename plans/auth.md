@@ -158,7 +158,7 @@ All other endpoints (`GET /calendars/{id}`, `POST /calendars/{id}/participants`,
 
 ## Open Questions
 
-- **Email provider for magic links** — Resend? SES? Defer until we need it.
+- ~~**Email provider for magic links**~~ — Decided: **Resend** (3k/month free, simple HTTP API). See `plans/magic-link.md`.
 
 ## Log
 

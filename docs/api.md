@@ -2,27 +2,43 @@
 
 Base URL: `http://localhost:8080` (development)
 
-All endpoints return JSON with `Content-Type: application/json`. Every response includes an `X-Request-ID` header. CORS is enabled.
+All endpoints return JSON with `Content-Type: application/json`. Every response includes an `X-Request-ID` header. CORS is enabled with credentials support.
 
 Error responses use the shape: `{"error": "message"}`
 
 > The backend uses snake_case for JSON keys. The frontend API client converts to/from camelCase.
 
-## Endpoints
+## Authentication
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/calendars` | Create a calendar |
-| GET | `/calendars/{id}` | Get calendar with participants and availability |
-| POST | `/calendars/{id}/participants` | Join a calendar |
-| PUT | `/calendars/{id}/availability` | Update availability |
-| GET | `/health` | Health check |
+Session-based auth with HTTP-only cookies. Creator must sign in to create a calendar. Joiners stay anonymous.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/auth/google` | — | Redirect to Google OAuth. Accepts `?return_url=` |
+| GET | `/auth/google/callback` | — | Google OAuth callback, creates session, redirects |
+| GET | `/auth/me` | Session | Return current user or 401 |
+| POST | `/auth/logout` | Session | Delete session, clear cookie |
+
+## Calendars
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/calendars` | Required | Create a calendar (sets owner_id from session) |
+| GET | `/calendars/{id}` | — | Get calendar with participants and availability |
+| POST | `/calendars/{id}/participants` | — | Join a calendar |
+| PUT | `/calendars/{id}/availability` | — | Update availability |
+
+## Health
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/health` | — | Health check (200 ok / 503 unhealthy) |
 
 ---
 
 ### POST /calendars
 
-Create a new calendar.
+Create a new calendar. Requires authentication.
 
 **Request**
 
@@ -33,10 +49,10 @@ Create a new calendar.
 **Response 201**
 
 ```json
-{"id": "string", "name": "string", "created_at": "RFC3339"}
+{"id": "string", "name": "string", "owner_id": "string", "created_at": "RFC3339"}
 ```
 
-**Errors:** 400 (invalid JSON)
+**Errors:** 400 (invalid JSON) | 401 (not authenticated)
 
 ---
 
@@ -51,6 +67,7 @@ Get a calendar with all participants and their availability.
   "calendar": {
     "id": "string",
     "name": "string",
+    "owner_id": "string",
     "created_at": "RFC3339"
   },
   "participants": [
@@ -117,6 +134,44 @@ Replace a participant's available dates. Sending an empty `dates` array clears a
 ```
 
 **Errors:** 400 (participant_id required, invalid date) | 404 (participant not found)
+
+---
+
+### GET /auth/google
+
+Redirects to Google OAuth consent screen. Pass `?return_url=/path` to return the user to a specific page after sign-in.
+
+---
+
+### GET /auth/google/callback
+
+Handles the OAuth callback. Creates or finds the user, creates a session, sets an HTTP-only cookie, and redirects to the return URL encoded in the OAuth state.
+
+---
+
+### GET /auth/me
+
+Returns the current authenticated user.
+
+**Response 200**
+
+```json
+{"id": "string", "email": "string", "name": "string"}
+```
+
+**Errors:** 401 (no valid session)
+
+---
+
+### POST /auth/logout
+
+Deletes the session and clears the session cookie.
+
+**Response 200**
+
+```json
+{"ok": true}
+```
 
 ---
 
