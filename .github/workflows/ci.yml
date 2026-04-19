@@ -10,7 +10,7 @@ jobs:
   # Single job for lint + test + build. Not worth splitting into parallel jobs
   # yet — runner setup overhead (~30-60s each) exceeds the time saved while the
   # total pipeline is under a couple of minutes.
-  check:
+  ci:
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
@@ -51,7 +51,7 @@ jobs:
         run: make build-frontend
 
   deploy-backend:
-    needs: [check]
+    needs: [ci]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04-arm
     permissions:
