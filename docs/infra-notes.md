@@ -32,6 +32,29 @@ If GitHub Actions minutes become a bottleneck:
 | WarpBuild | Free credit then ~$0.003/min Linux |
 | GitHub native | Cut hosted-runner prices up to 39% on Jan 1 2026 — gap is narrower |
 
+## Configuration
+
+Backend env vars (all read once at startup in `internal/config/config.go`):
+
+| Var | Default | Notes |
+|-----|---------|-------|
+| `DATABASE_URL` | — | Required |
+| `PORT` | `8080` | |
+| `CORS_ORIGIN` | `http://localhost:3000` | |
+| `LOG_LEVEL` | `info` | `debug` \| `info` \| `warn` \| `error`. JSON to stdout always — pipe through `jq` locally if you want readability. |
+| `SECURE_COOKIES` | `true` | Set `false` for local HTTP dev. Prod / staging leave unset → defaults to secure. |
+
+Frontend env vars:
+
+| Var | Default | Notes |
+|-----|---------|-------|
+| `NEXT_PUBLIC_API_URL` | — | Backend base URL |
+| `NEXT_PUBLIC_LOG_LEVEL` | `info` | Same semantics as backend `LOG_LEVEL`. `NODE_ENV` is never read. |
+| `NEXT_PUBLIC_POSTHOG_KEY` | unset | If unset, analytics is a no-op. |
+| `NEXT_PUBLIC_POSTHOG_HOST` | unset | |
+
+The backend handles `SIGTERM`/`SIGINT` with a 25-second graceful shutdown — Cloud Run traffic drains cleanly on new revisions.
+
 ## Observability
 
 ### Admin metrics endpoint

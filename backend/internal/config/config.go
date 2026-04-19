@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -10,7 +11,8 @@ import (
 type Config struct {
 	DatabaseURL        string
 	Port               string
-	Env                string
+	LogLevel           slog.Level
+	SecureCookies      bool
 	CORSOrigin         string
 	GoogleClientID     string
 	GoogleClientSecret string
@@ -22,9 +24,7 @@ type Config struct {
 }
 
 func Load() (*Config, error) {
-	if os.Getenv("ENV") != "prod" {
-		_ = godotenv.Load(".env.local", ".env")
-	}
+	_ = godotenv.Load(".env.local", ".env")
 
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
@@ -36,20 +36,26 @@ func Load() (*Config, error) {
 		port = "8080"
 	}
 
-	env := os.Getenv("ENV")
-	if env == "" {
-		env = "dev"
-	}
-
 	corsOrigin := os.Getenv("CORS_ORIGIN")
 	if corsOrigin == "" {
 		corsOrigin = "http://localhost:3000"
 	}
 
+	level, err := parseLogLevel(os.Getenv("LOG_LEVEL"))
+	if err != nil {
+		return nil, err
+	}
+
+	secureCookies, err := parseBool(os.Getenv("SECURE_COOKIES"), true)
+	if err != nil {
+		return nil, fmt.Errorf("SECURE_COOKIES: %w", err)
+	}
+
 	return &Config{
 		DatabaseURL:        dbURL,
 		Port:               port,
-		Env:                env,
+		LogLevel:           level,
+		SecureCookies:      secureCookies,
 		CORSOrigin:         corsOrigin,
 		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
 		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
@@ -59,4 +65,32 @@ func Load() (*Config, error) {
 		ResendAPIKey:       os.Getenv("RESEND_API_KEY"),
 		MagicLinkFromEmail: os.Getenv("MAGIC_LINK_FROM_EMAIL"),
 	}, nil
+}
+
+func parseLogLevel(s string) (slog.Level, error) {
+	switch s {
+	case "", "info":
+		return slog.LevelInfo, nil
+	case "debug":
+		return slog.LevelDebug, nil
+	case "warn":
+		return slog.LevelWarn, nil
+	case "error":
+		return slog.LevelError, nil
+	default:
+		return 0, fmt.Errorf("LOG_LEVEL: invalid value %q (want debug|info|warn|error)", s)
+	}
+}
+
+func parseBool(s string, fallback bool) (bool, error) {
+	switch s {
+	case "":
+		return fallback, nil
+	case "true", "1":
+		return true, nil
+	case "false", "0":
+		return false, nil
+	default:
+		return false, fmt.Errorf("invalid value %q (want true|false)", s)
+	}
 }

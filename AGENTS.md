@@ -5,7 +5,7 @@ Group availability coordination tool. Go backend + Next.js frontend + Postgres.
 ## Principles
 
 - **Mobile first** — all UI must be designed for small screens first, then enhanced for larger viewports. Use min-width breakpoints, test on 375px as the baseline, and never ship a component that doesn't work on a phone.
-- **Config over environment detection** ([12-factor](https://12factor.net/config)) — branch on explicit env vars (e.g. `POSTHOG_KEY` set/unset, `ENV=production`), never on `NODE_ENV`. Dev/prod parity means the same code path runs everywhere; only config changes.
+- **Config over environment detection** ([12-factor](https://12factor.net/config)) — branch on explicit env vars (e.g. `POSTHOG_KEY` set/unset, `LOG_LEVEL=info`, `SECURE_COOKIES=false`), never on `NODE_ENV` or a generic `ENV=prod`/`ENV=dev` label. Dev/prod parity means the same code path runs everywhere; only config changes.
 
 ## Architecture
 
@@ -20,7 +20,7 @@ Group availability coordination tool. Go backend + Next.js frontend + Postgres.
 - **Node 24 LTS** via `.nvmrc` — engines pinned to `>=24 <25` in `package.json`
 - **pnpm** via Corepack — version pinned in `packageManager` field
 - **Bun** is an optional speedup only (e.g. `bunx vitest`), not a runtime or package manager dependency
-- Backend uses structured logging with `log/slog` (JSON in prod, text in dev)
+- Backend uses structured logging with `log/slog` (JSON to stdout everywhere; pipe through `jq` locally if you want pretty output)
 - Every response includes an `X-Request-ID` header
 
 ## Backend Conventions
@@ -30,7 +30,7 @@ Group availability coordination tool. Go backend + Next.js frontend + Postgres.
 - Models in `internal/model/`
 - Database queries in `internal/store/`
 - Server setup and routing in `internal/server/`
-- Config in `internal/config/` — env vars read once at startup (`DATABASE_URL`, `PORT`, `ENV`, `CORS_ORIGIN`)
+- Config in `internal/config/` — env vars read once at startup (`DATABASE_URL`, `PORT`, `CORS_ORIGIN`, `LOG_LEVEL`, `SECURE_COOKIES`)
 - SQL migrations embedded in `internal/store/migrations/` — run on boot via `store.Migrate()`
 - Health check: `GET /health` (200 ok / 503 unhealthy with DB ping)
 

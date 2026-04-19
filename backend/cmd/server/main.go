@@ -1,11 +1,16 @@
 package main
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	_ "github.com/lib/pq"
 
@@ -14,6 +19,8 @@ import (
 	"github.com/freewhen/backend/internal/store"
 )
 
+const shutdownTimeout = 25 * time.Second
+
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
@@ -21,36 +28,65 @@ func main() {
 		os.Exit(1)
 	}
 
-	var logger *slog.Logger
-	if cfg.Env == "dev" {
-		logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
-	} else {
-		logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	}
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel}))
 
 	db, err := sql.Open("postgres", cfg.DatabaseURL)
 	if err != nil {
 		logger.Error("failed to connect to database", "error", err)
 		os.Exit(1)
 	}
-	defer func() { _ = db.Close() }()
 
 	if err := db.Ping(); err != nil {
 		logger.Error("failed to ping database", "error", err)
+		_ = db.Close()
 		os.Exit(1)
 	}
 
 	if err := store.Migrate(db, logger); err != nil {
 		logger.Error("failed to run migrations", "error", err)
+		_ = db.Close()
 		os.Exit(1)
 	}
 
-	srv := server.New(db, logger, cfg)
+	srv := &http.Server{
+		Addr:              fmt.Sprintf(":%s", cfg.Port),
+		Handler:           server.New(db, logger, cfg),
+		ReadHeaderTimeout: 10 * time.Second,
+	}
 
-	addr := fmt.Sprintf(":%s", cfg.Port)
-	logger.Info("server listening", "addr", addr)
-	if err := http.ListenAndServe(addr, srv); err != nil {
-		logger.Error("server error", "error", err)
-		os.Exit(1)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	serverErr := make(chan error, 1)
+	go func() {
+		logger.Info("server listening", "addr", srv.Addr)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serverErr <- err
+		}
+		close(serverErr)
+	}()
+
+	select {
+	case err := <-serverErr:
+		if err != nil {
+			logger.Error("server error", "error", err)
+			_ = db.Close()
+			os.Exit(1)
+		}
+	case <-ctx.Done():
+		logger.Info("shutting down")
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		logger.Error("graceful shutdown failed", "error", err)
+	} else {
+		logger.Info("shutdown complete")
+	}
+
+	if err := db.Close(); err != nil {
+		logger.Error("failed to close database", "error", err)
 	}
 }

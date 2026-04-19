@@ -54,7 +54,6 @@ func setupTestServer(t *testing.T) *testServer {
 
 	cfg := &config.Config{
 		CORSOrigin: "*",
-		Env:        "dev",
 	}
 	ts := httptest.NewServer(server.New(db, logger, cfg))
 	t.Cleanup(ts.Close)

@@ -65,7 +65,7 @@ func NewAuth(s AuthStore, emailSender EmailSender, cfg *config.Config, logger *s
 		oauth:        oauthCfg,
 		frontendURL:  cfg.FrontendURL,
 		cookieDomain: cfg.CookieDomain,
-		secureCookie: cfg.Env != "dev",
+		secureCookie: cfg.SecureCookies,
 		logger:       logger,
 	}
 }
