@@ -15,12 +15,18 @@ import (
 
 	_ "github.com/lib/pq"
 
+	"github.com/freewhen/backend/internal/config"
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/server"
 	"github.com/freewhen/backend/internal/store"
 )
 
-func setupTestServer(t *testing.T) *httptest.Server {
+type testServer struct {
+	*httptest.Server
+	sessionToken string
+}
+
+func setupTestServer(t *testing.T) *testServer {
 	t.Helper()
 
 	dsn := os.Getenv("TEST_DATABASE_URL")
@@ -40,18 +46,43 @@ func setupTestServer(t *testing.T) *httptest.Server {
 		t.Fatalf("migrate: %v", err)
 	}
 
-	for _, table := range []string{"availability", "participants", "calendars"} {
+	for _, table := range []string{"availability", "participants", "sessions", "calendars", "users"} {
 		if _, err := db.Exec("DELETE FROM " + table); err != nil {
 			t.Fatalf("clean %s: %v", table, err)
 		}
 	}
 
-	ts := httptest.NewServer(server.New(db, logger, "*"))
+	cfg := &config.Config{
+		CORSOrigin: "*",
+		Env:        "dev",
+	}
+	ts := httptest.NewServer(server.New(db, logger, cfg))
 	t.Cleanup(ts.Close)
-	return ts
+
+	// Create a test user and session for authenticated requests
+	st := store.New(db)
+	ctx := t.Context()
+	user, err := st.CreateUser(ctx, "test@example.com", "Test User", "google", "test-sub")
+	if err != nil {
+		t.Fatalf("create test user: %v", err)
+	}
+	token, err := st.CreateSession(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("create test session: %v", err)
+	}
+
+	return &testServer{Server: ts, sessionToken: token}
 }
 
-func doJSON(t *testing.T, ts *httptest.Server, method, path string, body any) (*http.Response, []byte) {
+func doJSON(t *testing.T, ts *testServer, method, path string, body any) (*http.Response, []byte) {
+	return doJSONWithSession(t, ts, method, path, body, "")
+}
+
+func doJSONAuth(t *testing.T, ts *testServer, method, path string, body any) (*http.Response, []byte) {
+	return doJSONWithSession(t, ts, method, path, body, ts.sessionToken)
+}
+
+func doJSONWithSession(t *testing.T, ts *testServer, method, path string, body any, sessionToken string) (*http.Response, []byte) {
 	t.Helper()
 
 	var buf io.Reader
@@ -75,6 +106,9 @@ func doJSON(t *testing.T, ts *httptest.Server, method, path string, body any) (*
 		t.Fatalf("new request: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if sessionToken != "" {
+		req.AddCookie(&http.Cookie{Name: "session", Value: sessionToken})
+	}
 
 	resp, err := ts.Client().Do(req)
 	if err != nil {
@@ -100,7 +134,7 @@ func TestFullFlow(t *testing.T) {
 	ts := setupTestServer(t)
 
 	// 1. Create calendar
-	resp, body := doJSON(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "Weekend Trip"})
+	resp, body := doJSONAuth(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "Weekend Trip"})
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("create calendar: status %d, body %s", resp.StatusCode, body)
 	}
@@ -230,9 +264,18 @@ func assertDateSet(t *testing.T, who string, got map[string]bool, want []string)
 func TestCreateCalendar_BadJSON(t *testing.T) {
 	ts := setupTestServer(t)
 
-	resp, _ := doJSON(t, ts, http.MethodPost, "/calendars", "not json")
+	resp, _ := doJSONAuth(t, ts, http.MethodPost, "/calendars", "not json")
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestCreateCalendar_Unauthorized(t *testing.T) {
+	ts := setupTestServer(t)
+
+	resp, _ := doJSON(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "Test"})
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", resp.StatusCode)
 	}
 }
 
@@ -257,7 +300,7 @@ func TestAddParticipant_CalendarNotFound(t *testing.T) {
 func TestAddParticipant_EmptyName(t *testing.T) {
 	ts := setupTestServer(t)
 
-	resp, body := doJSON(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "Test"})
+	resp, body := doJSONAuth(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "Test"})
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("create calendar: %d %s", resp.StatusCode, body)
 	}
@@ -273,7 +316,7 @@ func TestAddParticipant_EmptyName(t *testing.T) {
 func TestAddParticipant_DuplicateName(t *testing.T) {
 	ts := setupTestServer(t)
 
-	resp, body := doJSON(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "Test"})
+	resp, body := doJSONAuth(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "Test"})
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("create calendar: %d %s", resp.StatusCode, body)
 	}
@@ -295,7 +338,7 @@ func TestSetAvailability_ParticipantWrongCalendar(t *testing.T) {
 	ts := setupTestServer(t)
 
 	// Calendar A
-	_, body := doJSON(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "A"})
+	_, body := doJSONAuth(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "A"})
 	var calA model.Calendar
 	decodeJSON(t, body, &calA)
 
@@ -305,7 +348,7 @@ func TestSetAvailability_ParticipantWrongCalendar(t *testing.T) {
 	decodeJSON(t, body, &alice)
 
 	// Calendar B
-	_, body = doJSON(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "B"})
+	_, body = doJSONAuth(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "B"})
 	var calB model.Calendar
 	decodeJSON(t, body, &calB)
 
@@ -322,7 +365,7 @@ func TestSetAvailability_ParticipantWrongCalendar(t *testing.T) {
 func TestSetAvailability_InvalidDate(t *testing.T) {
 	ts := setupTestServer(t)
 
-	_, body := doJSON(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "Test"})
+	_, body := doJSONAuth(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "Test"})
 	var cal model.Calendar
 	decodeJSON(t, body, &cal)
 
@@ -342,7 +385,7 @@ func TestSetAvailability_InvalidDate(t *testing.T) {
 func TestSetAvailability_EmptyParticipantID(t *testing.T) {
 	ts := setupTestServer(t)
 
-	_, body := doJSON(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "Test"})
+	_, body := doJSONAuth(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "Test"})
 	var cal model.Calendar
 	decodeJSON(t, body, &cal)
 

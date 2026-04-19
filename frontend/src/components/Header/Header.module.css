@@ -1,0 +1,91 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: transparent;
+}
+
+@media (min-width: 640px) {
+  .header {
+    padding: 16px 24px;
+  }
+}
+
+.logo {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+  letter-spacing: -0.5px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+}
+
+.userArea {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.userName {
+  font-size: 13px;
+  color: var(--text-secondary);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 400px) {
+  .userName {
+    display: none;
+  }
+}
+
+.signOutButton {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.signOutButton:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+.signOutButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.signInLink {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent-text);
+  background: var(--accent);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  transition:
+    background 0.15s,
+    box-shadow 0.15s;
+}
+
+.signInLink:hover {
+  background: var(--accent-hover);
+  box-shadow: var(--shadow-sm);
+}

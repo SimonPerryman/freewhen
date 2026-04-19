@@ -26,6 +26,7 @@ describe("createCalendar", () => {
 
     expect(mockFetch).toHaveBeenCalledWith("http://localhost:8080/calendars", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: "Trip" }),
     });
@@ -60,6 +61,7 @@ describe("getCalendar", () => {
     const result = await getCalendar("abc");
 
     expect(mockFetch).toHaveBeenCalledWith("http://localhost:8080/calendars/abc", {
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
     });
     expect(result.calendar.createdAt).toBe("2026-01-01T00:00:00Z");
@@ -87,6 +89,7 @@ describe("addParticipant", () => {
 
     expect(mockFetch).toHaveBeenCalledWith("http://localhost:8080/calendars/abc/participants", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: "Alice" }),
     });
@@ -119,6 +122,7 @@ describe("setAvailability", () => {
 
     expect(mockFetch).toHaveBeenCalledWith("http://localhost:8080/calendars/abc/availability", {
       method: "PUT",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         participant_id: "p1",

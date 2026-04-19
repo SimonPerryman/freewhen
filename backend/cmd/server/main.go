@@ -45,7 +45,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	srv := server.New(db, logger, cfg.CORSOrigin)
+	srv := server.New(db, logger, cfg)
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	logger.Info("server listening", "addr", addr)

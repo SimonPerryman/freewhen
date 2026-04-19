@@ -11,6 +11,12 @@ import (
 func (h *Handler) CreateCalendar(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
+	user := UserFromContext(r)
+	if user == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
 	var req struct {
 		Name string `json:"name"`
 	}
@@ -19,7 +25,7 @@ func (h *Handler) CreateCalendar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cal, err := h.service.CreateCalendar(r.Context(), req.Name)
+	cal, err := h.service.CreateCalendar(r.Context(), req.Name, user.ID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create calendar")
 		return

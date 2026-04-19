@@ -9,16 +9,16 @@ import (
 	"github.com/freewhen/backend/internal/model"
 )
 
-func (s *Store) CreateCalendar(ctx context.Context, name, emoji string) (model.Calendar, error) {
+func (s *Store) CreateCalendar(ctx context.Context, name, emoji, ownerID string) (model.Calendar, error) {
 	const maxRetries = 3
 	for i := 0; i < maxRetries; i++ {
 		id := generateID(8)
 		var cal model.Calendar
 		var emojiCol sql.NullString
 		err := s.db.QueryRowContext(ctx,
-			`INSERT INTO calendars (id, name, emoji) VALUES ($1, $2, $3) RETURNING id, name, emoji, created_at`,
-			id, name, nullableString(emoji),
-		).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.CreatedAt)
+			`INSERT INTO calendars (id, name, emoji, owner_id) VALUES ($1, $2, $3, $4) RETURNING id, name, emoji, owner_id, created_at`,
+			id, name, nullableString(emoji), ownerID,
+		).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.CreatedAt)
 		if err != nil {
 			if isUniqueViolation(err) {
 				continue
@@ -42,8 +42,8 @@ func (s *Store) GetCalendar(ctx context.Context, id string) (model.CalendarWithD
 	var cal model.Calendar
 	var emojiCol sql.NullString
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, name, emoji, created_at FROM calendars WHERE id = $1`, id,
-	).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.CreatedAt)
+		`SELECT id, name, emoji, owner_id, created_at FROM calendars WHERE id = $1`, id,
+	).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.CalendarWithDetails{}, ErrNotFound

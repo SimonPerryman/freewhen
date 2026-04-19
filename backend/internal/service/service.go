@@ -9,7 +9,7 @@ import (
 
 // Store defines the data operations the service needs.
 type Store interface {
-	CreateCalendar(ctx context.Context, name, emoji string) (model.Calendar, error)
+	CreateCalendar(ctx context.Context, name, emoji, ownerID string) (model.Calendar, error)
 	GetCalendar(ctx context.Context, id string) (model.CalendarWithDetails, error)
 	AddParticipant(ctx context.Context, calendarID, name string) (model.Participant, error)
 	GetParticipant(ctx context.Context, id string) (model.Participant, error)
@@ -24,8 +24,8 @@ func New(s Store) *Service {
 	return &Service{store: s}
 }
 
-func (s *Service) CreateCalendar(ctx context.Context, name string) (model.Calendar, error) {
-	return s.store.CreateCalendar(ctx, name, pickRandomEmoji())
+func (s *Service) CreateCalendar(ctx context.Context, name, ownerID string) (model.Calendar, error) {
+	return s.store.CreateCalendar(ctx, name, pickRandomEmoji(), ownerID)
 }
 
 func (s *Service) GetCalendar(ctx context.Context, id string) (model.CalendarWithDetails, error) {

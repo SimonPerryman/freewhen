@@ -16,14 +16,14 @@ import (
 
 // mockService implements CalendarService for testing.
 type mockService struct {
-	createCalendar  func(ctx context.Context, name string) (model.Calendar, error)
+	createCalendar  func(ctx context.Context, name, ownerID string) (model.Calendar, error)
 	getCalendar     func(ctx context.Context, id string) (model.CalendarWithDetails, error)
 	addParticipant  func(ctx context.Context, calendarID, name string) (model.Participant, error)
 	setAvailability func(ctx context.Context, calendarID, participantID string, dates []string) error
 }
 
-func (m *mockService) CreateCalendar(ctx context.Context, name string) (model.Calendar, error) {
-	return m.createCalendar(ctx, name)
+func (m *mockService) CreateCalendar(ctx context.Context, name, ownerID string) (model.Calendar, error) {
+	return m.createCalendar(ctx, name, ownerID)
 }
 
 func (m *mockService) GetCalendar(ctx context.Context, id string) (model.CalendarWithDetails, error) {
@@ -56,18 +56,28 @@ func decodeJSON(t *testing.T, rec *httptest.ResponseRecorder, v any) {
 
 // --- CreateCalendar tests ---
 
+func withUser(r *http.Request, u *model.User) *http.Request {
+	ctx := context.WithValue(r.Context(), UserContextKey, u)
+	return r.WithContext(ctx)
+}
+
+var testUser = &model.User{ID: "u1", Email: "test@example.com", Name: "Test"}
+
 func TestCreateCalendar_Valid(t *testing.T) {
-	cal := model.Calendar{ID: "abc12345", Name: "Trip", CreatedAt: time.Now()}
+	cal := model.Calendar{ID: "abc12345", Name: "Trip", OwnerID: "u1", CreatedAt: time.Now()}
 	h := New(&mockService{
-		createCalendar: func(_ context.Context, name string) (model.Calendar, error) {
+		createCalendar: func(_ context.Context, name, ownerID string) (model.Calendar, error) {
 			if name != "Trip" {
 				t.Fatalf("expected name %q, got %q", "Trip", name)
+			}
+			if ownerID != "u1" {
+				t.Fatalf("expected ownerID %q, got %q", "u1", ownerID)
 			}
 			return cal, nil
 		},
 	})
 
-	req := httptest.NewRequest(http.MethodPost, "/calendars", jsonBody(t, map[string]string{"name": "Trip"}))
+	req := withUser(httptest.NewRequest(http.MethodPost, "/calendars", jsonBody(t, map[string]string{"name": "Trip"})), testUser)
 	rec := httptest.NewRecorder()
 	h.CreateCalendar(rec, req)
 
@@ -82,9 +92,20 @@ func TestCreateCalendar_Valid(t *testing.T) {
 	}
 }
 
+func TestCreateCalendar_Unauthorized(t *testing.T) {
+	h := New(&mockService{})
+	req := httptest.NewRequest(http.MethodPost, "/calendars", jsonBody(t, map[string]string{"name": "Trip"}))
+	rec := httptest.NewRecorder()
+	h.CreateCalendar(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
 func TestCreateCalendar_MalformedJSON(t *testing.T) {
 	h := New(&mockService{})
-	req := httptest.NewRequest(http.MethodPost, "/calendars", bytes.NewReader([]byte("{bad")))
+	req := withUser(httptest.NewRequest(http.MethodPost, "/calendars", bytes.NewReader([]byte("{bad"))), testUser)
 	rec := httptest.NewRecorder()
 	h.CreateCalendar(rec, req)
 
@@ -95,11 +116,11 @@ func TestCreateCalendar_MalformedJSON(t *testing.T) {
 
 func TestCreateCalendar_ServiceError(t *testing.T) {
 	h := New(&mockService{
-		createCalendar: func(_ context.Context, _ string) (model.Calendar, error) {
+		createCalendar: func(_ context.Context, _, _ string) (model.Calendar, error) {
 			return model.Calendar{}, fmt.Errorf("db down")
 		},
 	})
-	req := httptest.NewRequest(http.MethodPost, "/calendars", jsonBody(t, map[string]string{"name": "X"}))
+	req := withUser(httptest.NewRequest(http.MethodPost, "/calendars", jsonBody(t, map[string]string{"name": "X"})), testUser)
 	rec := httptest.NewRecorder()
 	h.CreateCalendar(rec, req)
 

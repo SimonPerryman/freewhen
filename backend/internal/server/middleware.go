@@ -6,6 +6,9 @@ import (
 	"encoding/hex"
 	"net/http"
 	"time"
+
+	"github.com/freewhen/backend/internal/handler"
+	"github.com/freewhen/backend/internal/model"
 )
 
 type contextKey string
@@ -31,6 +34,7 @@ func (s *Server) cors(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Origin", s.corsOrigin)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
@@ -39,6 +43,51 @@ func (s *Server) cors(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+// requireAuth returns 401 if no valid session cookie is present.
+func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := s.authenticateRequest(r)
+		if user == nil {
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+		ctx := context.WithValue(r.Context(), handler.UserContextKey, user)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	}
+}
+
+// optionalAuth attaches the user to context if a valid session exists, continues either way.
+func (s *Server) optionalAuth(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := s.authenticateRequest(r)
+		if user != nil {
+			ctx := context.WithValue(r.Context(), handler.UserContextKey, user)
+			r = r.WithContext(ctx)
+		}
+		next.ServeHTTP(w, r)
+	}
+}
+
+func (s *Server) authenticateRequest(r *http.Request) *model.User {
+	cookie, err := r.Cookie("session")
+	if err != nil {
+		return nil
+	}
+	sess, err := s.store.GetSession(r.Context(), cookie.Value)
+	if err != nil || sess == nil {
+		return nil
+	}
+	user, err := s.store.GetUser(r.Context(), sess.UserID)
+	if err != nil {
+		return nil
+	}
+	// Refresh session expiry in the background
+	go func() {
+		_ = s.store.RefreshSession(context.Background(), sess.Token)
+	}()
+	return &user
 }
 
 func (s *Server) requestLog(next http.Handler) http.Handler {

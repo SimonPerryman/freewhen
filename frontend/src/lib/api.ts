@@ -5,6 +5,7 @@ import type {
   CreateCalendarRequest,
   Participant,
   SetAvailabilityRequest,
+  User,
 } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
@@ -52,6 +53,7 @@ function toCamelCaseKeys<T>(obj: unknown): T {
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {
     ...options,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...options.headers,
@@ -96,4 +98,16 @@ export async function setAvailability(
     method: "PUT",
     body: JSON.stringify(toSnakeCaseKeys(req)),
   });
+}
+
+export async function getMe(): Promise<User> {
+  return request<User>("/auth/me");
+}
+
+export async function logout(): Promise<void> {
+  await request("/auth/logout", { method: "POST" });
+}
+
+export function getGoogleLoginUrl(returnUrl: string = "/"): string {
+  return `${BASE_URL}/auth/google?return_url=${encodeURIComponent(returnUrl)}`;
 }

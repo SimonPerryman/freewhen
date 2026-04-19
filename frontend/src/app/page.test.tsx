@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 const pushMock = vi.fn();
 const createCalendarMock = vi.fn();
+const getMeMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
@@ -14,25 +15,40 @@ vi.mock("@/lib/api", async () => {
   return {
     ...actual,
     createCalendar: (...args: unknown[]) => createCalendarMock(...args),
+    getMe: () => getMeMock(),
   };
 });
 
 import Home from "./page";
+import AuthProvider from "@/components/AuthProvider/AuthProvider";
 
 beforeEach(() => {
   pushMock.mockReset();
   createCalendarMock.mockReset();
+  getMeMock.mockReset();
 });
 
+function renderWithAuth() {
+  return render(
+    <AuthProvider>
+      <Home />
+    </AuthProvider>,
+  );
+}
+
 describe("Home (calendar creation page)", () => {
-  it("renders the form", () => {
-    render(<Home />);
+  it("renders the form", async () => {
+    getMeMock.mockResolvedValue({ id: "u1", email: "test@example.com", name: "Test" });
+    renderWithAuth();
     expect(screen.getByRole("heading", { name: /freewhen/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/event name/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /create calendar/i })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /create calendar/i })).toBeInTheDocument();
+    });
   });
 
   it("submits with trimmed name and navigates on success", async () => {
+    getMeMock.mockResolvedValue({ id: "u1", email: "test@example.com", name: "Test" });
     createCalendarMock.mockResolvedValue({
       id: "abc123",
       name: "Trip",
@@ -40,7 +56,11 @@ describe("Home (calendar creation page)", () => {
     });
 
     const user = userEvent.setup();
-    render(<Home />);
+    renderWithAuth();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /create calendar/i })).toBeInTheDocument();
+    });
 
     await user.type(screen.getByLabelText(/event name/i), "  Trip  ");
     await user.click(screen.getByRole("button", { name: /create calendar/i }));
@@ -52,16 +72,37 @@ describe("Home (calendar creation page)", () => {
   });
 
   it("renders API error message on failure", async () => {
+    getMeMock.mockResolvedValue({ id: "u1", email: "test@example.com", name: "Test" });
     const { ApiError } = await import("@/lib/api");
     createCalendarMock.mockRejectedValue(new ApiError(500, "boom"));
 
     const user = userEvent.setup();
-    render(<Home />);
+    renderWithAuth();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /create calendar/i })).toBeInTheDocument();
+    });
 
     await user.click(screen.getByRole("button", { name: /create calendar/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("boom");
     expect(pushMock).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: /create calendar/i })).toBeEnabled();
+  });
+
+  it("redirects to login when not authenticated", async () => {
+    const { ApiError } = await import("@/lib/api");
+    getMeMock.mockRejectedValue(new ApiError(401, "not authenticated"));
+
+    const user = userEvent.setup();
+    renderWithAuth();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /sign in to create/i })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /sign in to create/i }));
+
+    expect(pushMock).toHaveBeenCalledWith("/login?return_url=%2F");
   });
 });

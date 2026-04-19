@@ -6,6 +6,7 @@ type Calendar struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
 	Emoji     string    `json:"emoji,omitempty"`
+	OwnerID   string    `json:"owner_id"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -26,4 +27,20 @@ type CalendarWithDetails struct {
 	Calendar     Calendar       `json:"calendar"`
 	Participants []Participant  `json:"participants"`
 	Availability []Availability `json:"availability"`
+}
+
+type User struct {
+	ID         string    `json:"id"`
+	Email      string    `json:"email"`
+	Name       string    `json:"name"`
+	Provider   string    `json:"-"`
+	ProviderID string    `json:"-"`
+	CreatedAt  time.Time `json:"-"`
+}
+
+type Session struct {
+	Token     string
+	UserID    string
+	ExpiresAt time.Time
+	CreatedAt time.Time
 }
