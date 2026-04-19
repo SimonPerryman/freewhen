@@ -172,7 +172,7 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusInternalServerError, "authentication failed")
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var info googleUserInfo
 	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {

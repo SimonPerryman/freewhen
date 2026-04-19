@@ -15,10 +15,10 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 	if err := s.db.PingContext(ctx); err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		json.NewEncoder(w).Encode(map[string]string{"status": "unhealthy"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "unhealthy"})
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }

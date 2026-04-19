@@ -60,7 +60,7 @@ func (s *Sender) SendMagicLink(to, link string) error {
 	if err != nil {
 		return fmt.Errorf("send email: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("resend API returned status %d", resp.StatusCode)

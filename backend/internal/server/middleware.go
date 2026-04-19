@@ -58,18 +58,6 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// optionalAuth attaches the user to context if a valid session exists, continues either way.
-func (s *Server) optionalAuth(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		user := s.authenticateRequest(r)
-		if user != nil {
-			ctx := context.WithValue(r.Context(), handler.UserContextKey, user)
-			r = r.WithContext(ctx)
-		}
-		next.ServeHTTP(w, r)
-	}
-}
-
 func (s *Server) authenticateRequest(r *http.Request) *model.User {
 	cookie, err := r.Cookie("session")
 	if err != nil {

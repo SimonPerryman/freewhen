@@ -18,7 +18,7 @@ func (s *Store) SetAvailability(ctx context.Context, participantID string, dates
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	if _, err := tx.ExecContext(ctx,
 		`DELETE FROM availability WHERE participant_id = $1`, participantID,

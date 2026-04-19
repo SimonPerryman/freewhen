@@ -7,8 +7,10 @@ import (
 	"github.com/freewhen/backend/internal/model"
 )
 
+type contextKey struct{}
+
 // UserContextKey is used by the auth middleware to attach the user to the request context.
-var UserContextKey = struct{}{}
+var UserContextKey = contextKey{}
 
 // CalendarService defines the operations the handler needs from the service layer.
 type CalendarService interface {

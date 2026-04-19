@@ -76,7 +76,7 @@ func (s *Store) getParticipants(ctx context.Context, calendarID string) ([]model
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	participants := []model.Participant{}
 	for rows.Next() {
@@ -96,7 +96,7 @@ func (s *Store) getAvailability(ctx context.Context, calendarID string) ([]model
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	availability := []model.Availability{}
 	for rows.Next() {
