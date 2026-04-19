@@ -28,10 +28,18 @@ type AuthStore interface {
 	CreateSession(ctx context.Context, userID string) (string, error)
 	GetSession(ctx context.Context, token string) (*model.Session, error)
 	DeleteSession(ctx context.Context, token string) error
+	CreateMagicLinkToken(ctx context.Context, email, returnURL string) (string, error)
+	VerifyMagicLinkToken(ctx context.Context, plainToken string) (email, returnURL string, err error)
+}
+
+// EmailSender sends transactional emails.
+type EmailSender interface {
+	SendMagicLink(to, link string) error
 }
 
 type AuthHandler struct {
 	store        AuthStore
+	email        EmailSender
 	oauth        *oauth2.Config
 	frontendURL  string
 	cookieDomain string
@@ -39,7 +47,7 @@ type AuthHandler struct {
 	logger       *slog.Logger
 }
 
-func NewAuth(s AuthStore, cfg *config.Config, logger *slog.Logger) *AuthHandler {
+func NewAuth(s AuthStore, emailSender EmailSender, cfg *config.Config, logger *slog.Logger) *AuthHandler {
 	var oauthCfg *oauth2.Config
 	if cfg.GoogleClientID != "" {
 		oauthCfg = &oauth2.Config{
@@ -53,6 +61,7 @@ func NewAuth(s AuthStore, cfg *config.Config, logger *slog.Logger) *AuthHandler 
 
 	return &AuthHandler{
 		store:        s,
+		email:        emailSender,
 		oauth:        oauthCfg,
 		frontendURL:  cfg.FrontendURL,
 		cookieDomain: cfg.CookieDomain,
@@ -242,6 +251,103 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]string{"ok": "true"})
 }
 
+// magicLinkRequest is the JSON body for POST /auth/magic-link.
+type magicLinkRequest struct {
+	Email     string `json:"email"`
+	ReturnURL string `json:"return_url"`
+}
+
+// SendMagicLink generates a magic link token and emails it to the user.
+func (h *AuthHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
+	if h.email == nil {
+		respondError(w, http.StatusServiceUnavailable, "magic link not configured")
+		return
+	}
+
+	var req magicLinkRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if !isValidEmail(req.Email) {
+		respondError(w, http.StatusBadRequest, "invalid email address")
+		return
+	}
+
+	returnURL := req.ReturnURL
+	if !isRelativePath(returnURL) {
+		returnURL = "/"
+	}
+
+	token, err := h.store.CreateMagicLinkToken(r.Context(), req.Email, returnURL)
+	if err != nil {
+		h.logger.Error("failed to create magic link token", "error", err)
+		// Always return 200 — don't leak whether the email exists or not
+	}
+
+	if token != "" {
+		link := fmt.Sprintf("%s/auth/magic-link/callback?token=%s", h.frontendURL, token)
+		if err := h.email.SendMagicLink(req.Email, link); err != nil {
+			h.logger.Error("failed to send magic link email", "error", err, "email", req.Email)
+		}
+	}
+
+	// Always return success — don't leak whether the email was sent
+	respondJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// MagicLinkCallback verifies the magic link token, creates/finds the user,
+// creates a session, and redirects to the return URL.
+func (h *AuthHandler) MagicLinkCallback(w http.ResponseWriter, r *http.Request) {
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		respondError(w, http.StatusBadRequest, "missing token")
+		return
+	}
+
+	email, returnURL, err := h.store.VerifyMagicLinkToken(r.Context(), token)
+	if err != nil {
+		h.logger.Error("magic link verification failed", "error", err)
+		respondError(w, http.StatusBadRequest, "invalid or expired link")
+		return
+	}
+
+	// Create or find user with provider "email"
+	user, err := h.findOrCreateEmailUser(r.Context(), email)
+	if err != nil {
+		h.logger.Error("failed to find or create user", "error", err)
+		respondError(w, http.StatusInternalServerError, "authentication failed")
+		return
+	}
+
+	sessionToken, err := h.store.CreateSession(r.Context(), user.ID)
+	if err != nil {
+		h.logger.Error("failed to create session", "error", err)
+		respondError(w, http.StatusInternalServerError, "authentication failed")
+		return
+	}
+
+	h.setSessionCookie(w, sessionToken)
+
+	if !isRelativePath(returnURL) {
+		returnURL = "/"
+	}
+	http.Redirect(w, r, h.frontendURL+returnURL, http.StatusTemporaryRedirect)
+}
+
+func (h *AuthHandler) findOrCreateEmailUser(ctx context.Context, emailAddr string) (model.User, error) {
+	user, err := h.store.FindUserByEmail(ctx, emailAddr)
+	if err == nil {
+		return user, nil
+	}
+	if !errors.Is(err, store.ErrNotFound) {
+		return model.User{}, fmt.Errorf("find user by email: %w", err)
+	}
+
+	return h.store.CreateUser(ctx, emailAddr, "", "email", "")
+}
+
 func (h *AuthHandler) findOrCreateUser(ctx context.Context, info googleUserInfo) (model.User, error) {
 	// Try to find by provider ID first
 	user, err := h.store.FindUserByProviderID(ctx, "google", info.Sub)
@@ -293,5 +399,17 @@ func isRelativePath(s string) bool {
 		return false
 	}
 	return strings.HasPrefix(s, "/") && !strings.HasPrefix(s, "//")
+}
+
+// isValidEmail does a basic check that the string looks like an email address.
+func isValidEmail(email string) bool {
+	if len(email) < 3 || len(email) > 254 {
+		return false
+	}
+	at := strings.LastIndex(email, "@")
+	if at < 1 || at >= len(email)-1 {
+		return false
+	}
+	return strings.Contains(email[at+1:], ".")
 }
 

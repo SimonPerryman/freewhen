@@ -17,6 +17,8 @@ type Config struct {
 	GoogleRedirectURL  string
 	FrontendURL        string
 	CookieDomain       string
+	ResendAPIKey       string
+	MagicLinkFromEmail string
 }
 
 func Load() (*Config, error) {
@@ -54,5 +56,7 @@ func Load() (*Config, error) {
 		GoogleRedirectURL:  os.Getenv("GOOGLE_REDIRECT_URL"),
 		FrontendURL:        os.Getenv("FRONTEND_URL"),
 		CookieDomain:       os.Getenv("COOKIE_DOMAIN"),
+		ResendAPIKey:       os.Getenv("RESEND_API_KEY"),
+		MagicLinkFromEmail: os.Getenv("MAGIC_LINK_FROM_EMAIL"),
 	}, nil
 }

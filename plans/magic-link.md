@@ -1,6 +1,6 @@
 # Magic Link Authentication
 
-Status: pending
+Status: done
 
 ## Goal
 
@@ -89,3 +89,4 @@ CREATE INDEX idx_magic_link_tokens_expires_at ON magic_link_tokens(expires_at);
 ## Log
 
 - 2026-04-19 — Created plan. Chose Resend for email delivery (3k/month free, simple API).
+- 2026-04-19 — Implemented all phases. Migration 004_add_magic_link_tokens.sql. Store: magic_link.go (create with SHA-256 hash, verify + delete atomically, cleanup). Email: internal/email/resend.go (simple HTTP POST to Resend API). Config: added RESEND_API_KEY and MAGIC_LINK_FROM_EMAIL env vars. Handler: POST /auth/magic-link (always returns 200 to avoid leaking email existence), GET /auth/magic-link/callback (verify token, create/find user, create session, redirect). Frontend: login page updated with email input + "Send magic link" button, check-email confirmation page, magic-link callback page (redirects to backend). All tests pass.

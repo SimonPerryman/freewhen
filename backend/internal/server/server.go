@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/freewhen/backend/internal/config"
+	"github.com/freewhen/backend/internal/email"
 	"github.com/freewhen/backend/internal/handler"
 	"github.com/freewhen/backend/internal/service"
 	"github.com/freewhen/backend/internal/store"
@@ -26,7 +27,12 @@ func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 	st := store.New(db)
 	svc := service.New(st)
 	h := handler.New(svc)
-	ah := handler.NewAuth(st, cfg, logger)
+
+	var emailSender handler.EmailSender
+	if cfg.ResendAPIKey != "" {
+		emailSender = email.NewSender(cfg.ResendAPIKey, cfg.MagicLinkFromEmail)
+	}
+	ah := handler.NewAuth(st, emailSender, cfg, logger)
 
 	srv := &Server{
 		handler:    h,
@@ -50,6 +56,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /auth/google/callback", s.auth.GoogleCallback)
 	s.mux.HandleFunc("GET /auth/me", s.auth.Me)
 	s.mux.HandleFunc("POST /auth/logout", s.auth.Logout)
+	s.mux.HandleFunc("POST /auth/magic-link", s.auth.SendMagicLink)
+	s.mux.HandleFunc("GET /auth/magic-link/callback", s.auth.MagicLinkCallback)
 
 	// Calendar routes — POST requires auth
 	s.mux.HandleFunc("POST /calendars", s.requireAuth(s.handler.CreateCalendar))

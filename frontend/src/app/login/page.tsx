@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getGoogleLoginUrl } from "@/lib/api";
+import { getGoogleLoginUrl, sendMagicLink, ApiError } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider/AuthProvider";
 import styles from "./page.module.css";
 
@@ -20,6 +20,10 @@ function LoginContent() {
   const { user, checkAuth } = useAuth();
   const returnUrl = searchParams.get("return_url") ?? "/";
 
+  const [email, setEmail] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+
   useEffect(() => {
     checkAuth().then((u) => {
       if (u) router.replace(returnUrl);
@@ -27,6 +31,24 @@ function LoginContent() {
   }, [checkAuth, router, returnUrl]);
 
   if (user) return null;
+
+  async function handleEmailSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setSending(true);
+
+    try {
+      await sendMagicLink(email, returnUrl);
+      router.push(`/login/check-email?email=${encodeURIComponent(email)}`);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
+      setSending(false);
+    }
+  }
 
   return (
     <div className={styles.page}>
@@ -57,6 +79,26 @@ function LoginContent() {
           </svg>
           Continue with Google
         </a>
+
+        <div className={styles.divider}>
+          <span className={styles.dividerText}>or</span>
+        </div>
+
+        <form onSubmit={handleEmailSubmit} className={styles.emailForm}>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            className={styles.emailInput}
+            required
+            disabled={sending}
+          />
+          <button type="submit" className={styles.emailButton} disabled={sending || !email}>
+            {sending ? "Sending..." : "Send magic link"}
+          </button>
+          {error && <p className={styles.error}>{error}</p>}
+        </form>
       </main>
     </div>
   );

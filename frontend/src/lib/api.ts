@@ -108,6 +108,17 @@ export async function logout(): Promise<void> {
   await request("/auth/logout", { method: "POST" });
 }
 
+export async function sendMagicLink(email: string, returnUrl: string = "/"): Promise<void> {
+  await request("/auth/magic-link", {
+    method: "POST",
+    body: JSON.stringify({ email, return_url: returnUrl }),
+  });
+}
+
 export function getGoogleLoginUrl(returnUrl: string = "/"): string {
   return `${BASE_URL}/auth/google?return_url=${encodeURIComponent(returnUrl)}`;
+}
+
+export function getMagicLinkCallbackUrl(token: string): string {
+  return `${BASE_URL}/auth/magic-link/callback?token=${encodeURIComponent(token)}`;
 }
