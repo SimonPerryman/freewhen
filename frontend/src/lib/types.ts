@@ -4,6 +4,8 @@ export interface Calendar {
   emoji?: string;
   ownerId: string;
   createdAt: string;
+  finalisedDate?: string;
+  finalisedAt?: string;
 }
 
 export interface Participant {

@@ -23,6 +23,21 @@ var colourPalette = []string{
 }
 
 func (s *Store) AddParticipant(ctx context.Context, calendarID, name string) (model.Participant, error) {
+	var exists bool
+	var finalisedDate sql.NullString
+	err := s.db.QueryRowContext(ctx,
+		`SELECT TRUE, finalised_date::text FROM calendars WHERE id = $1`, calendarID,
+	).Scan(&exists, &finalisedDate)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.Participant{}, ErrNotFound
+		}
+		return model.Participant{}, fmt.Errorf("look up calendar: %w", err)
+	}
+	if finalisedDate.Valid {
+		return model.Participant{}, ErrCalendarFinalised
+	}
+
 	count, err := s.participantCount(ctx, calendarID)
 	if err != nil {
 		return model.Participant{}, fmt.Errorf("count participants: %w", err)

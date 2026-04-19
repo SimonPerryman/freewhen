@@ -2,16 +2,27 @@ package store
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 )
 
 func (s *Store) SetAvailability(ctx context.Context, participantID string, dates []string) error {
 	var calendarID string
+	var finalisedDate sql.NullString
 	err := s.db.QueryRowContext(ctx,
-		`SELECT calendar_id FROM participants WHERE id = $1`, participantID,
-	).Scan(&calendarID)
+		`SELECT p.calendar_id, c.finalised_date::text
+		 FROM participants p JOIN calendars c ON c.id = p.calendar_id
+		 WHERE p.id = $1`, participantID,
+	).Scan(&calendarID, &finalisedDate)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
 		return fmt.Errorf("look up participant: %w", err)
+	}
+	if finalisedDate.Valid {
+		return ErrCalendarFinalised
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)

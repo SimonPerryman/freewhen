@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import SummaryView from "./SummaryView";
 import type { Participant } from "@/lib/types";
 
@@ -72,5 +72,85 @@ describe("SummaryView", () => {
     render(<SummaryView participants={participants} freeByDate={freeByDate} />);
 
     expect(screen.queryByText("Days most people are free")).not.toBeInTheDocument();
+  });
+
+  it("hides finalise button when canFinalise is false", () => {
+    const participants = [makeParticipant("a"), makeParticipant("b")];
+    const date = futureDateStr(1);
+    const freeByDate = new Map([[date, new Set(["a", "b"])]]);
+
+    render(<SummaryView participants={participants} freeByDate={freeByDate} />);
+
+    expect(screen.queryByText("Finalise")).not.toBeInTheDocument();
+  });
+
+  it("shows finalise button on each row when canFinalise is true", () => {
+    const participants = [makeParticipant("a"), makeParticipant("b"), makeParticipant("c")];
+    const allFreeDate = futureDateStr(1);
+    const partialFreeDate = futureDateStr(2);
+    const freeByDate = new Map([
+      [allFreeDate, new Set(["a", "b", "c"])],
+      [partialFreeDate, new Set(["a", "b"])],
+    ]);
+
+    render(
+      <SummaryView
+        participants={participants}
+        freeByDate={freeByDate}
+        canFinalise
+        onFinalise={() => {}}
+      />,
+    );
+
+    // One on the everyone-free row, one on the most-free row
+    const buttons = screen.getAllByText("Finalise");
+    expect(buttons).toHaveLength(2);
+  });
+
+  it("two-step confirm flow calls onFinalise with the date", async () => {
+    const participants = [makeParticipant("a"), makeParticipant("b")];
+    const date = futureDateStr(1); // Mon 16 Jun
+    const freeByDate = new Map([[date, new Set(["a", "b"])]]);
+    const onFinalise = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <SummaryView
+        participants={participants}
+        freeByDate={freeByDate}
+        canFinalise
+        onFinalise={onFinalise}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Finalise"));
+    expect(onFinalise).not.toHaveBeenCalled();
+
+    // Confirmation button appears with date label
+    const confirmBtn = screen.getByText(/Confirm Mon 16 Jun/);
+    fireEvent.click(confirmBtn);
+
+    expect(onFinalise).toHaveBeenCalledWith(date);
+  });
+
+  it("cancel reverts the confirmation without calling onFinalise", () => {
+    const participants = [makeParticipant("a"), makeParticipant("b")];
+    const date = futureDateStr(1);
+    const freeByDate = new Map([[date, new Set(["a", "b"])]]);
+    const onFinalise = vi.fn();
+
+    render(
+      <SummaryView
+        participants={participants}
+        freeByDate={freeByDate}
+        canFinalise
+        onFinalise={onFinalise}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Finalise"));
+    fireEvent.click(screen.getByLabelText("Cancel"));
+
+    expect(onFinalise).not.toHaveBeenCalled();
+    expect(screen.getByText("Finalise")).toBeInTheDocument();
   });
 });

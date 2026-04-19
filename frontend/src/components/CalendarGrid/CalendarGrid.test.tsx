@@ -329,4 +329,51 @@ describe("CalendarGrid", () => {
     expect(screen.getByRole("button", { name: /previous week/i })).toBeDisabled();
     expect(screen.getByRole("button", { name: /next week/i })).toBeEnabled();
   });
+
+  it("disables all cells when finalised even if joined", async () => {
+    const ps = makeParticipants(2);
+    const date = futureDateStr(2);
+    const freeByDate = new Map([[date, new Set([ps[0].id, ps[1].id])]]);
+
+    render(
+      <CalendarGrid
+        participants={ps}
+        freeByDate={freeByDate}
+        currentParticipantId={ps[0].id}
+        onToggle={onToggle}
+        joined={true}
+        finalisedDate={date}
+      />,
+    );
+
+    const buttons = screen.getAllByRole("button", { name: /\w+ \d+, \d{4}/ });
+    for (const button of buttons) {
+      expect(button).toBeDisabled();
+    }
+
+    const user = userEvent.setup();
+    // Try to click the finalised cell — should not fire onToggle
+    await user.click(buttons[0]);
+    expect(onToggle).not.toHaveBeenCalled();
+  });
+
+  it("marks the finalised cell with the finalised class", () => {
+    const ps = makeParticipants(1);
+    const date = futureDateStr(2);
+    const freeByDate = new Map([[date, new Set([ps[0].id])]]);
+
+    render(
+      <CalendarGrid
+        participants={ps}
+        freeByDate={freeByDate}
+        currentParticipantId={ps[0].id}
+        onToggle={onToggle}
+        joined={true}
+        finalisedDate={date}
+      />,
+    );
+
+    const finalisedCell = screen.getByRole("button", { name: /finalised/i });
+    expect(finalisedCell.className).toMatch(/finalised/);
+  });
 });

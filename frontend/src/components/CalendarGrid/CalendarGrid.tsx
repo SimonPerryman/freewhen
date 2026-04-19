@@ -29,6 +29,7 @@ interface CalendarGridProps {
   currentParticipantId: string | null;
   onToggle: (date: string) => void;
   joined: boolean;
+  finalisedDate?: string | null;
 }
 
 function formatDate(d: Date): string {
@@ -79,7 +80,9 @@ export default function CalendarGrid({
   currentParticipantId: _currentParticipantId,
   onToggle,
   joined,
+  finalisedDate = null,
 }: CalendarGridProps) {
+  const locked = finalisedDate !== null;
   const [weekOffset, setWeekOffset] = useState(0);
   const [pulsing, setPulsing] = useState<string | null>(null);
   const pulseTimer = useRef<ReturnType<typeof setTimeout>>(null);
@@ -226,10 +229,12 @@ export default function CalendarGrid({
           const heatRatio = sorted.length > 0 ? freeIds.size / sorted.length : 0;
           const heatPercent = Math.round(heatRatio * 14); // max 14% mix for subtle tint
 
+          const isFinalised = finalisedDate === dateStr;
           const classNames = [styles.day, styles.cellEntrance];
           if (isToday) classNames.push(styles.today);
-          if (joined) classNames.push(styles.clickable);
+          if (joined && !locked) classNames.push(styles.clickable);
           if (everyoneFree) classNames.push(styles.everyoneFree);
+          if (isFinalised) classNames.push(styles.finalised);
           if (pulsing === dateStr) classNames.push(styles.toggle);
 
           const dateLabel = formatDateLabel(date);
@@ -251,11 +256,11 @@ export default function CalendarGrid({
               data-testid="day-cell"
               className={classNames.join(" ")}
               onClick={() => {
-                if (joined) handleDayClick(dateStr);
+                if (joined && !locked) handleDayClick(dateStr);
               }}
-              disabled={!joined}
+              disabled={!joined || locked}
               style={cellStyle}
-              aria-label={ariaLabel}
+              aria-label={isFinalised ? `${ariaLabel} — finalised` : ariaLabel}
               title={ariaLabel}
             >
               {showMonth ? (

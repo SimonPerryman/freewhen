@@ -36,6 +36,10 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusConflict, "participant name already taken")
 			return
 		}
+		if errors.Is(err, store.ErrCalendarFinalised) {
+			respondError(w, http.StatusConflict, "calendar is finalised")
+			return
+		}
 		respondError(w, http.StatusInternalServerError, "failed to add participant")
 		return
 	}

@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createCalendar, getCalendar, addParticipant, setAvailability, ApiError } from "./api";
+import {
+  createCalendar,
+  getCalendar,
+  addParticipant,
+  setAvailability,
+  finaliseCalendar,
+  unfinaliseCalendar,
+  ApiError,
+} from "./api";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -139,6 +147,61 @@ describe("setAvailability", () => {
       status: 400,
       message: "participant_id is required",
     });
+  });
+});
+
+describe("finaliseCalendar", () => {
+  it("sends POST to /calendars/:id/finalise with date and decodes camelCase", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse({
+        id: "abc",
+        name: "Trip",
+        owner_id: "u1",
+        created_at: "2026-01-01T00:00:00Z",
+        finalised_date: "2026-05-02",
+        finalised_at: "2026-04-19T10:00:00Z",
+      }),
+    );
+
+    const result = await finaliseCalendar("abc", "2026-05-02");
+
+    expect(mockFetch).toHaveBeenCalledWith("http://localhost:8080/calendars/abc/finalise", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: "2026-05-02" }),
+    });
+    expect(result.finalisedDate).toBe("2026-05-02");
+    expect(result.finalisedAt).toBe("2026-04-19T10:00:00Z");
+  });
+
+  it("throws ApiError on 403", async () => {
+    mockFetch.mockResolvedValue(jsonResponse({ error: "only the owner can finalise" }, 403));
+    await expect(finaliseCalendar("abc", "2026-05-02")).rejects.toMatchObject({
+      status: 403,
+    });
+  });
+});
+
+describe("unfinaliseCalendar", () => {
+  it("sends DELETE to /calendars/:id/finalise", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse({
+        id: "abc",
+        name: "Trip",
+        owner_id: "u1",
+        created_at: "2026-01-01T00:00:00Z",
+      }),
+    );
+
+    const result = await unfinaliseCalendar("abc");
+
+    expect(mockFetch).toHaveBeenCalledWith("http://localhost:8080/calendars/abc/finalise", {
+      method: "DELETE",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    });
+    expect(result.finalisedDate).toBeUndefined();
   });
 });
 

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/freewhen/backend/internal/model"
 )
@@ -39,18 +40,10 @@ func nullableString(s string) any {
 }
 
 func (s *Store) GetCalendar(ctx context.Context, id string) (model.CalendarWithDetails, error) {
-	var cal model.Calendar
-	var emojiCol sql.NullString
-	err := s.db.QueryRowContext(ctx,
-		`SELECT id, name, emoji, owner_id, created_at FROM calendars WHERE id = $1`, id,
-	).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.CreatedAt)
+	cal, err := s.getCalendarRow(ctx, id)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return model.CalendarWithDetails{}, ErrNotFound
-		}
-		return model.CalendarWithDetails{}, fmt.Errorf("get calendar: %w", err)
+		return model.CalendarWithDetails{}, err
 	}
-	cal.Emoji = emojiCol.String
 
 	participants, err := s.getParticipants(ctx, id)
 	if err != nil {
@@ -67,6 +60,80 @@ func (s *Store) GetCalendar(ctx context.Context, id string) (model.CalendarWithD
 		Participants: participants,
 		Availability: availability,
 	}, nil
+}
+
+// GetCalendarOnly returns the calendar row without details. Used by handlers
+// that need ownership/finalised checks without paying for participants+availability.
+func (s *Store) GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error) {
+	return s.getCalendarRow(ctx, id)
+}
+
+func (s *Store) getCalendarRow(ctx context.Context, id string) (model.Calendar, error) {
+	var cal model.Calendar
+	var emojiCol sql.NullString
+	var finalisedDate sql.NullString
+	var finalisedAt sql.NullTime
+	err := s.db.QueryRowContext(ctx,
+		`SELECT id, name, emoji, owner_id, created_at, finalised_date::text, finalised_at
+		 FROM calendars WHERE id = $1`, id,
+	).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.CreatedAt, &finalisedDate, &finalisedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.Calendar{}, ErrNotFound
+		}
+		return model.Calendar{}, fmt.Errorf("get calendar: %w", err)
+	}
+	cal.Emoji = emojiCol.String
+	if finalisedDate.Valid {
+		d := finalisedDate.String
+		cal.FinalisedDate = &d
+	}
+	if finalisedAt.Valid {
+		t := finalisedAt.Time
+		cal.FinalisedAt = &t
+	}
+	return cal, nil
+}
+
+// SetFinalisedDate locks the calendar to a single date. Replaces any previous value.
+// Returns ErrNotFound if the calendar does not exist.
+func (s *Store) SetFinalisedDate(ctx context.Context, calendarID, date string) (model.Calendar, error) {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE calendars SET finalised_date = $1, finalised_at = $2 WHERE id = $3`,
+		date, time.Now().UTC(), calendarID,
+	)
+	if err != nil {
+		return model.Calendar{}, fmt.Errorf("set finalised date: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return model.Calendar{}, fmt.Errorf("rows affected: %w", err)
+	}
+	if rows == 0 {
+		return model.Calendar{}, ErrNotFound
+	}
+	return s.getCalendarRow(ctx, calendarID)
+}
+
+// ClearFinalisedDate reopens a finalised calendar. Idempotent: clearing an
+// already-unfinalised calendar is a no-op that still returns the calendar.
+// Returns ErrNotFound if the calendar does not exist.
+func (s *Store) ClearFinalisedDate(ctx context.Context, calendarID string) (model.Calendar, error) {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE calendars SET finalised_date = NULL, finalised_at = NULL WHERE id = $1`,
+		calendarID,
+	)
+	if err != nil {
+		return model.Calendar{}, fmt.Errorf("clear finalised date: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return model.Calendar{}, fmt.Errorf("rows affected: %w", err)
+	}
+	if rows == 0 {
+		return model.Calendar{}, ErrNotFound
+	}
+	return s.getCalendarRow(ctx, calendarID)
 }
 
 func (s *Store) getParticipants(ctx context.Context, calendarID string) ([]model.Participant, error) {

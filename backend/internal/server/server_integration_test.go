@@ -456,6 +456,123 @@ func TestSetAvailability_EmptyParticipantID(t *testing.T) {
 	}
 }
 
+func TestFinaliseFlow(t *testing.T) {
+	ts := setupTestServer(t)
+
+	// Create calendar as owner
+	_, body := doJSONAuth(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "Trip"})
+	var cal model.Calendar
+	decodeJSON(t, body, &cal)
+
+	// Add a participant (unauth: allowed while open)
+	_, body = doJSON(t, ts, http.MethodPost, "/calendars/"+cal.ID+"/participants", map[string]string{"name": "Alice"})
+	var alice model.Participant
+	decodeJSON(t, body, &alice)
+
+	// Finalise as owner
+	resp, body := doJSONAuth(t, ts, http.MethodPost, "/calendars/"+cal.ID+"/finalise", map[string]string{"date": "2026-05-02"})
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("finalise: status %d, body %s", resp.StatusCode, body)
+	}
+	var finalised model.Calendar
+	decodeJSON(t, body, &finalised)
+	if finalised.FinalisedDate == nil || *finalised.FinalisedDate != "2026-05-02" {
+		t.Fatalf("finalised_date = %v, want 2026-05-02", finalised.FinalisedDate)
+	}
+	if finalised.FinalisedAt == nil {
+		t.Fatalf("finalised_at should be set")
+	}
+
+	// Attempt availability write while locked → 409
+	resp, _ = doJSON(t, ts, http.MethodPut, "/calendars/"+cal.ID+"/availability", map[string]any{
+		"participant_id": alice.ID,
+		"dates":          []string{"2026-05-02"},
+	})
+	if resp.StatusCode != http.StatusConflict {
+		t.Errorf("availability while finalised: status %d, want 409", resp.StatusCode)
+	}
+
+	// Attempt to add participant while locked → 409
+	resp, _ = doJSON(t, ts, http.MethodPost, "/calendars/"+cal.ID+"/participants", map[string]string{"name": "Bob"})
+	if resp.StatusCode != http.StatusConflict {
+		t.Errorf("add participant while finalised: status %d, want 409", resp.StatusCode)
+	}
+
+	// Re-finalise with a different date (replaces)
+	resp, body = doJSONAuth(t, ts, http.MethodPost, "/calendars/"+cal.ID+"/finalise", map[string]string{"date": "2026-05-03"})
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("re-finalise: status %d, body %s", resp.StatusCode, body)
+	}
+	decodeJSON(t, body, &finalised)
+	if finalised.FinalisedDate == nil || *finalised.FinalisedDate != "2026-05-03" {
+		t.Fatalf("re-finalised_date = %v, want 2026-05-03", finalised.FinalisedDate)
+	}
+
+	// Unfinalise as owner
+	resp, body = doJSONAuth(t, ts, http.MethodDelete, "/calendars/"+cal.ID+"/finalise", nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("unfinalise: status %d, body %s", resp.StatusCode, body)
+	}
+	decodeJSON(t, body, &finalised)
+	if finalised.FinalisedDate != nil {
+		t.Fatalf("expected finalised_date cleared, got %v", *finalised.FinalisedDate)
+	}
+
+	// After unfinalise, writes succeed again
+	resp, _ = doJSON(t, ts, http.MethodPut, "/calendars/"+cal.ID+"/availability", map[string]any{
+		"participant_id": alice.ID,
+		"dates":          []string{"2026-05-02"},
+	})
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("availability after unfinalise: status %d, want 200", resp.StatusCode)
+	}
+}
+
+func TestFinalise_Unauthorized(t *testing.T) {
+	ts := setupTestServer(t)
+
+	_, body := doJSONAuth(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "Trip"})
+	var cal model.Calendar
+	decodeJSON(t, body, &cal)
+
+	// Unauthenticated → 401
+	resp, _ := doJSON(t, ts, http.MethodPost, "/calendars/"+cal.ID+"/finalise", map[string]string{"date": "2026-05-02"})
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", resp.StatusCode)
+	}
+}
+
+func TestFinalise_NotOwner(t *testing.T) {
+	ts := setupTestServer(t)
+
+	// Owner creates calendar
+	_, body := doJSONAuth(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "Trip"})
+	var cal model.Calendar
+	decodeJSON(t, body, &cal)
+
+	// Second user tries to finalise
+	dsn := os.Getenv("TEST_DATABASE_URL")
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+	st := store.New(db)
+	otherUser, err := st.CreateUser(t.Context(), "other@example.com", "Other User", "google", "other-sub")
+	if err != nil {
+		t.Fatalf("create other user: %v", err)
+	}
+	otherToken, err := st.CreateSession(t.Context(), otherUser.ID)
+	if err != nil {
+		t.Fatalf("create other session: %v", err)
+	}
+
+	resp, _ := doJSONWithSession(t, ts, http.MethodPost, "/calendars/"+cal.ID+"/finalise", map[string]string{"date": "2026-05-02"}, otherToken)
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("expected 403 for non-owner, got %d", resp.StatusCode)
+	}
+}
+
 func TestCORS_Preflight(t *testing.T) {
 	ts := setupTestServer(t)
 

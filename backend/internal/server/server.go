@@ -70,6 +70,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /calendars/{id}", s.handler.GetCalendar)
 	s.mux.HandleFunc("POST /calendars/{id}/participants", s.handler.AddParticipant)
 	s.mux.HandleFunc("PUT /calendars/{id}/availability", s.handler.SetAvailability)
+	s.mux.HandleFunc("POST /calendars/{id}/finalise", s.requireAuth(s.handler.FinaliseCalendar))
+	s.mux.HandleFunc("DELETE /calendars/{id}/finalise", s.requireAuth(s.handler.UnfinaliseCalendar))
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {

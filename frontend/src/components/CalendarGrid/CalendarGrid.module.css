@@ -150,6 +150,18 @@
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
+.finalised {
+  border: 2px solid var(--accent);
+  background-color: var(--accent);
+  color: var(--card-bg);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.finalised .monthLabel {
+  color: var(--card-bg);
+  opacity: 0.85;
+}
+
 .monthLabel {
   font-size: 11px;
   font-weight: 600;

@@ -1,0 +1,86 @@
+.banner {
+  margin: 20px 0;
+  padding: 20px;
+  background: var(--accent);
+  color: var(--card-bg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (min-width: 640px) {
+  .banner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.contents {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.emoji {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.date {
+  margin: 2px 0 0;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.unfinaliseButton,
+.confirmButton,
+.cancelButton {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: var(--card-bg);
+  transition:
+    background-color 0.12s,
+    color 0.12s;
+}
+
+.unfinaliseButton:hover,
+.cancelButton:hover {
+  background: color-mix(in srgb, var(--card-bg) 15%, transparent);
+}
+
+.confirmButton {
+  background: var(--card-bg);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.confirmButton:disabled,
+.cancelButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

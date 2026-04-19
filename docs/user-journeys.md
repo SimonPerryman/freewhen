@@ -267,3 +267,46 @@ No auth, no accounts — just a shareable link.
 │                                                     │
 └─────────────────────────────────────────────────────┘
 ```
+
+## 7. Finalise the date (owner)
+
+1. Only the calendar owner sees "Finalise" buttons next to each Summary row
+2. Click "Finalise" next to the chosen date — the button becomes a confirm step ("Confirm Sun 26 Apr?")
+3. Click to confirm, and the calendar locks:
+   - A hero banner replaces the summary and best-day hints: "📅 Sunday 26 April — Confirmed"
+   - The grid stays visible but all cells are disabled; the chosen date gets a solid accent treatment
+   - New participants cannot join and existing participants cannot edit availability (both return 409)
+4. The owner can click "Unfinalise" on the banner to reopen the calendar if plans change
+
+```
+┌─────────────────────────────────────────────────────┐
+│  ◀ ▶  freewhen.com/calendars/abc123                 │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│   Weekend trip                                      │
+│                                                     │
+│  ┌───────────────────────────────────────────────┐  │
+│  │  📅  Confirmed                                │  │
+│  │      Sunday 26 April          [ Unfinalise ]  │  │
+│  └───────────────────────────────────────────────┘  │
+│                                                     │
+│  ┌───────────────────────────────────────────────┐  │
+│  │        April 2026                             │  │
+│  │  Mo   Tu   We   Th   Fr   Sa   Su            │  │
+│  │              1    2    3    4    5             │  │
+│  │   6    7    8    9   10   11   12             │  │
+│  │  13   14   15   16   17   18   19             │  │
+│  │  20   21   22   23   24   25 ▓▓26▓▓           │  │
+│  │  27   28   29   30                            │  │
+│  └───────────────────────────────────────────────┘  │
+│                                                     │
+│  ▓▓ = finalised date (locked)                       │
+│                                                     │
+│  Participants                                       │
+│  ─────────────                                      │
+│  ● Alice (you)                                      │
+│  ● Bob                                              │
+│  ● Charlie                                          │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```

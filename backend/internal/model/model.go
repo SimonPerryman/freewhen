@@ -3,11 +3,13 @@ package model
 import "time"
 
 type Calendar struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Emoji     string    `json:"emoji,omitempty"`
-	OwnerID   string    `json:"owner_id"`
-	CreatedAt time.Time `json:"created_at"`
+	ID            string     `json:"id"`
+	Name          string     `json:"name"`
+	Emoji         string     `json:"emoji,omitempty"`
+	OwnerID       string     `json:"owner_id"`
+	CreatedAt     time.Time  `json:"created_at"`
+	FinalisedDate *string    `json:"finalised_date,omitempty"`
+	FinalisedAt   *time.Time `json:"finalised_at,omitempty"`
 }
 
 type Participant struct {

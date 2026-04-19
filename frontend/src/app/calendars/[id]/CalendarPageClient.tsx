@@ -2,11 +2,19 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Link from "next/link";
-import { getCalendar, addParticipant, setAvailability, ApiError } from "@/lib/api";
+import {
+  getCalendar,
+  addParticipant,
+  setAvailability,
+  finaliseCalendar,
+  unfinaliseCalendar,
+  ApiError,
+} from "@/lib/api";
 import analytics from "@/lib/analytics";
 import type { CalendarWithDetails, Participant } from "@/lib/types";
 import { useAuth } from "@/components/AuthProvider/AuthProvider";
 import CalendarGrid from "@/components/CalendarGrid/CalendarGrid";
+import FinalisedBanner from "@/components/FinalisedBanner/FinalisedBanner";
 import JoinForm from "@/components/JoinForm/JoinForm";
 import ParticipantList from "@/components/ParticipantList/ParticipantList";
 import ShareButton from "@/components/ShareButton/ShareButton";
@@ -176,6 +184,59 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     queueSave(Array.from(selectedDates));
   }, [selectedDates, queueSave]);
 
+  const handleFinalise = useCallback(
+    async (date: string) => {
+      try {
+        const updated = await finaliseCalendar(calendarId, date);
+        setCalendar((prev) =>
+          prev
+            ? {
+                ...prev,
+                calendar: {
+                  ...prev.calendar,
+                  finalisedDate: updated.finalisedDate,
+                  finalisedAt: updated.finalisedAt,
+                },
+              }
+            : prev,
+        );
+        analytics.capture("calendar_finalised", { calendar_id: calendarId });
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 409) {
+          // Stale client state — refetch
+          try {
+            const fresh = await getCalendar(calendarId);
+            setCalendar(fresh);
+          } catch {
+            // leave as-is
+          }
+        }
+      }
+    },
+    [calendarId],
+  );
+
+  const handleUnfinalise = useCallback(async () => {
+    try {
+      const updated = await unfinaliseCalendar(calendarId);
+      setCalendar((prev) =>
+        prev
+          ? {
+              ...prev,
+              calendar: {
+                ...prev.calendar,
+                finalisedDate: updated.finalisedDate,
+                finalisedAt: updated.finalisedAt,
+              },
+            }
+          : prev,
+      );
+      analytics.capture("calendar_unfinalised", { calendar_id: calendarId });
+    } catch {
+      // ignore; banner stays and user can retry
+    }
+  }, [calendarId]);
+
   const handleJoin = useCallback(
     async (name: string) => {
       setJoinError(null);
@@ -274,6 +335,8 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
 
   const calendarName = calendar.calendar.name || "Untitled Calendar";
   const calendarEmoji = calendar.calendar.emoji;
+  const finalisedDate = calendar.calendar.finalisedDate ?? null;
+  const isOwner = !!user && calendar.calendar.ownerId === user.id;
 
   return (
     <div className={styles.page}>
@@ -289,8 +352,23 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           </div>
         </div>
 
-        {!currentParticipant ? (
+        {finalisedDate ? (
+          <FinalisedBanner
+            date={finalisedDate}
+            emoji={calendarEmoji || "📅"}
+            canUnfinalise={isOwner}
+            onUnfinalise={handleUnfinalise}
+          />
+        ) : null}
+
+        {!currentParticipant && !finalisedDate ? (
           <JoinForm onJoin={handleJoin} error={joinError} defaultName={storedName} />
+        ) : null}
+
+        {!currentParticipant && finalisedDate ? (
+          <p className={styles.emptyHint}>
+            This calendar is finalised — no further changes needed.
+          </p>
         ) : null}
 
         {saveError ? (
@@ -314,11 +392,21 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           currentParticipantId={currentParticipant?.id ?? null}
           onToggle={handleToggle}
           joined={!!currentParticipant}
+          finalisedDate={finalisedDate}
         />
 
-        <BestDay participants={calendar.participants} freeByDate={freeByDate} />
+        {!finalisedDate ? (
+          <BestDay participants={calendar.participants} freeByDate={freeByDate} />
+        ) : null}
 
-        <SummaryView participants={calendar.participants} freeByDate={freeByDate} />
+        {!finalisedDate ? (
+          <SummaryView
+            participants={calendar.participants}
+            freeByDate={freeByDate}
+            canFinalise={isOwner}
+            onFinalise={handleFinalise}
+          />
+        ) : null}
 
         <ShareButton calendarName={calendarName} />
 

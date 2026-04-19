@@ -10,7 +10,7 @@ See `future-ideas.md` for detailed descriptions of each feature.
 |---|---|---|
 | Optional auth | — | Creator must sign in. Joiners stay anonymous with optional sign-in. Foundation for admin, notifications, "my calendars", privacy modes. |
 | Admin controls | Auth | Remove participants, rename calendar, owner/admin roles. Essential moderation. |
-| Finalise a date | Auth (creator) | Creator locks in the chosen date. Completes the core journey inside the app. |
+| ~~Finalise a date~~ ✅ | Auth (creator) | **Shipped.** Owner locks in a date; calendar becomes read-only until unfinalised. See `plans/finalise-a-date.md`. |
 | Basic PWA | — | Manifest + icons + "Add to Home Screen". Trivial effort, mobile-first app needs this. |
 
 ## Tier 2 — Retention & UX

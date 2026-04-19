@@ -27,6 +27,8 @@ Session-based auth with HTTP-only cookies. Creator must sign in to create a cale
 | GET | `/calendars/{id}` | — | Get calendar with participants and availability |
 | POST | `/calendars/{id}/participants` | — | Join a calendar |
 | PUT | `/calendars/{id}/availability` | — | Update availability |
+| POST | `/calendars/{id}/finalise` | Owner | Lock the calendar to a chosen date |
+| DELETE | `/calendars/{id}/finalise` | Owner | Clear the locked date, reopen the calendar |
 
 ## Admin
 
@@ -74,7 +76,9 @@ Get a calendar with all participants and their availability.
     "id": "string",
     "name": "string",
     "owner_id": "string",
-    "created_at": "RFC3339"
+    "created_at": "RFC3339",
+    "finalised_date": "YYYY-MM-DD",
+    "finalised_at": "RFC3339"
   },
   "participants": [
     {
@@ -93,6 +97,8 @@ Get a calendar with all participants and their availability.
   ]
 }
 ```
+
+`finalised_date` and `finalised_at` are omitted when the calendar is open. When set, the calendar is read-only.
 
 **Errors:** 404 (calendar not found)
 
@@ -119,7 +125,7 @@ Add a participant to a calendar.
 }
 ```
 
-**Errors:** 400 (name required, invalid JSON) | 404 (calendar not found) | 409 (name taken)
+**Errors:** 400 (name required, invalid JSON) | 404 (calendar not found) | 409 (name taken, calendar finalised)
 
 ---
 
@@ -139,7 +145,33 @@ Replace a participant's available dates. Sending an empty `dates` array clears a
 {"ok": true}
 ```
 
-**Errors:** 400 (participant_id required, invalid date) | 404 (participant not found)
+**Errors:** 400 (participant_id required, invalid date) | 404 (participant not found) | 409 (calendar finalised)
+
+---
+
+### POST /calendars/{id}/finalise
+
+Lock the calendar to a single date. Only the owner may call this. Once set, availability writes and joins are rejected with 409 until the calendar is unfinalised. Re-calling this endpoint replaces the previously finalised date.
+
+**Request**
+
+```json
+{"date": "YYYY-MM-DD"}
+```
+
+**Response 200** — the updated calendar (same shape as `GET /calendars/{id}`'s `calendar` field, with `finalised_date` and `finalised_at` set).
+
+**Errors:** 400 (invalid date, invalid JSON) | 401 (not authenticated) | 403 (not owner) | 404 (calendar not found)
+
+---
+
+### DELETE /calendars/{id}/finalise
+
+Clear the locked date. Only the owner may call this. Idempotent.
+
+**Response 200** — the updated calendar with `finalised_date` and `finalised_at` absent.
+
+**Errors:** 401 (not authenticated) | 403 (not owner) | 404 (calendar not found)
 
 ---
 

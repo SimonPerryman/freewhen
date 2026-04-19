@@ -104,6 +104,19 @@ export async function setAvailability(
   });
 }
 
+export async function finaliseCalendar(calendarId: string, date: string): Promise<Calendar> {
+  return request<Calendar>(`/calendars/${calendarId}/finalise`, {
+    method: "POST",
+    body: JSON.stringify({ date }),
+  });
+}
+
+export async function unfinaliseCalendar(calendarId: string): Promise<Calendar> {
+  return request<Calendar>(`/calendars/${calendarId}/finalise`, {
+    method: "DELETE",
+  });
+}
+
 export async function getMe(): Promise<User> {
   return request<User>("/auth/me");
 }
