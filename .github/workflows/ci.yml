@@ -1,8 +1,7 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
+  # TODO: re-add push trigger for main when deployment is active
   pull_request:
     branches: [main]
 
