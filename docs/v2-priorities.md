@@ -8,23 +8,23 @@ See `future-ideas.md` for detailed descriptions of each feature.
 
 | Feature | Requires | Notes |
 |---|---|---|
-| Optional auth | — | Creator must sign in. Joiners stay anonymous with optional sign-in. Foundation for admin, notifications, "my calendars", privacy modes. |
-| Admin controls | Auth | Remove participants, rename calendar, owner/admin roles. Essential moderation. |
+| ~~Optional auth~~ ✅ | — | **Shipped.** Google OAuth + magic link. Creator must sign in; joiners stay anonymous. See `plans/auth.md`. |
+| ~~Admin controls~~ ✅ | Auth | **Shipped.** Remove participants, rename calendar, owner role. See `plans/admin-controls.md`. |
 | ~~Finalise a date~~ ✅ | Auth (creator) | **Shipped.** Owner locks in a date; calendar becomes read-only until unfinalised. See `plans/finalise-a-date.md`. |
-| Basic PWA | — | Manifest + icons + "Add to Home Screen". Trivial effort, mobile-first app needs this. |
+| ~~Basic PWA~~ ✅ | — | **Shipped.** Manifest + icons + "Add to Home Screen". See `plans/pwa-basics.md`. |
 
 ## Tier 2 — Retention & UX
 
 | Feature | Requires | Notes |
 |---|---|---|
-| "Submit to view" privacy | — | Prevents anchoring bias. Works without auth. |
-| Live updates (WebSockets) | — | Makes "everyone fill this in now" seamless. |
-| "My calendars" list | Auth | See all calendars you're part of. Only works for signed-in users. |
+| ~~"Submit to view" privacy~~ ✅ | — | **Shipped.** See `plans/submit-to-view-privacy.md`. |
+| ~~Live updates~~ ✅ | — | **Shipped** via Server-Sent Events. See `plans/live-updates.md`. |
+| ~~"My calendars" list~~ ✅ | Auth | **Shipped.** See `plans/my-calendars.md`. |
 | Notifications/reminders | Auth | "3 people responded, waiting on 2 more." Only works for signed-in users. |
-| Share with pre-filled message | — | Web Share API on mobile. Low effort, reduces friction. |
+| ~~Share with pre-filled message~~ ✅ | — | **Shipped.** See `plans/share-prefilled-message.md`. |
 | Comments/notes on dates | — | "Free but only after 6pm." Low complexity, avoids side convos. |
 | Private links / password protection | — | Shared password before calendar loads. Useful for sensitive plans. |
-| Multi-select / range tap | — | Drag-to-select or "select all weekends." QoL for mobile. |
+| ~~Multi-select / range tap~~ ✅ | — | **Shipped.** Two-tap range + Weekends/Weekdays quick actions. See `plans/multi-select-range-tap.md`. |
 
 ## Tier 3 — Polish & expansion
 
