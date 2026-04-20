@@ -279,6 +279,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
       const next = new Set(prev);
       if (next.has(date)) next.delete(date);
       else next.add(date);
+      selectedDatesRef.current = next;
       setSelectedDates(next);
 
       if (
@@ -307,6 +308,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
       } else {
         for (const d of dates) next.delete(d);
       }
+      selectedDatesRef.current = next;
       setSelectedDates(next);
       queueSave(Array.from(next));
     },

@@ -26,7 +26,10 @@ import CalendarPageClient from "./CalendarPageClient";
 
 const mockCalendar = {
   calendar: { id: "cal-1", name: "Trip", ownerId: "user-1", createdAt: "2026-01-01T00:00:00Z" },
-  participants: [{ id: "p-1", calendarId: "cal-1", name: "Alice", colour: "#ef4444" }],
+  participants: [
+    { id: "p-1", calendarId: "cal-1", name: "Alice", colour: "#ef4444" },
+    { id: "p-other", calendarId: "cal-1", name: "Carol", colour: "#10b981" },
+  ],
   availability: [{ participantId: "p-1", calendarId: "cal-1", date: "2026-04-20" }],
 };
 
@@ -91,7 +94,7 @@ describe("CalendarPage", () => {
   it("joins and shows the grid", async () => {
     getCalendarMock.mockResolvedValue({
       ...mockCalendar,
-      participants: [],
+      participants: [{ id: "p-other", calendarId: "cal-1", name: "Carol", colour: "#10b981" }],
       availability: [],
     });
     addParticipantMock.mockResolvedValue({

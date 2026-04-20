@@ -230,30 +230,38 @@ describe("CalendarGrid", () => {
   });
 
   it("past dates render as non-interactive placeholders", () => {
-    const ps = makeParticipants(3);
-    const past = pastDateStr(5);
-    const freeByDate = new Map([[past, new Set([ps[0].id])]]);
+    // Pin "today" to a non-Monday so the current week has at least one past
+    // cell (the grid always starts on the Monday of the current week).
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2030-01-03T12:00:00Z")); // Thursday
+    try {
+      const ps = makeParticipants(3);
+      const past = pastDateStr(2);
+      const freeByDate = new Map([[past, new Set([ps[0].id])]]);
 
-    render(
-      <CalendarGrid
-        participants={ps}
-        freeByDate={freeByDate}
-        currentParticipantId={ps[0].id}
-        onToggle={onToggle}
-        joined={true}
-      />,
-    );
+      render(
+        <CalendarGrid
+          participants={ps}
+          freeByDate={freeByDate}
+          currentParticipantId={ps[0].id}
+          onToggle={onToggle}
+          joined={true}
+        />,
+      );
 
-    // Grid still holds 35 positions total
-    const cells = screen.getAllByTestId("day-cell");
-    expect(cells).toHaveLength(35);
+      // Grid still holds 35 positions total
+      const cells = screen.getAllByTestId("day-cell");
+      expect(cells).toHaveLength(35);
 
-    // Placeholder cells are divs (not buttons), aria-hidden, with no content
-    const placeholders = cells.filter((c) => c.tagName === "DIV");
-    expect(placeholders.length).toBeGreaterThan(0);
-    for (const ph of placeholders) {
-      expect(ph.getAttribute("aria-hidden")).toBe("true");
-      expect(ph.children).toHaveLength(0);
+      // Placeholder cells are divs (not buttons), aria-hidden, with no content
+      const placeholders = cells.filter((c) => c.tagName === "DIV");
+      expect(placeholders.length).toBeGreaterThan(0);
+      for (const ph of placeholders) {
+        expect(ph.getAttribute("aria-hidden")).toBe("true");
+        expect(ph.children).toHaveLength(0);
+      }
+    } finally {
+      vi.useRealTimers();
     }
   });
 
