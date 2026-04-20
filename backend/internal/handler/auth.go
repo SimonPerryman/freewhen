@@ -289,7 +289,7 @@ func (h *AuthHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
 	if token != "" {
 		link := fmt.Sprintf("%s/auth/magic-link/callback?token=%s", h.frontendURL, token)
 		if err := h.email.SendMagicLink(req.Email, link); err != nil {
-			h.logger.Error("failed to send magic link email", "error", err, "email", req.Email)
+			h.logger.Error("failed to send magic link email", "error", err)
 		}
 	}
 

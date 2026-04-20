@@ -23,6 +23,11 @@ Group availability coordination tool. Go backend + Next.js frontend + Postgres.
 - Backend uses structured logging with `log/slog` (JSON to stdout everywhere; pipe through `jq` locally if you want pretty output)
 - Every response includes an `X-Request-ID` header
 
+## Logging
+
+- **Never log PII** — no email addresses, phone numbers, IP addresses, or other personal identifiers in log fields. Logs go to stdout in all environments and end up in shared log sinks. The `error` field alone is almost always enough to diagnose.
+- Enforced by `make lint-pii` (runs as part of `make lint`). If you genuinely need to surface a PII-shaped value for debugging, do it behind a debug-only code path, not in a structured log field named `email`/`phone`/`ip_address`/`client_ip`.
+
 ## Backend Conventions
 
 - Standard library where possible, minimal dependencies
