@@ -315,6 +315,33 @@ describe("CalendarGrid", () => {
     }
   });
 
+  it("shows Today button only after navigating forward, and jumps back when clicked", async () => {
+    const user = userEvent.setup();
+    render(
+      <CalendarGrid
+        participants={[]}
+        freeByDate={new Map()}
+        currentParticipantId={null}
+        onToggle={onToggle}
+        joined={false}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: /jump back to today/i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /next week/i }));
+    const todayBtn = screen.getByRole("button", { name: /jump back to today/i });
+    expect(todayBtn).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /next week/i }));
+    await user.click(screen.getByRole("button", { name: /next week/i }));
+    expect(screen.getByRole("button", { name: /previous week/i })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: /jump back to today/i }));
+    expect(screen.queryByRole("button", { name: /jump back to today/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /previous week/i })).toBeDisabled();
+  });
+
   it("shows navigation arrows and disables back at week 0", () => {
     render(
       <CalendarGrid
@@ -355,6 +382,146 @@ describe("CalendarGrid", () => {
     // Try to click the finalised cell — should not fire onToggle
     await user.click(buttons[0]);
     expect(onToggle).not.toHaveBeenCalled();
+  });
+
+  it("toolbar buttons only render when joined, not locked, and onRangeToggle provided", () => {
+    const onRangeToggle = vi.fn();
+    const ps = makeParticipants(1);
+    const { rerender } = render(
+      <CalendarGrid
+        participants={ps}
+        freeByDate={new Map()}
+        currentParticipantId={ps[0].id}
+        onToggle={onToggle}
+        onRangeToggle={onRangeToggle}
+        joined={true}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /weekends/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /weekdays/i })).toBeInTheDocument();
+
+    // not joined → no toolbar
+    rerender(
+      <CalendarGrid
+        participants={ps}
+        freeByDate={new Map()}
+        currentParticipantId={ps[0].id}
+        onToggle={onToggle}
+        onRangeToggle={onRangeToggle}
+        joined={false}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /weekends/i })).not.toBeInTheDocument();
+
+    // locked → no toolbar
+    rerender(
+      <CalendarGrid
+        participants={ps}
+        freeByDate={new Map()}
+        currentParticipantId={ps[0].id}
+        onToggle={onToggle}
+        onRangeToggle={onRangeToggle}
+        joined={true}
+        finalisedDate={futureDateStr(2)}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /weekends/i })).not.toBeInTheDocument();
+
+    // no onRangeToggle → no toolbar
+    rerender(
+      <CalendarGrid
+        participants={ps}
+        freeByDate={new Map()}
+        currentParticipantId={ps[0].id}
+        onToggle={onToggle}
+        joined={true}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /weekends/i })).not.toBeInTheDocument();
+  });
+
+  it("quick action: weekends selects all weekend cells when any unselected", async () => {
+    const onRangeToggle = vi.fn();
+    const ps = makeParticipants(1);
+    const user = userEvent.setup();
+
+    render(
+      <CalendarGrid
+        participants={ps}
+        freeByDate={new Map()}
+        currentParticipantId={ps[0].id}
+        onToggle={onToggle}
+        onRangeToggle={onRangeToggle}
+        selectedDates={new Set()}
+        joined={true}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /weekends/i }));
+
+    expect(onRangeToggle).toHaveBeenCalledTimes(1);
+    const [dates, target] = onRangeToggle.mock.calls[0];
+    expect(target).toBe(true);
+    // Every date must be a Sat or Sun
+    for (const d of dates) {
+      const [y, m, day] = d.split("-").map(Number);
+      const dt = new Date(y, m - 1, day);
+      const dow = dt.getDay();
+      expect(dow === 0 || dow === 6).toBe(true);
+    }
+    expect(dates.length).toBeGreaterThan(0);
+  });
+
+  it("quick action: weekdays deselects when all matching visible are selected", async () => {
+    const onRangeToggle = vi.fn();
+    const ps = makeParticipants(1);
+    const user = userEvent.setup();
+
+    // Pre-compute all visible weekdays (future + non-finalised) and seed them as selected
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const monday = new Date(today);
+    const day = monday.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    monday.setDate(monday.getDate() + diff);
+    const todayStr = (() => {
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, "0");
+      const d = String(today.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    })();
+
+    const weekdays = new Set<string>();
+    for (let i = 0; i < 35; i++) {
+      const d = new Date(monday);
+      d.setDate(d.getDate() + i);
+      const dow = d.getDay();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day2 = String(d.getDate()).padStart(2, "0");
+      const s = `${y}-${m}-${day2}`;
+      if (s < todayStr) continue;
+      if (dow !== 0 && dow !== 6) weekdays.add(s);
+    }
+
+    render(
+      <CalendarGrid
+        participants={ps}
+        freeByDate={new Map()}
+        currentParticipantId={ps[0].id}
+        onToggle={onToggle}
+        onRangeToggle={onRangeToggle}
+        selectedDates={weekdays}
+        joined={true}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /weekdays/i }));
+
+    expect(onRangeToggle).toHaveBeenCalledTimes(1);
+    const [dates, target] = onRangeToggle.mock.calls[0];
+    expect(target).toBe(false);
+    expect(new Set(dates)).toEqual(weekdays);
   });
 
   it("marks the finalised cell with the finalised class", () => {

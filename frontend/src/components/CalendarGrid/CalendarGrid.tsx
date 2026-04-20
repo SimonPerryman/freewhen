@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback, useRef } from "react";
 import type { Participant } from "@/lib/types";
 import { layoutSlots, sortParticipants, classifyDay } from "@/lib/overlap";
+import analytics from "@/lib/analytics";
 import styles from "./CalendarGrid.module.css";
 
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -28,6 +29,8 @@ interface CalendarGridProps {
   freeByDate: Map<string, Set<string>>;
   currentParticipantId: string | null;
   onToggle: (date: string) => void;
+  onRangeToggle?: (dates: string[], target: boolean) => void;
+  selectedDates?: Set<string>;
   joined: boolean;
   finalisedDate?: string | null;
 }
@@ -77,8 +80,10 @@ const SWIPE_THRESHOLD = 50;
 export default function CalendarGrid({
   participants,
   freeByDate,
-  currentParticipantId: _currentParticipantId,
+  currentParticipantId,
   onToggle,
+  onRangeToggle,
+  selectedDates,
   joined,
   finalisedDate = null,
 }: CalendarGridProps) {
@@ -88,6 +93,8 @@ export default function CalendarGrid({
   const pulseTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const swipeStartX = useRef<number | null>(null);
   const swipeStartY = useRef<number | null>(null);
+
+  const toolbarAvailable = joined && !locked && !!onRangeToggle;
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     swipeStartX.current = e.touches[0].clientX;
@@ -161,6 +168,53 @@ export default function CalendarGrid({
     return `${fMonth} ${first.getDate()} – ${last.getDate()}, ${fYear}`;
   }, [days]);
 
+  const isSelectedForCurrent = useCallback(
+    (dateStr: string): boolean => {
+      if (selectedDates) return selectedDates.has(dateStr);
+      if (!currentParticipantId) return false;
+      return freeByDate.get(dateStr)?.has(currentParticipantId) ?? false;
+    },
+    [selectedDates, currentParticipantId, freeByDate],
+  );
+
+  const eligibleForRange = useCallback(
+    (date: Date): boolean => {
+      const dateStr = formatDate(date);
+      if (dateStr < today) return false;
+      if (finalisedDate === dateStr) return false;
+      return true;
+    },
+    [today, finalisedDate],
+  );
+
+  const handleQuickAction = useCallback(
+    (action: "weekends" | "weekdays") => {
+      if (!onRangeToggle) return;
+      const predicate = (date: Date): boolean => {
+        const dow = date.getDay();
+        const isWeekend = dow === 0 || dow === 6;
+        return action === "weekends" ? isWeekend : !isWeekend;
+      };
+      const matching: string[] = [];
+      let anyUnselected = false;
+      for (const d of days) {
+        if (!predicate(d)) continue;
+        if (!eligibleForRange(d)) continue;
+        const ds = formatDate(d);
+        matching.push(ds);
+        if (!isSelectedForCurrent(ds)) anyUnselected = true;
+      }
+      if (matching.length === 0) return;
+      const target = anyUnselected;
+      onRangeToggle(matching, target);
+      analytics.capture("availability_quick_action_used", {
+        action,
+        direction: target ? "select" : "deselect",
+      });
+    },
+    [onRangeToggle, days, eligibleForRange, isSelectedForCurrent],
+  );
+
   // Compute cell min-height based on slot count
   const cellMinHeight = useMemo(() => {
     if (layout.rows === 0) return 56;
@@ -176,6 +230,25 @@ export default function CalendarGrid({
 
   return (
     <div className={styles.container} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+      {toolbarAvailable ? (
+        <div className={styles.toolbar} role="toolbar" aria-label="Bulk availability tools">
+          <button
+            type="button"
+            className={styles.toolbarButton}
+            onClick={() => handleQuickAction("weekends")}
+          >
+            Weekends
+          </button>
+          <button
+            type="button"
+            className={styles.toolbarButton}
+            onClick={() => handleQuickAction("weekdays")}
+          >
+            Weekdays
+          </button>
+        </div>
+      ) : null}
+
       <div className={styles.nav}>
         <button
           type="button"
@@ -186,7 +259,22 @@ export default function CalendarGrid({
         >
           ‹
         </button>
-        <span className={styles.rangeLabel}>{rangeLabel}</span>
+        <div className={styles.navCenter}>
+          <span className={styles.rangeLabel}>{rangeLabel}</span>
+          {weekOffset > 0 ? (
+            <button
+              type="button"
+              className={styles.todayButton}
+              onClick={() => setWeekOffset(0)}
+              aria-label="Jump back to today"
+            >
+              <span className={styles.todayButtonIcon} aria-hidden="true">
+                ↺
+              </span>
+              Today
+            </button>
+          ) : null}
+        </div>
         <button
           type="button"
           className={styles.navButton}
@@ -249,16 +337,20 @@ export default function CalendarGrid({
             cellStyle.backgroundColor = `color-mix(in srgb, var(--accent) ${heatPercent}%, var(--card-bg))`;
           }
 
+          const canInteract = joined && !locked && !isFinalised;
+          const onCellClick = () => {
+            if (!canInteract) return;
+            handleDayClick(dateStr);
+          };
+
           return (
             <button
               key={dateStr}
               type="button"
               data-testid="day-cell"
               className={classNames.join(" ")}
-              onClick={() => {
-                if (joined && !locked) handleDayClick(dateStr);
-              }}
-              disabled={!joined || locked}
+              onClick={onCellClick}
+              disabled={!joined || locked || isFinalised}
               style={cellStyle}
               aria-label={isFinalised ? `${ariaLabel} — finalised` : ariaLabel}
               title={ariaLabel}

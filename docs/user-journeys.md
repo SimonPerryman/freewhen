@@ -185,6 +185,11 @@ No auth, no accounts — just a shareable link.
 4. Changes save automatically in the background (batched/serialized)
 5. If a save fails, a "Save failed" banner appears with a Retry button
 
+**Bulk selection.** A toolbar above the week nav offers two controls:
+
+- **Weekends** — toggles all Sat/Sun cells in the visible 5-week window. If any are unselected, all become selected; otherwise all are deselected.
+- **Weekdays** — same rule, applied to Mon–Fri.
+
 ```
 ┌─────────────────────────────────────────────────────┐
 │  ◀ ▶  freewhen.com/calendars/abc123                 │
