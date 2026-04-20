@@ -54,9 +54,7 @@ function LoginContent() {
     <div className={styles.page}>
       <main className={styles.container}>
         <h1 className={styles.heading}>Sign in</h1>
-        <p className={styles.subheading}>
-          Sign in to create and manage your calendars.
-        </p>
+        <p className={styles.subheading}>Sign in to create and manage your calendars.</p>
 
         <a href={getGoogleLoginUrl(returnUrl)} className={styles.googleButton}>
           <svg className={styles.googleIcon} viewBox="0 0 24 24" aria-hidden="true">
