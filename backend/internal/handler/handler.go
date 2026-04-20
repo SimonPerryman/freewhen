@@ -6,6 +6,7 @@ import (
 
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/service"
+	"github.com/freewhen/backend/internal/store"
 )
 
 type contextKey struct{}
@@ -27,6 +28,7 @@ type CalendarService interface {
 	RenameCalendar(ctx context.Context, calendarID, name string) (model.Calendar, error)
 	UpdateCalendarVisibility(ctx context.Context, calendarID, visibility string) (model.Calendar, error)
 	RemoveParticipant(ctx context.Context, calendarID, participantID string) error
+	ListUserCalendars(ctx context.Context, userID string) ([]store.CalendarListItem, bool, error)
 }
 
 type Handler struct {

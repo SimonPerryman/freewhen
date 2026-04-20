@@ -29,6 +29,7 @@ type mockService struct {
 	renameCalendar           func(ctx context.Context, calendarID, name string) (model.Calendar, error)
 	updateCalendarVisibility func(ctx context.Context, calendarID, visibility string) (model.Calendar, error)
 	removeParticipant        func(ctx context.Context, calendarID, participantID string) error
+	listUserCalendars        func(ctx context.Context, userID string) ([]store.CalendarListItem, bool, error)
 }
 
 func (m *mockService) CreateCalendar(ctx context.Context, name, ownerID, visibility string) (model.Calendar, error) {
@@ -77,6 +78,10 @@ func (m *mockService) UpdateCalendarVisibility(ctx context.Context, calendarID, 
 
 func (m *mockService) RemoveParticipant(ctx context.Context, calendarID, participantID string) error {
 	return m.removeParticipant(ctx, calendarID, participantID)
+}
+
+func (m *mockService) ListUserCalendars(ctx context.Context, userID string) ([]store.CalendarListItem, bool, error) {
+	return m.listUserCalendars(ctx, userID)
 }
 
 func jsonBody(t *testing.T, v any) *bytes.Reader {
@@ -899,6 +904,126 @@ func TestUpdateCalendar_EmptyBody(t *testing.T) {
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+// --- ListUserCalendars tests ---
+
+func TestListUserCalendars_Unauthorized(t *testing.T) {
+	h := New(&mockService{})
+	req := httptest.NewRequest(http.MethodGet, "/users/me/calendars", nil)
+	rec := httptest.NewRecorder()
+	h.ListUserCalendars(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestListUserCalendars_Empty(t *testing.T) {
+	h := New(&mockService{
+		listUserCalendars: func(_ context.Context, userID string) ([]store.CalendarListItem, bool, error) {
+			if userID != "u1" {
+				t.Fatalf("userID = %q, want u1", userID)
+			}
+			return []store.CalendarListItem{}, false, nil
+		},
+	})
+	req := withUser(httptest.NewRequest(http.MethodGet, "/users/me/calendars", nil), testUser)
+	rec := httptest.NewRecorder()
+	h.ListUserCalendars(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	var got struct {
+		Calendars []myCalendarDTO `json:"calendars"`
+		HasMore   bool            `json:"has_more"`
+	}
+	decodeJSON(t, rec, &got)
+	if len(got.Calendars) != 0 {
+		t.Fatalf("calendars = %v, want empty", got.Calendars)
+	}
+	if got.HasMore {
+		t.Fatal("has_more = true, want false")
+	}
+}
+
+func TestListUserCalendars_RoleAndShape(t *testing.T) {
+	date := "2026-05-02"
+	finalisedAt := time.Date(2026, 4, 15, 11, 15, 0, 0, time.UTC)
+	items := []store.CalendarListItem{
+		{
+			Calendar: model.Calendar{
+				ID: "cal-own", Name: "Owned", Emoji: "🎉",
+				OwnerID: "u1", Visibility: model.VisibilityOpen,
+				CreatedAt: time.Now(), UpdatedAt: time.Now(),
+			},
+			ParticipantCount: 5,
+		},
+		{
+			Calendar: model.Calendar{
+				ID: "cal-join", Name: "Joined", Emoji: "",
+				OwnerID: "other", Visibility: model.VisibilitySubmitToView,
+				CreatedAt:     time.Now(),
+				UpdatedAt:     time.Now(),
+				FinalisedDate: &date,
+				FinalisedAt:   &finalisedAt,
+			},
+			ParticipantCount: 8,
+		},
+	}
+	h := New(&mockService{
+		listUserCalendars: func(_ context.Context, _ string) ([]store.CalendarListItem, bool, error) {
+			return items, true, nil
+		},
+	})
+	req := withUser(httptest.NewRequest(http.MethodGet, "/users/me/calendars", nil), testUser)
+	rec := httptest.NewRecorder()
+	h.ListUserCalendars(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	var got struct {
+		Calendars []myCalendarDTO `json:"calendars"`
+		HasMore   bool            `json:"has_more"`
+	}
+	decodeJSON(t, rec, &got)
+	if !got.HasMore {
+		t.Fatal("has_more = false, want true")
+	}
+	if len(got.Calendars) != 2 {
+		t.Fatalf("calendars len = %d, want 2", len(got.Calendars))
+	}
+	if got.Calendars[0].MyRole != "owner" {
+		t.Fatalf("row[0] my_role = %q, want owner", got.Calendars[0].MyRole)
+	}
+	if got.Calendars[1].MyRole != "joiner" {
+		t.Fatalf("row[1] my_role = %q, want joiner", got.Calendars[1].MyRole)
+	}
+	if got.Calendars[0].ParticipantCount != 5 {
+		t.Fatalf("row[0] participant_count = %d, want 5", got.Calendars[0].ParticipantCount)
+	}
+	if got.Calendars[1].FinalisedDate == nil || *got.Calendars[1].FinalisedDate != "2026-05-02" {
+		t.Fatalf("row[1] finalised_date = %v, want 2026-05-02", got.Calendars[1].FinalisedDate)
+	}
+}
+
+func TestListUserCalendars_ServiceError(t *testing.T) {
+	h := New(&mockService{
+		listUserCalendars: func(_ context.Context, _ string) ([]store.CalendarListItem, bool, error) {
+			return nil, false, fmt.Errorf("db down")
+		},
+	})
+	req := withUser(httptest.NewRequest(http.MethodGet, "/users/me/calendars", nil), testUser)
+	rec := httptest.NewRecorder()
+	h.ListUserCalendars(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
 	}
 }
 

@@ -18,6 +18,9 @@ type mockStore struct {
 	getParticipant             func(ctx context.Context, id string) (model.Participant, error)
 	setAvailability            func(ctx context.Context, participantID string, dates []string) error
 	participantHasAvailability func(ctx context.Context, participantID string) (bool, error)
+	touchCalendar              func(ctx context.Context, calendarID string) error
+	listCalendarsForUser       func(ctx context.Context, userID string, limit int) ([]store.CalendarListItem, error)
+	addParticipant             func(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
 }
 
 func (m *mockStore) CreateCalendar(_ context.Context, name, emoji, ownerID, visibility string) (model.Calendar, error) {
@@ -38,8 +41,11 @@ func (m *mockStore) GetCalendarOnly(_ context.Context, _ string) (model.Calendar
 	panic("unexpected call to GetCalendarOnly")
 }
 
-func (m *mockStore) AddParticipant(_ context.Context, _, _ string, _ *string) (model.Participant, error) {
-	panic("unexpected call to AddParticipant")
+func (m *mockStore) AddParticipant(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error) {
+	if m.addParticipant == nil {
+		panic("unexpected call to AddParticipant")
+	}
+	return m.addParticipant(ctx, calendarID, name, userID)
 }
 
 func (m *mockStore) ClaimParticipant(_ context.Context, _, _, _ string) (model.Participant, error) {
@@ -83,6 +89,20 @@ func (m *mockStore) ParticipantHasAvailability(ctx context.Context, participantI
 		panic("unexpected call to ParticipantHasAvailability")
 	}
 	return m.participantHasAvailability(ctx, participantID)
+}
+
+func (m *mockStore) TouchCalendar(ctx context.Context, calendarID string) error {
+	if m.touchCalendar == nil {
+		return nil
+	}
+	return m.touchCalendar(ctx, calendarID)
+}
+
+func (m *mockStore) ListCalendarsForUser(ctx context.Context, userID string, limit int) ([]store.CalendarListItem, error) {
+	if m.listCalendarsForUser == nil {
+		panic("unexpected call to ListCalendarsForUser")
+	}
+	return m.listCalendarsForUser(ctx, userID, limit)
 }
 
 func TestSetAvailability_ParticipantBelongsToCalendar(t *testing.T) {
@@ -334,6 +354,123 @@ func TestGetCalendarView_SubmitToView_SubmittedLinkedUserRevealed(t *testing.T) 
 	}
 	if !view.Revealed {
 		t.Fatal("linked user who has submitted should see the full view")
+	}
+}
+
+// --- ListUserCalendars tests ---
+
+func TestListUserCalendars_UnderCap(t *testing.T) {
+	ms := &mockStore{
+		listCalendarsForUser: func(_ context.Context, userID string, limit int) ([]store.CalendarListItem, error) {
+			if userID != "u1" {
+				t.Fatalf("userID = %q, want u1", userID)
+			}
+			if limit != MyCalendarsPageSize+1 {
+				t.Fatalf("limit = %d, want %d", limit, MyCalendarsPageSize+1)
+			}
+			items := make([]store.CalendarListItem, 3)
+			return items, nil
+		},
+	}
+	s := New(ms, nil)
+
+	items, hasMore, err := s.ListUserCalendars(context.Background(), "u1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(items) != 3 {
+		t.Fatalf("len = %d, want 3", len(items))
+	}
+	if hasMore {
+		t.Fatal("has_more = true, want false")
+	}
+}
+
+func TestListUserCalendars_AtCapNoOverflow(t *testing.T) {
+	ms := &mockStore{
+		listCalendarsForUser: func(_ context.Context, _ string, _ int) ([]store.CalendarListItem, error) {
+			return make([]store.CalendarListItem, MyCalendarsPageSize), nil
+		},
+	}
+	s := New(ms, nil)
+
+	items, hasMore, err := s.ListUserCalendars(context.Background(), "u1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(items) != MyCalendarsPageSize {
+		t.Fatalf("len = %d, want %d", len(items), MyCalendarsPageSize)
+	}
+	if hasMore {
+		t.Fatal("has_more = true, want false")
+	}
+}
+
+func TestListUserCalendars_OverCapTrims(t *testing.T) {
+	ms := &mockStore{
+		listCalendarsForUser: func(_ context.Context, _ string, _ int) ([]store.CalendarListItem, error) {
+			return make([]store.CalendarListItem, MyCalendarsPageSize+1), nil
+		},
+	}
+	s := New(ms, nil)
+
+	items, hasMore, err := s.ListUserCalendars(context.Background(), "u1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(items) != MyCalendarsPageSize {
+		t.Fatalf("len = %d, want %d", len(items), MyCalendarsPageSize)
+	}
+	if !hasMore {
+		t.Fatal("has_more = false, want true")
+	}
+}
+
+// --- TouchCalendar wiring tests ---
+
+func TestAddParticipant_TouchesCalendar(t *testing.T) {
+	var touchCalendarID string
+	ms := &mockStore{
+		touchCalendar: func(_ context.Context, calendarID string) error {
+			touchCalendarID = calendarID
+			return nil
+		},
+	}
+	ms.addParticipant = func(_ context.Context, calendarID, _ string, _ *string) (model.Participant, error) {
+		return model.Participant{ID: "p1", CalendarID: calendarID}, nil
+	}
+
+	s := New(ms, nil)
+	if _, err := s.AddParticipant(context.Background(), "cal1", "Alice", nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if touchCalendarID != "cal1" {
+		t.Fatalf("touchCalendarID = %q, want cal1", touchCalendarID)
+	}
+}
+
+func TestSetAvailability_TouchesCalendar(t *testing.T) {
+	var touched bool
+	ms := &mockStore{
+		getParticipant: func(_ context.Context, id string) (model.Participant, error) {
+			return model.Participant{ID: id, CalendarID: "cal1"}, nil
+		},
+		setAvailability: func(_ context.Context, _ string, _ []string) error { return nil },
+		touchCalendar: func(_ context.Context, calendarID string) error {
+			if calendarID != "cal1" {
+				t.Fatalf("touchCalendar calendarID = %q, want cal1", calendarID)
+			}
+			touched = true
+			return nil
+		},
+	}
+	s := New(ms, nil)
+
+	if err := s.SetAvailability(context.Background(), "cal1", "p1", []string{"2026-05-01"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !touched {
+		t.Fatal("expected TouchCalendar to be called")
 	}
 }
 

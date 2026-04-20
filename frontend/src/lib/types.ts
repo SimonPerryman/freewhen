@@ -7,6 +7,7 @@ export interface Calendar {
   ownerId: string;
   visibility: Visibility;
   createdAt: string;
+  updatedAt: string;
   finalisedDate?: string;
   finalisedAt?: string;
 }
@@ -64,4 +65,24 @@ export interface User {
 
 export interface ApiError {
   error: string;
+}
+
+export type MyCalendarRole = "owner" | "joiner";
+
+export interface MyCalendarListItem {
+  id: string;
+  name: string;
+  emoji: string;
+  visibility: Visibility;
+  createdAt: string;
+  updatedAt: string;
+  finalisedDate: string | null;
+  finalisedAt: string | null;
+  participantCount: number;
+  myRole: MyCalendarRole;
+}
+
+export interface MyCalendarsResponse {
+  calendars: MyCalendarListItem[];
+  hasMore: boolean;
 }

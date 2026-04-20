@@ -698,6 +698,118 @@ func TestAddParticipant_AuthLinksUser(t *testing.T) {
 	}
 }
 
+func TestListUserCalendars(t *testing.T) {
+	ts := setupTestServer(t)
+
+	// No calendars yet → empty list.
+	resp, body := doJSONAuth(t, ts, http.MethodGet, "/users/me/calendars", nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("list: status %d, body %s", resp.StatusCode, body)
+	}
+	var empty struct {
+		Calendars []map[string]any `json:"calendars"`
+		HasMore   bool             `json:"has_more"`
+	}
+	decodeJSON(t, body, &empty)
+	if len(empty.Calendars) != 0 {
+		t.Fatalf("expected empty calendars, got %v", empty.Calendars)
+	}
+	if empty.HasMore {
+		t.Fatal("expected has_more = false on empty list")
+	}
+
+	// Unauthenticated → 401.
+	resp, _ = doJSON(t, ts, http.MethodGet, "/users/me/calendars", nil)
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401 without session, got %d", resp.StatusCode)
+	}
+
+	// Create two calendars as the primary user.
+	_, body = doJSONAuth(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "Alpha"})
+	var first struct {
+		model.Calendar
+	}
+	decodeJSON(t, body, &first)
+
+	_, body = doJSONAuth(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "Beta"})
+	var second struct {
+		model.Calendar
+	}
+	decodeJSON(t, body, &second)
+
+	// Create a second user who joins Alpha.
+	dsn := os.Getenv("TEST_DATABASE_URL")
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+	st := store.New(db)
+	joiner, err := st.CreateUser(t.Context(), "joiner@listtest.example", "Joiner", "google", "list-joiner-sub")
+	if err != nil {
+		t.Fatalf("create joiner: %v", err)
+	}
+	joinerToken, err := st.CreateSession(t.Context(), joiner.ID)
+	if err != nil {
+		t.Fatalf("create joiner session: %v", err)
+	}
+
+	resp, body = doJSONWithSession(t, ts, http.MethodPost, "/calendars/"+first.ID+"/participants", map[string]string{"name": "Joiner"}, joinerToken)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("joiner add participant: status %d, body %s", resp.StatusCode, body)
+	}
+
+	// Primary user's list: two calendars (both owner), Alpha moved to top by the
+	// joiner's activity, Beta second.
+	resp, body = doJSONAuth(t, ts, http.MethodGet, "/users/me/calendars", nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("primary list: status %d, body %s", resp.StatusCode, body)
+	}
+	var primary struct {
+		Calendars []struct {
+			ID               string `json:"id"`
+			Name             string `json:"name"`
+			MyRole           string `json:"my_role"`
+			ParticipantCount int    `json:"participant_count"`
+		} `json:"calendars"`
+		HasMore bool `json:"has_more"`
+	}
+	decodeJSON(t, body, &primary)
+	if len(primary.Calendars) != 2 {
+		t.Fatalf("expected 2 calendars, got %d", len(primary.Calendars))
+	}
+	if primary.Calendars[0].ID != first.ID {
+		t.Errorf("expected Alpha first after join activity, got %q", primary.Calendars[0].ID)
+	}
+	for _, row := range primary.Calendars {
+		if row.MyRole != "owner" {
+			t.Errorf("row %q my_role = %q, want owner", row.ID, row.MyRole)
+		}
+	}
+
+	// Joiner's list: only Alpha, as joiner.
+	resp, body = doJSONWithSession(t, ts, http.MethodGet, "/users/me/calendars", nil, joinerToken)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("joiner list: status %d, body %s", resp.StatusCode, body)
+	}
+	var joinerList struct {
+		Calendars []struct {
+			ID     string `json:"id"`
+			MyRole string `json:"my_role"`
+		} `json:"calendars"`
+	}
+	decodeJSON(t, body, &joinerList)
+	if len(joinerList.Calendars) != 1 {
+		t.Fatalf("joiner expected 1 calendar, got %d", len(joinerList.Calendars))
+	}
+	if joinerList.Calendars[0].ID != first.ID {
+		t.Errorf("joiner got id=%q, want %q", joinerList.Calendars[0].ID, first.ID)
+	}
+	if joinerList.Calendars[0].MyRole != "joiner" {
+		t.Errorf("joiner my_role = %q, want joiner", joinerList.Calendars[0].MyRole)
+	}
+}
+
 func TestCORS_Preflight(t *testing.T) {
 	ts := setupTestServer(t)
 

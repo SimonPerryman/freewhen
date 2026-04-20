@@ -251,6 +251,63 @@ func (h *Handler) RemoveParticipant(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// myCalendarDTO is the per-row shape returned by GET /users/me/calendars.
+// Kept separate from model.Calendar so we can add computed fields (my_role,
+// participant_count) without polluting the shared calendar type.
+type myCalendarDTO struct {
+	ID               string     `json:"id"`
+	Name             string     `json:"name"`
+	Emoji            string     `json:"emoji"`
+	Visibility       string     `json:"visibility"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
+	FinalisedDate    *string    `json:"finalised_date"`
+	FinalisedAt      *time.Time `json:"finalised_at"`
+	ParticipantCount int        `json:"participant_count"`
+	MyRole           string     `json:"my_role"`
+}
+
+// ListUserCalendars returns the authenticated user's calendars, sorted
+// most-recently-active first. Capped server-side; see plans/my-calendars.md.
+func (h *Handler) ListUserCalendars(w http.ResponseWriter, r *http.Request) {
+	user := UserFromContext(r)
+	if user == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	items, hasMore, err := h.service.ListUserCalendars(r.Context(), user.ID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to list calendars")
+		return
+	}
+
+	out := make([]myCalendarDTO, len(items))
+	for i, item := range items {
+		role := "joiner"
+		if item.OwnerID == user.ID {
+			role = "owner"
+		}
+		out[i] = myCalendarDTO{
+			ID:               item.ID,
+			Name:             item.Name,
+			Emoji:            item.Emoji,
+			Visibility:       item.Visibility,
+			CreatedAt:        item.CreatedAt,
+			UpdatedAt:        item.UpdatedAt,
+			FinalisedDate:    item.FinalisedDate,
+			FinalisedAt:      item.FinalisedAt,
+			ParticipantCount: item.ParticipantCount,
+			MyRole:           role,
+		}
+	}
+
+	respondJSON(w, http.StatusOK, struct {
+		Calendars []myCalendarDTO `json:"calendars"`
+		HasMore   bool            `json:"has_more"`
+	}{Calendars: out, HasMore: hasMore})
+}
+
 func (h *Handler) UnfinaliseCalendar(w http.ResponseWriter, r *http.Request) {
 	user := UserFromContext(r)
 	if user == nil {

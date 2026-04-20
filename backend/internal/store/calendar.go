@@ -17,9 +17,9 @@ func (s *Store) CreateCalendar(ctx context.Context, name, emoji, ownerID, visibi
 		var cal model.Calendar
 		var emojiCol sql.NullString
 		err := s.db.QueryRowContext(ctx,
-			`INSERT INTO calendars (id, name, emoji, owner_id, visibility) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, emoji, owner_id, visibility, created_at`,
+			`INSERT INTO calendars (id, name, emoji, owner_id, visibility) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, emoji, owner_id, visibility, created_at, updated_at`,
 			id, name, nullableString(emoji), ownerID, visibility,
-		).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.Visibility, &cal.CreatedAt)
+		).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.Visibility, &cal.CreatedAt, &cal.UpdatedAt)
 		if err != nil {
 			if isUniqueViolation(err) {
 				continue
@@ -93,9 +93,9 @@ func (s *Store) getCalendarRow(ctx context.Context, id string) (model.Calendar, 
 	var finalisedDate sql.NullString
 	var finalisedAt sql.NullTime
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, name, emoji, owner_id, visibility, created_at, finalised_date::text, finalised_at
+		`SELECT id, name, emoji, owner_id, visibility, created_at, updated_at, finalised_date::text, finalised_at
 		 FROM calendars WHERE id = $1`, id,
-	).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.Visibility, &cal.CreatedAt, &finalisedDate, &finalisedAt)
+	).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.Visibility, &cal.CreatedAt, &cal.UpdatedAt, &finalisedDate, &finalisedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Calendar{}, ErrNotFound
@@ -117,7 +117,7 @@ func (s *Store) getCalendarRow(ctx context.Context, id string) (model.Calendar, 
 // UpdateCalendarName renames a calendar. Returns ErrNotFound if the calendar does not exist.
 func (s *Store) UpdateCalendarName(ctx context.Context, calendarID, name string) (model.Calendar, error) {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE calendars SET name = $1 WHERE id = $2`,
+		`UPDATE calendars SET name = $1, updated_at = now() WHERE id = $2`,
 		name, calendarID,
 	)
 	if err != nil {
@@ -137,7 +137,7 @@ func (s *Store) UpdateCalendarName(ctx context.Context, calendarID, name string)
 // Returns ErrNotFound if the calendar does not exist.
 func (s *Store) UpdateCalendarVisibility(ctx context.Context, calendarID, visibility string) (model.Calendar, error) {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE calendars SET visibility = $1 WHERE id = $2`,
+		`UPDATE calendars SET visibility = $1, updated_at = now() WHERE id = $2`,
 		visibility, calendarID,
 	)
 	if err != nil {
@@ -157,7 +157,7 @@ func (s *Store) UpdateCalendarVisibility(ctx context.Context, calendarID, visibi
 // Returns ErrNotFound if the calendar does not exist.
 func (s *Store) SetFinalisedDate(ctx context.Context, calendarID, date string) (model.Calendar, error) {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE calendars SET finalised_date = $1, finalised_at = $2 WHERE id = $3`,
+		`UPDATE calendars SET finalised_date = $1, finalised_at = $2, updated_at = now() WHERE id = $3`,
 		date, time.Now().UTC(), calendarID,
 	)
 	if err != nil {
@@ -178,7 +178,7 @@ func (s *Store) SetFinalisedDate(ctx context.Context, calendarID, date string) (
 // Returns ErrNotFound if the calendar does not exist.
 func (s *Store) ClearFinalisedDate(ctx context.Context, calendarID string) (model.Calendar, error) {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE calendars SET finalised_date = NULL, finalised_at = NULL WHERE id = $1`,
+		`UPDATE calendars SET finalised_date = NULL, finalised_at = NULL, updated_at = now() WHERE id = $1`,
 		calendarID,
 	)
 	if err != nil {
@@ -192,6 +192,84 @@ func (s *Store) ClearFinalisedDate(ctx context.Context, calendarID string) (mode
 		return model.Calendar{}, ErrNotFound
 	}
 	return s.getCalendarRow(ctx, calendarID)
+}
+
+// TouchCalendar bumps updated_at to now(). Used by mutations that touch child
+// tables (participants, availability) so the parent calendar's sort key stays
+// current. Returns ErrNotFound if the calendar does not exist.
+func (s *Store) TouchCalendar(ctx context.Context, calendarID string) error {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE calendars SET updated_at = now() WHERE id = $1`, calendarID,
+	)
+	if err != nil {
+		return fmt.Errorf("touch calendar: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// CalendarListItem is a calendar plus its participant count, returned by
+// ListCalendarsForUser. The caller derives per-user fields (role, etc.) from
+// the embedded Calendar.
+type CalendarListItem struct {
+	model.Calendar
+	ParticipantCount int
+}
+
+// ListCalendarsForUser returns calendars where the given user is a participant,
+// sorted most-recently-active first. Limit caps the result set. The caller is
+// responsible for passing limit = pageSize + 1 when detecting has_more.
+func (s *Store) ListCalendarsForUser(ctx context.Context, userID string, limit int) ([]CalendarListItem, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT c.id, c.name, c.emoji, c.owner_id, c.visibility, c.created_at, c.updated_at,
+		        c.finalised_date::text, c.finalised_at,
+		        (SELECT COUNT(*) FROM participants WHERE calendar_id = c.id) AS participant_count
+		 FROM calendars c
+		 JOIN participants p ON p.calendar_id = c.id
+		 WHERE p.user_id = $1
+		 ORDER BY c.updated_at DESC, c.id DESC
+		 LIMIT $2`,
+		userID, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list calendars for user: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	items := []CalendarListItem{}
+	for rows.Next() {
+		var item CalendarListItem
+		var emojiCol sql.NullString
+		var finalisedDate sql.NullString
+		var finalisedAt sql.NullTime
+		if err := rows.Scan(
+			&item.ID, &item.Name, &emojiCol, &item.OwnerID, &item.Visibility,
+			&item.CreatedAt, &item.UpdatedAt, &finalisedDate, &finalisedAt,
+			&item.ParticipantCount,
+		); err != nil {
+			return nil, fmt.Errorf("scan calendar row: %w", err)
+		}
+		item.Emoji = emojiCol.String
+		if finalisedDate.Valid {
+			d := finalisedDate.String
+			item.FinalisedDate = &d
+		}
+		if finalisedAt.Valid {
+			t := finalisedAt.Time
+			item.FinalisedAt = &t
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate calendar rows: %w", err)
+	}
+	return items, nil
 }
 
 func (s *Store) getParticipants(ctx context.Context, calendarID string) ([]model.Participant, error) {

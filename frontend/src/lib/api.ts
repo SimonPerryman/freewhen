@@ -4,6 +4,7 @@ import type {
   CalendarWithDetails,
   CreateCalendarRequest,
   CreateCalendarResponse,
+  MyCalendarsResponse,
   Participant,
   SetAvailabilityRequest,
   UpdateCalendarRequest,
@@ -138,10 +139,7 @@ export async function renameCalendar(calendarId: string, name: string): Promise<
   return updateCalendar(calendarId, { name });
 }
 
-export async function removeParticipant(
-  calendarId: string,
-  participantId: string,
-): Promise<void> {
+export async function removeParticipant(calendarId: string, participantId: string): Promise<void> {
   await request(`/calendars/${calendarId}/participants/${participantId}`, {
     method: "DELETE",
   });
@@ -149,6 +147,10 @@ export async function removeParticipant(
 
 export async function getMe(): Promise<User> {
   return request<User>("/auth/me");
+}
+
+export async function listMyCalendars(): Promise<MyCalendarsResponse> {
+  return request<MyCalendarsResponse>("/users/me/calendars");
 }
 
 export async function logout(): Promise<void> {

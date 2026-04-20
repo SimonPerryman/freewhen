@@ -236,6 +236,129 @@ func TestUpdateCalendarVisibility(t *testing.T) {
 	}
 }
 
+func TestTouchCalendar_BumpsUpdatedAt(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
+
+	cal, err := s.CreateCalendar(ctx, "Touch", "", owner.ID, "open")
+	if err != nil {
+		t.Fatalf("create calendar: %v", err)
+	}
+	before := cal.UpdatedAt
+
+	time.Sleep(10 * time.Millisecond)
+	if err := s.TouchCalendar(ctx, cal.ID); err != nil {
+		t.Fatalf("touch: %v", err)
+	}
+
+	after, err := s.GetCalendarOnly(ctx, cal.ID)
+	if err != nil {
+		t.Fatalf("re-read: %v", err)
+	}
+	if !after.UpdatedAt.After(before) {
+		t.Fatalf("updated_at did not advance: before=%v after=%v", before, after.UpdatedAt)
+	}
+}
+
+func TestTouchCalendar_NotFound(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	if err := s.TouchCalendar(ctx, "missing"); err != ErrNotFound {
+		t.Fatalf("err = %v, want ErrNotFound", err)
+	}
+}
+
+func TestListCalendarsForUser(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
+	joiner := createTestUser(t, s, "Joiner")
+
+	calA, err := s.CreateCalendar(ctx, "Alpha", "", owner.ID, "open")
+	if err != nil {
+		t.Fatalf("create alpha: %v", err)
+	}
+	if _, err := s.AddParticipant(ctx, calA.ID, "Owner", &owner.ID); err != nil {
+		t.Fatalf("owner joins alpha: %v", err)
+	}
+
+	calB, err := s.CreateCalendar(ctx, "Beta", "", owner.ID, "open")
+	if err != nil {
+		t.Fatalf("create beta: %v", err)
+	}
+	if _, err := s.AddParticipant(ctx, calB.ID, "Owner", &owner.ID); err != nil {
+		t.Fatalf("owner joins beta: %v", err)
+	}
+
+	// joiner joins only Alpha.
+	if _, err := s.AddParticipant(ctx, calA.ID, "Joiner", &joiner.ID); err != nil {
+		t.Fatalf("joiner joins alpha: %v", err)
+	}
+
+	// Bump Beta so it sorts above Alpha for the owner.
+	time.Sleep(10 * time.Millisecond)
+	if err := s.TouchCalendar(ctx, calB.ID); err != nil {
+		t.Fatalf("touch beta: %v", err)
+	}
+
+	ownerList, err := s.ListCalendarsForUser(ctx, owner.ID, 10)
+	if err != nil {
+		t.Fatalf("list owner: %v", err)
+	}
+	if len(ownerList) != 2 {
+		t.Fatalf("owner list len = %d, want 2", len(ownerList))
+	}
+	if ownerList[0].ID != calB.ID {
+		t.Errorf("owner row[0] id = %q, want %q (Beta)", ownerList[0].ID, calB.ID)
+	}
+	// Alpha has 2 participants (owner + joiner).
+	var alphaCount int
+	for _, item := range ownerList {
+		if item.ID == calA.ID {
+			alphaCount = item.ParticipantCount
+		}
+	}
+	if alphaCount != 2 {
+		t.Errorf("alpha participant_count = %d, want 2", alphaCount)
+	}
+
+	joinerList, err := s.ListCalendarsForUser(ctx, joiner.ID, 10)
+	if err != nil {
+		t.Fatalf("list joiner: %v", err)
+	}
+	if len(joinerList) != 1 {
+		t.Fatalf("joiner list len = %d, want 1", len(joinerList))
+	}
+	if joinerList[0].ID != calA.ID {
+		t.Errorf("joiner row[0] id = %q, want %q", joinerList[0].ID, calA.ID)
+	}
+}
+
+func TestListCalendarsForUser_RespectsLimit(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
+
+	for i := 0; i < 5; i++ {
+		cal, err := s.CreateCalendar(ctx, "Cal", "", owner.ID, "open")
+		if err != nil {
+			t.Fatalf("create: %v", err)
+		}
+		if _, err := s.AddParticipant(ctx, cal.ID, "Owner", &owner.ID); err != nil {
+			t.Fatalf("join: %v", err)
+		}
+	}
+
+	rows, err := s.ListCalendarsForUser(ctx, owner.ID, 3)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(rows) != 3 {
+		t.Fatalf("len = %d, want 3", len(rows))
+	}
+}
+
 func TestParticipantHasAvailability(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()

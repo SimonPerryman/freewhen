@@ -69,6 +69,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /auth/magic-link", s.auth.SendMagicLink)
 	s.mux.HandleFunc("GET /auth/magic-link/callback", s.auth.MagicLinkCallback)
 
+	// User routes
+	s.mux.HandleFunc("GET /users/me/calendars", s.requireAuth(s.handler.ListUserCalendars))
+
 	// Admin routes
 	s.mux.HandleFunc("GET /admin/metrics", s.requireAdmin(s.metrics.GetMetrics))
 

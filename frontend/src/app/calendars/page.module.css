@@ -1,0 +1,28 @@
+.page {
+  display: flex;
+  min-height: 100vh;
+  justify-content: center;
+  padding: 16px;
+  background-color: var(--page-bg);
+  color: var(--text-primary);
+}
+
+.container {
+  width: 100%;
+  max-width: 36rem;
+  align-self: flex-start;
+}
+
+@media (min-width: 640px) {
+  .page {
+    padding: 40px 24px;
+  }
+}
+
+.heading {
+  margin: 0 0 var(--space-xl);
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}

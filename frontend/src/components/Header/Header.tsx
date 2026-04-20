@@ -31,6 +31,9 @@ export default function Header() {
       <div className={styles.actions}>
         {isLoading ? null : user ? (
           <div className={styles.userArea}>
+            <a href="/calendars" className={styles.myCalendarsLink}>
+              My calendars
+            </a>
             <span className={styles.userName}>{user.name || user.email}</span>
             <button
               type="button"

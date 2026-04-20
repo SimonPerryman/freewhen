@@ -18,6 +18,7 @@ type Calendar struct {
 	OwnerID       string     `json:"owner_id"`
 	Visibility    string     `json:"visibility"`
 	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
 	FinalisedDate *string    `json:"finalised_date,omitempty"`
 	FinalisedAt   *time.Time `json:"finalised_at,omitempty"`
 }

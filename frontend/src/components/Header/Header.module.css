@@ -47,6 +47,23 @@
   }
 }
 
+.myCalendarsLink {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+
+.myCalendarsLink:hover {
+  color: var(--text-primary);
+  background: var(--accent-subtle);
+}
+
 .signOutButton {
   padding: 6px 12px;
   font-size: 13px;

@@ -3,11 +3,17 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/realtime"
 	"github.com/freewhen/backend/internal/store"
 )
+
+// MyCalendarsPageSize caps the number of calendars returned by the
+// /users/me/calendars endpoint. See plans/my-calendars.md — we accept a hard
+// cap for v1 instead of real pagination.
+const MyCalendarsPageSize = 100
 
 // ErrInvalidVisibility is returned when a caller passes an unrecognised
 // visibility value to a mutation endpoint.
@@ -40,6 +46,8 @@ type Store interface {
 	DeleteParticipant(ctx context.Context, calendarID, participantID string) error
 	CountCalendarParticipants(ctx context.Context, calendarID string) (int, error)
 	ParticipantHasAvailability(ctx context.Context, participantID string) (bool, error)
+	TouchCalendar(ctx context.Context, calendarID string) error
+	ListCalendarsForUser(ctx context.Context, userID string, limit int) ([]store.CalendarListItem, error)
 }
 
 type Service struct {
@@ -152,6 +160,7 @@ func (s *Service) AddParticipant(ctx context.Context, calendarID, name string, u
 	if err != nil {
 		return model.Participant{}, err
 	}
+	s.touch(ctx, calendarID)
 	s.pub.Publish(calendarID, realtime.EventParticipantJoined)
 	return p, nil
 }
@@ -161,6 +170,7 @@ func (s *Service) ClaimParticipant(ctx context.Context, calendarID, participantI
 	if err != nil {
 		return model.Participant{}, err
 	}
+	s.touch(ctx, calendarID)
 	s.pub.Publish(calendarID, realtime.EventParticipantClaimed)
 	return p, nil
 }
@@ -176,8 +186,17 @@ func (s *Service) SetAvailability(ctx context.Context, calendarID, participantID
 	if err := s.store.SetAvailability(ctx, participantID, dates); err != nil {
 		return err
 	}
+	s.touch(ctx, calendarID)
 	s.pub.Publish(calendarID, realtime.EventAvailabilityChanged)
 	return nil
+}
+
+// touch bumps the parent calendar's updated_at. Failures are logged but not
+// propagated — updated_at drift is not worth failing the user's write over.
+func (s *Service) touch(ctx context.Context, calendarID string) {
+	if err := s.store.TouchCalendar(ctx, calendarID); err != nil && !errors.Is(err, store.ErrNotFound) {
+		slog.Default().Warn("touch calendar failed", "calendar_id", calendarID, "error", err)
+	}
 }
 
 func (s *Service) GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error) {
@@ -227,6 +246,21 @@ func (s *Service) RemoveParticipant(ctx context.Context, calendarID, participant
 	if err := s.store.DeleteParticipant(ctx, calendarID, participantID); err != nil {
 		return err
 	}
+	s.touch(ctx, calendarID)
 	s.pub.Publish(calendarID, realtime.EventParticipantRemoved)
 	return nil
+}
+
+// ListUserCalendars returns the authenticated user's calendars, sorted
+// most-recently-active first. Caps the result at MyCalendarsPageSize; hasMore
+// reports whether more calendars exist beyond the cap.
+func (s *Service) ListUserCalendars(ctx context.Context, userID string) ([]store.CalendarListItem, bool, error) {
+	items, err := s.store.ListCalendarsForUser(ctx, userID, MyCalendarsPageSize+1)
+	if err != nil {
+		return nil, false, err
+	}
+	if len(items) > MyCalendarsPageSize {
+		return items[:MyCalendarsPageSize], true, nil
+	}
+	return items, false, nil
 }
