@@ -138,7 +138,7 @@ func (s *Store) ClearFinalisedDate(ctx context.Context, calendarID string) (mode
 
 func (s *Store) getParticipants(ctx context.Context, calendarID string) ([]model.Participant, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, calendar_id, name, colour FROM participants WHERE calendar_id = $1`, calendarID,
+		`SELECT id, calendar_id, name, colour, user_id FROM participants WHERE calendar_id = $1`, calendarID,
 	)
 	if err != nil {
 		return nil, err
@@ -148,8 +148,12 @@ func (s *Store) getParticipants(ctx context.Context, calendarID string) ([]model
 	participants := []model.Participant{}
 	for rows.Next() {
 		var p model.Participant
-		if err := rows.Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour); err != nil {
+		var userID sql.NullString
+		if err := rows.Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &userID); err != nil {
 			return nil, err
+		}
+		if userID.Valid {
+			p.UserID = &userID.String
 		}
 		participants = append(participants, p)
 	}

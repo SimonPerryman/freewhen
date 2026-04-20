@@ -32,8 +32,12 @@ func (m *mockStore) GetCalendarOnly(_ context.Context, _ string) (model.Calendar
 	panic("unexpected call to GetCalendarOnly")
 }
 
-func (m *mockStore) AddParticipant(_ context.Context, _, _ string) (model.Participant, error) {
+func (m *mockStore) AddParticipant(_ context.Context, _, _ string, _ *string) (model.Participant, error) {
 	panic("unexpected call to AddParticipant")
+}
+
+func (m *mockStore) ClaimParticipant(_ context.Context, _, _, _ string) (model.Participant, error) {
+	panic("unexpected call to ClaimParticipant")
 }
 
 func (m *mockStore) SetFinalisedDate(_ context.Context, _, _ string) (model.Calendar, error) {

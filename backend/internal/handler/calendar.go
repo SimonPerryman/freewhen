@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/store"
 )
 
@@ -32,7 +33,22 @@ func (h *Handler) CreateCalendar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusCreated, cal)
+	// Auto-join the owner as a participant
+	participant, err := h.service.AddParticipant(r.Context(), cal.ID, user.Name, &user.ID)
+	if err != nil {
+		// Calendar was created but participant failed — still return the calendar.
+		// The owner can join manually on the calendar page.
+		respondJSON(w, http.StatusCreated, struct {
+			model.Calendar
+			Participant *model.Participant `json:"participant,omitempty"`
+		}{Calendar: cal})
+		return
+	}
+
+	respondJSON(w, http.StatusCreated, struct {
+		model.Calendar
+		Participant *model.Participant `json:"participant,omitempty"`
+	}{Calendar: cal, Participant: &participant})
 }
 
 func (h *Handler) GetCalendar(w http.ResponseWriter, r *http.Request) {

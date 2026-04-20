@@ -12,8 +12,9 @@ import (
 func TestCreateCalendar(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "Weekend Trip", "✨")
+	cal, err := s.CreateCalendar(ctx, "Weekend Trip", "✨", owner.ID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -29,6 +30,9 @@ func TestCreateCalendar(t *testing.T) {
 	if cal.Emoji != "✨" {
 		t.Errorf("expected emoji %q, got %q", "✨", cal.Emoji)
 	}
+	if cal.OwnerID != owner.ID {
+		t.Errorf("expected owner_id %q, got %q", owner.ID, cal.OwnerID)
+	}
 	if time.Since(cal.CreatedAt) > 5*time.Second {
 		t.Errorf("expected recent created_at, got %v", cal.CreatedAt)
 	}
@@ -37,8 +41,9 @@ func TestCreateCalendar(t *testing.T) {
 func TestCreateCalendarNoEmoji(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "No Icon", "")
+	cal, err := s.CreateCalendar(ctx, "No Icon", "", owner.ID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -58,8 +63,9 @@ func TestCreateCalendarNoEmoji(t *testing.T) {
 func TestCreateCalendarEmojiRoundTrip(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "Round Trip", "🪩")
+	cal, err := s.CreateCalendar(ctx, "Round Trip", "🪩", owner.ID)
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -76,8 +82,9 @@ func TestCreateCalendarEmojiRoundTrip(t *testing.T) {
 func TestCreateCalendarDefaultName(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "", "")
+	cal, err := s.CreateCalendar(ctx, "", "", owner.ID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -89,17 +96,18 @@ func TestCreateCalendarDefaultName(t *testing.T) {
 func TestGetCalendar(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "Test", "🦊")
+	cal, err := s.CreateCalendar(ctx, "Test", "🦊", owner.ID)
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
 
-	alice, err := s.AddParticipant(ctx, cal.ID, "Alice")
+	alice, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
 	if err != nil {
 		t.Fatalf("add alice: %v", err)
 	}
-	bob, err := s.AddParticipant(ctx, cal.ID, "Bob")
+	bob, err := s.AddParticipant(ctx, cal.ID, "Bob", nil)
 	if err != nil {
 		t.Fatalf("add bob: %v", err)
 	}
@@ -139,8 +147,9 @@ func TestGetCalendarNotFound(t *testing.T) {
 func TestGetCalendarEmpty(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "Empty", "🌿")
+	cal, err := s.CreateCalendar(ctx, "Empty", "🌿", owner.ID)
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}

@@ -3,6 +3,7 @@ import type {
   Calendar,
   CalendarWithDetails,
   CreateCalendarRequest,
+  CreateCalendarResponse,
   Participant,
   SetAvailabilityRequest,
   User,
@@ -73,8 +74,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return toCamelCaseKeys<T>(body);
 }
 
-export async function createCalendar(req: CreateCalendarRequest): Promise<Calendar> {
-  return request<Calendar>("/calendars", {
+export async function createCalendar(req: CreateCalendarRequest): Promise<CreateCalendarResponse> {
+  return request<CreateCalendarResponse>("/calendars", {
     method: "POST",
     body: JSON.stringify(toSnakeCaseKeys(req)),
   });
@@ -123,6 +124,15 @@ export async function getMe(): Promise<User> {
 
 export async function logout(): Promise<void> {
   await request("/auth/logout", { method: "POST" });
+}
+
+export async function claimParticipant(
+  calendarId: string,
+  participantId: string,
+): Promise<Participant> {
+  return request<Participant>(`/calendars/${calendarId}/participants/${participantId}/claim`, {
+    method: "POST",
+  });
 }
 
 export async function sendMagicLink(email: string, returnUrl: string = "/"): Promise<void> {

@@ -29,9 +29,22 @@ export default function Home() {
 
     setSubmitting(true);
     try {
-      const calendar = await createCalendar({ name: name.trim() });
-      analytics.capture("calendar_created", { calendar_id: calendar.id });
-      router.push(`/calendars/${calendar.id}`);
+      const result = await createCalendar({ name: name.trim() });
+      analytics.capture("calendar_created", { calendar_id: result.id });
+
+      // Store owner's auto-joined participant in localStorage
+      if (result.participant) {
+        const storageKey = `freewhen:${result.id}`;
+        localStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            participantId: result.participant.id,
+            name: result.participant.name,
+          }),
+        );
+      }
+
+      router.push(`/calendars/${result.id}`);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         router.push(`/login?return_url=${encodeURIComponent("/")}`);

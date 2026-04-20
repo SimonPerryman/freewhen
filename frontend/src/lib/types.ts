@@ -13,6 +13,7 @@ export interface Participant {
   calendarId: string;
   name: string;
   colour: string;
+  userId?: string;
 }
 
 export interface Availability {
@@ -25,6 +26,10 @@ export interface CalendarWithDetails {
   calendar: Calendar;
   participants: Participant[];
   availability: Availability[];
+}
+
+export interface CreateCalendarResponse extends Calendar {
+  participant?: Participant;
 }
 
 export interface CreateCalendarRequest {

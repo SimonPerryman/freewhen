@@ -19,10 +19,11 @@ type mockService struct {
 	createCalendar     func(ctx context.Context, name, ownerID string) (model.Calendar, error)
 	getCalendar        func(ctx context.Context, id string) (model.CalendarWithDetails, error)
 	getCalendarOnly    func(ctx context.Context, id string) (model.Calendar, error)
-	addParticipant     func(ctx context.Context, calendarID, name string) (model.Participant, error)
+	addParticipant     func(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
 	setAvailability    func(ctx context.Context, calendarID, participantID string, dates []string) error
 	finaliseCalendar   func(ctx context.Context, calendarID, date string) (model.Calendar, error)
 	unfinaliseCalendar func(ctx context.Context, calendarID string) (model.Calendar, error)
+	claimParticipant   func(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error)
 }
 
 func (m *mockService) CreateCalendar(ctx context.Context, name, ownerID string) (model.Calendar, error) {
@@ -37,8 +38,12 @@ func (m *mockService) GetCalendarOnly(ctx context.Context, id string) (model.Cal
 	return m.getCalendarOnly(ctx, id)
 }
 
-func (m *mockService) AddParticipant(ctx context.Context, calendarID, name string) (model.Participant, error) {
-	return m.addParticipant(ctx, calendarID, name)
+func (m *mockService) AddParticipant(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error) {
+	return m.addParticipant(ctx, calendarID, name, userID)
+}
+
+func (m *mockService) ClaimParticipant(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error) {
+	return m.claimParticipant(ctx, calendarID, participantID, userID)
 }
 
 func (m *mockService) SetAvailability(ctx context.Context, calendarID, participantID string, dates []string) error {
@@ -80,6 +85,7 @@ var testUser = &model.User{ID: "u1", Email: "test@example.com", Name: "Test"}
 
 func TestCreateCalendar_Valid(t *testing.T) {
 	cal := model.Calendar{ID: "abc12345", Name: "Trip", OwnerID: "u1", CreatedAt: time.Now()}
+	ownerParticipant := model.Participant{ID: "p1", CalendarID: "abc12345", Name: "Test", Colour: "#E63946", UserID: strPtr("u1")}
 	h := New(&mockService{
 		createCalendar: func(_ context.Context, name, ownerID string) (model.Calendar, error) {
 			if name != "Trip" {
@@ -89,6 +95,15 @@ func TestCreateCalendar_Valid(t *testing.T) {
 				t.Fatalf("expected ownerID %q, got %q", "u1", ownerID)
 			}
 			return cal, nil
+		},
+		addParticipant: func(_ context.Context, calendarID, name string, userID *string) (model.Participant, error) {
+			if calendarID != "abc12345" {
+				t.Fatalf("expected calendarID %q, got %q", "abc12345", calendarID)
+			}
+			if userID == nil || *userID != "u1" {
+				t.Fatalf("expected userID u1, got %v", userID)
+			}
+			return ownerParticipant, nil
 		},
 	})
 
@@ -100,12 +115,24 @@ func TestCreateCalendar_Valid(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusCreated)
 	}
 
-	var got model.Calendar
+	var got struct {
+		ID          string            `json:"id"`
+		Name        string            `json:"name"`
+		Participant *model.Participant `json:"participant"`
+	}
 	decodeJSON(t, rec, &got)
 	if got.ID != cal.ID || got.Name != cal.Name {
-		t.Fatalf("body = %+v, want id=%s name=%s", got, cal.ID, cal.Name)
+		t.Fatalf("body id=%s name=%s, want id=%s name=%s", got.ID, got.Name, cal.ID, cal.Name)
+	}
+	if got.Participant == nil {
+		t.Fatal("expected participant in response")
+	}
+	if got.Participant.UserID == nil || *got.Participant.UserID != "u1" {
+		t.Fatalf("expected participant user_id u1, got %v", got.Participant.UserID)
 	}
 }
+
+func strPtr(s string) *string { return &s }
 
 func TestCreateCalendar_Unauthorized(t *testing.T) {
 	h := New(&mockService{})
@@ -210,7 +237,7 @@ func TestGetCalendar_ServiceError(t *testing.T) {
 func TestAddParticipant_Valid(t *testing.T) {
 	p := model.Participant{ID: "p1", CalendarID: "cal1", Name: "Alice", Colour: "#E63946"}
 	h := New(&mockService{
-		addParticipant: func(_ context.Context, calendarID, name string) (model.Participant, error) {
+		addParticipant: func(_ context.Context, calendarID, name string, _ *string) (model.Participant, error) {
 			if calendarID != "cal1" || name != "Alice" {
 				t.Fatalf("unexpected args: calendarID=%q name=%q", calendarID, name)
 			}
@@ -260,7 +287,7 @@ func TestAddParticipant_MalformedJSON(t *testing.T) {
 
 func TestAddParticipant_NotFound(t *testing.T) {
 	h := New(&mockService{
-		addParticipant: func(_ context.Context, _, _ string) (model.Participant, error) {
+		addParticipant: func(_ context.Context, _, _ string, _ *string) (model.Participant, error) {
 			return model.Participant{}, store.ErrNotFound
 		},
 	})
@@ -277,7 +304,7 @@ func TestAddParticipant_NotFound(t *testing.T) {
 
 func TestAddParticipant_DuplicateName(t *testing.T) {
 	h := New(&mockService{
-		addParticipant: func(_ context.Context, _, _ string) (model.Participant, error) {
+		addParticipant: func(_ context.Context, _, _ string, _ *string) (model.Participant, error) {
 			return model.Participant{}, store.ErrDuplicateName
 		},
 	})
@@ -294,7 +321,7 @@ func TestAddParticipant_DuplicateName(t *testing.T) {
 
 func TestAddParticipant_ServiceError(t *testing.T) {
 	h := New(&mockService{
-		addParticipant: func(_ context.Context, _, _ string) (model.Participant, error) {
+		addParticipant: func(_ context.Context, _, _ string, _ *string) (model.Participant, error) {
 			return model.Participant{}, fmt.Errorf("db down")
 		},
 	})
@@ -431,7 +458,7 @@ func TestSetAvailability_Finalised(t *testing.T) {
 
 func TestAddParticipant_Finalised(t *testing.T) {
 	h := New(&mockService{
-		addParticipant: func(_ context.Context, _, _ string) (model.Participant, error) {
+		addParticipant: func(_ context.Context, _, _ string, _ *string) (model.Participant, error) {
 			return model.Participant{}, store.ErrCalendarFinalised
 		},
 	})

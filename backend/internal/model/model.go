@@ -13,10 +13,11 @@ type Calendar struct {
 }
 
 type Participant struct {
-	ID         string `json:"id"`
-	CalendarID string `json:"calendar_id"`
-	Name       string `json:"name"`
-	Colour     string `json:"colour"`
+	ID         string  `json:"id"`
+	CalendarID string  `json:"calendar_id"`
+	Name       string  `json:"name"`
+	Colour     string  `json:"colour"`
+	UserID     *string `json:"user_id,omitempty"`
 }
 
 type Availability struct {

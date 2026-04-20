@@ -70,6 +70,19 @@ func (s *Server) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
+// optionalAuth attaches the user to context if a valid session exists, but
+// does not reject the request if no session is present.
+func (s *Server) optionalAuth(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := s.authenticateRequest(r)
+		if user != nil {
+			ctx := context.WithValue(r.Context(), handler.UserContextKey, user)
+			r = r.WithContext(ctx)
+		}
+		next.ServeHTTP(w, r)
+	}
+}
+
 func (s *Server) authenticateRequest(r *http.Request) *model.User {
 	cookie, err := r.Cookie("session")
 	if err != nil {

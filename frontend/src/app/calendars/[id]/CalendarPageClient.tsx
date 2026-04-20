@@ -8,6 +8,7 @@ import {
   setAvailability,
   finaliseCalendar,
   unfinaliseCalendar,
+  claimParticipant,
   ApiError,
 } from "@/lib/api";
 import analytics from "@/lib/analytics";
@@ -95,24 +96,57 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           is_owner: !!user && data.calendar.ownerId === user.id,
         });
 
-        // Check localStorage for existing participant
+        // Resolve participant: user_id match first, then localStorage
+        let resolved: typeof data.participants[0] | undefined;
+
+        // 1. Auto-reconnect: if signed in, find participant linked to this user
+        if (user) {
+          resolved = data.participants.find((p) => p.userId === user.id);
+        }
+
+        // 2. Fall back to localStorage
         const stored = readStorage(calendarId);
-        if (stored) {
+        if (!resolved && stored) {
           const existing = data.participants.find((p) => p.id === stored.participantId);
           if (existing) {
-            setCurrentParticipant(existing);
-            participantIdRef.current = existing.id;
-
-            // Seed selected dates, pruning past dates
-            const today = getToday();
-            const userDates = data.availability
-              .filter((a) => a.participantId === existing.id && a.date >= today)
-              .map((a) => a.date);
-            setSelectedDates(new Set(userDates));
+            // 3. Claim flow: localStorage participant exists, user is signed in,
+            //    but participant isn't linked to anyone yet — claim it silently
+            if (user && !existing.userId) {
+              try {
+                const claimed = await claimParticipant(calendarId, existing.id);
+                resolved = claimed;
+                writeStorage(calendarId, { participantId: claimed.id, name: claimed.name });
+              } catch {
+                // Claim failed (already linked, or user already joined) — fall through
+                // If user already has a participant, the userId match above would have found it
+                // on a refetch. For now, just use the localStorage participant as-is.
+                resolved = existing;
+              }
+            } else {
+              resolved = existing;
+            }
           } else {
             // Stale participant — pre-fill name
             setStoredName(stored.name);
           }
+        }
+
+        // 4. Pre-fill join form with user name if signed in and no participant found
+        if (!resolved && user) {
+          setStoredName(user.name);
+        }
+
+        if (resolved) {
+          setCurrentParticipant(resolved);
+          participantIdRef.current = resolved.id;
+          writeStorage(calendarId, { participantId: resolved.id, name: resolved.name });
+
+          // Seed selected dates, pruning past dates
+          const today = getToday();
+          const userDates = data.availability
+            .filter((a) => a.participantId === resolved!.id && a.date >= today)
+            .map((a) => a.date);
+          setSelectedDates(new Set(userDates));
         }
       } catch (err) {
         if (cancelled) return;
@@ -260,7 +294,12 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
         );
       } catch (err) {
         if (err instanceof ApiError && err.status === 409) {
-          setJoinError("That name is already taken");
+          const msg = err.message;
+          if (msg.includes("already joined")) {
+            setJoinError("You've already joined this calendar");
+          } else {
+            setJoinError("That name is already taken");
+          }
         } else {
           setJoinError("Something went wrong");
         }

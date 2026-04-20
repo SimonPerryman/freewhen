@@ -17,10 +17,11 @@ type CalendarService interface {
 	CreateCalendar(ctx context.Context, name, ownerID string) (model.Calendar, error)
 	GetCalendar(ctx context.Context, id string) (model.CalendarWithDetails, error)
 	GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error)
-	AddParticipant(ctx context.Context, calendarID, name string) (model.Participant, error)
+	AddParticipant(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
 	SetAvailability(ctx context.Context, calendarID, participantID string, dates []string) error
 	FinaliseCalendar(ctx context.Context, calendarID, date string) (model.Calendar, error)
 	UnfinaliseCalendar(ctx context.Context, calendarID string) (model.Calendar, error)
+	ClaimParticipant(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error)
 }
 
 type Handler struct {

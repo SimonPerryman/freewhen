@@ -23,9 +23,10 @@ Session-based auth with HTTP-only cookies. Creator must sign in to create a cale
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/calendars` | Required | Create a calendar (sets owner_id from session) |
+| POST | `/calendars` | Required | Create a calendar (sets owner_id, auto-joins owner as participant) |
 | GET | `/calendars/{id}` | — | Get calendar with participants and availability |
-| POST | `/calendars/{id}/participants` | — | Join a calendar |
+| POST | `/calendars/{id}/participants` | Optional | Join a calendar (auto-links user_id if signed in) |
+| POST | `/calendars/{id}/participants/{participantId}/claim` | Required | Link an anonymous participant to the authenticated user |
 | PUT | `/calendars/{id}/availability` | — | Update availability |
 | POST | `/calendars/{id}/finalise` | Owner | Lock the calendar to a chosen date |
 | DELETE | `/calendars/{id}/finalise` | Owner | Clear the locked date, reopen the calendar |
@@ -57,8 +58,22 @@ Create a new calendar. Requires authentication.
 **Response 201**
 
 ```json
-{"id": "string", "name": "string", "owner_id": "string", "created_at": "RFC3339"}
+{
+  "id": "string",
+  "name": "string",
+  "owner_id": "string",
+  "created_at": "RFC3339",
+  "participant": {
+    "id": "string",
+    "calendar_id": "string",
+    "name": "string",
+    "colour": "string",
+    "user_id": "string"
+  }
+}
 ```
+
+The `participant` field contains the owner's auto-joined participant record.
 
 **Errors:** 400 (invalid JSON) | 401 (not authenticated)
 
@@ -85,7 +100,8 @@ Get a calendar with all participants and their availability.
       "id": "string",
       "calendar_id": "string",
       "name": "string",
-      "colour": "string"
+      "colour": "string",
+      "user_id": "string or null"
     }
   ],
   "availability": [
@@ -106,7 +122,7 @@ Get a calendar with all participants and their availability.
 
 ### POST /calendars/{id}/participants
 
-Add a participant to a calendar.
+Add a participant to a calendar. If the user is signed in (session cookie present), the participant is automatically linked to their user account.
 
 **Request**
 
@@ -121,11 +137,32 @@ Add a participant to a calendar.
   "id": "string",
   "calendar_id": "string",
   "name": "string",
-  "colour": "string"
+  "colour": "string",
+  "user_id": "string (if signed in, otherwise omitted)"
 }
 ```
 
-**Errors:** 400 (name required, invalid JSON) | 404 (calendar not found) | 409 (name taken, calendar finalised)
+**Errors:** 400 (name required, invalid JSON) | 404 (calendar not found) | 409 (name taken, calendar finalised, user already joined)
+
+---
+
+### POST /calendars/{id}/participants/{participantId}/claim
+
+Link an anonymous participant to the authenticated user. Used when a user joins anonymously and later signs in. The participant must not already be linked to another user.
+
+**Response 200**
+
+```json
+{
+  "id": "string",
+  "calendar_id": "string",
+  "name": "string",
+  "colour": "string",
+  "user_id": "string"
+}
+```
+
+**Errors:** 401 (not authenticated) | 404 (participant not found) | 409 (already linked, user already joined)
 
 ---
 

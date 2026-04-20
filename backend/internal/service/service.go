@@ -12,11 +12,12 @@ type Store interface {
 	CreateCalendar(ctx context.Context, name, emoji, ownerID string) (model.Calendar, error)
 	GetCalendar(ctx context.Context, id string) (model.CalendarWithDetails, error)
 	GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error)
-	AddParticipant(ctx context.Context, calendarID, name string) (model.Participant, error)
+	AddParticipant(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
 	GetParticipant(ctx context.Context, id string) (model.Participant, error)
 	SetAvailability(ctx context.Context, participantID string, dates []string) error
 	SetFinalisedDate(ctx context.Context, calendarID, date string) (model.Calendar, error)
 	ClearFinalisedDate(ctx context.Context, calendarID string) (model.Calendar, error)
+	ClaimParticipant(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error)
 }
 
 type Service struct {
@@ -35,8 +36,12 @@ func (s *Service) GetCalendar(ctx context.Context, id string) (model.CalendarWit
 	return s.store.GetCalendar(ctx, id)
 }
 
-func (s *Service) AddParticipant(ctx context.Context, calendarID, name string) (model.Participant, error) {
-	return s.store.AddParticipant(ctx, calendarID, name)
+func (s *Service) AddParticipant(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error) {
+	return s.store.AddParticipant(ctx, calendarID, name, userID)
+}
+
+func (s *Service) ClaimParticipant(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error) {
+	return s.store.ClaimParticipant(ctx, calendarID, participantID, userID)
 }
 
 func (s *Service) SetAvailability(ctx context.Context, calendarID, participantID string, dates []string) error {

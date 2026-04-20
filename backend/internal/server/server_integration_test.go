@@ -132,18 +132,28 @@ func decodeJSON(t *testing.T, data []byte, v any) {
 func TestFullFlow(t *testing.T) {
 	ts := setupTestServer(t)
 
-	// 1. Create calendar
+	// 1. Create calendar (owner auto-joins as participant)
 	resp, body := doJSONAuth(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "Weekend Trip"})
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("create calendar: status %d, body %s", resp.StatusCode, body)
 	}
-	var cal model.Calendar
-	decodeJSON(t, body, &cal)
+	var createResp struct {
+		model.Calendar
+		Participant *model.Participant `json:"participant"`
+	}
+	decodeJSON(t, body, &createResp)
+	cal := createResp.Calendar
 	if cal.ID == "" {
 		t.Fatal("expected calendar ID, got empty")
 	}
 	if cal.Name != "Weekend Trip" {
 		t.Errorf("expected name %q, got %q", "Weekend Trip", cal.Name)
+	}
+	if createResp.Participant == nil {
+		t.Fatal("expected owner participant in create response")
+	}
+	if createResp.Participant.UserID == nil {
+		t.Fatal("expected owner participant to have user_id set")
 	}
 
 	// 2. Add Alice
@@ -155,6 +165,9 @@ func TestFullFlow(t *testing.T) {
 	decodeJSON(t, body, &alice)
 	if alice.ID == "" {
 		t.Fatal("expected alice ID, got empty")
+	}
+	if alice.UserID != nil {
+		t.Error("expected anonymous alice to have nil user_id")
 	}
 
 	// 3. Add Bob
@@ -204,8 +217,8 @@ func TestFullFlow(t *testing.T) {
 	for _, p := range details.Participants {
 		names[p.Name] = true
 	}
-	if !names["Alice"] || !names["Bob"] {
-		t.Errorf("expected both Alice and Bob in participants, got %+v", details.Participants)
+	if !names["Alice"] || !names["Bob"] || !names["Test User"] {
+		t.Errorf("expected Test User, Alice and Bob in participants, got %+v", details.Participants)
 	}
 
 	got := datesByParticipant(details.Availability)
@@ -570,6 +583,118 @@ func TestFinalise_NotOwner(t *testing.T) {
 	resp, _ := doJSONWithSession(t, ts, http.MethodPost, "/calendars/"+cal.ID+"/finalise", map[string]string{"date": "2026-05-02"}, otherToken)
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("expected 403 for non-owner, got %d", resp.StatusCode)
+	}
+}
+
+func TestClaimParticipant(t *testing.T) {
+	ts := setupTestServer(t)
+
+	// Create calendar
+	_, body := doJSONAuth(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "Test"})
+	var createResp struct {
+		model.Calendar
+	}
+	decodeJSON(t, body, &createResp)
+	cal := createResp.Calendar
+
+	// Add anonymous participant
+	_, body = doJSON(t, ts, http.MethodPost, "/calendars/"+cal.ID+"/participants", map[string]string{"name": "Alice"})
+	var alice model.Participant
+	decodeJSON(t, body, &alice)
+	if alice.UserID != nil {
+		t.Fatal("expected nil user_id before claim")
+	}
+
+	// Create a second user to claim
+	dsn := os.Getenv("TEST_DATABASE_URL")
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+	st := store.New(db)
+	claimUser, err := st.CreateUser(t.Context(), "alice@example.com", "Alice Real", "google", "alice-sub")
+	if err != nil {
+		t.Fatalf("create claim user: %v", err)
+	}
+	claimToken, err := st.CreateSession(t.Context(), claimUser.ID)
+	if err != nil {
+		t.Fatalf("create claim session: %v", err)
+	}
+
+	// Claim without auth → 401
+	resp, _ := doJSON(t, ts, http.MethodPost, "/calendars/"+cal.ID+"/participants/"+alice.ID+"/claim", nil)
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", resp.StatusCode)
+	}
+
+	// Claim with auth → 200
+	resp, body = doJSONWithSession(t, ts, http.MethodPost, "/calendars/"+cal.ID+"/participants/"+alice.ID+"/claim", nil, claimToken)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("claim: status %d, body %s", resp.StatusCode, body)
+	}
+	var claimed model.Participant
+	decodeJSON(t, body, &claimed)
+	if claimed.UserID == nil {
+		t.Fatal("expected user_id after claim")
+	}
+	if *claimed.UserID != claimUser.ID {
+		t.Errorf("expected user_id %q, got %q", claimUser.ID, *claimed.UserID)
+	}
+
+	// Claim again → 409 (already linked)
+	resp, _ = doJSONWithSession(t, ts, http.MethodPost, "/calendars/"+cal.ID+"/participants/"+alice.ID+"/claim", nil, claimToken)
+	if resp.StatusCode != http.StatusConflict {
+		t.Errorf("expected 409 for already linked, got %d", resp.StatusCode)
+	}
+}
+
+func TestAddParticipant_AuthLinksUser(t *testing.T) {
+	ts := setupTestServer(t)
+
+	// Create calendar
+	_, body := doJSONAuth(t, ts, http.MethodPost, "/calendars", map[string]string{"name": "Test"})
+	var createResp struct {
+		model.Calendar
+	}
+	decodeJSON(t, body, &createResp)
+	cal := createResp.Calendar
+
+	// Create second user
+	dsn := os.Getenv("TEST_DATABASE_URL")
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+	st := store.New(db)
+	joiner, err := st.CreateUser(t.Context(), "joiner@example.com", "Joiner", "google", "joiner-sub")
+	if err != nil {
+		t.Fatalf("create joiner: %v", err)
+	}
+	joinerToken, err := st.CreateSession(t.Context(), joiner.ID)
+	if err != nil {
+		t.Fatalf("create joiner session: %v", err)
+	}
+
+	// Add participant while authenticated → auto-links user_id
+	resp, body := doJSONWithSession(t, ts, http.MethodPost, "/calendars/"+cal.ID+"/participants", map[string]string{"name": "Joiner"}, joinerToken)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("add joiner: status %d, body %s", resp.StatusCode, body)
+	}
+	var p model.Participant
+	decodeJSON(t, body, &p)
+	if p.UserID == nil {
+		t.Fatal("expected user_id to be set when joining authenticated")
+	}
+	if *p.UserID != joiner.ID {
+		t.Errorf("expected user_id %q, got %q", joiner.ID, *p.UserID)
+	}
+
+	// Try to join again as same user → 409
+	resp, _ = doJSONWithSession(t, ts, http.MethodPost, "/calendars/"+cal.ID+"/participants", map[string]string{"name": "Different Name"}, joinerToken)
+	if resp.StatusCode != http.StatusConflict {
+		t.Errorf("expected 409 for duplicate user join, got %d", resp.StatusCode)
 	}
 }
 

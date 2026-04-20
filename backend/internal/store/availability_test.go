@@ -11,11 +11,11 @@ func TestSetAvailability(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test")
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID)
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
-	p, err := s.AddParticipant(ctx, cal.ID, "Alice")
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
@@ -45,11 +45,11 @@ func TestSetAvailabilityReplacesExisting(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test")
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID)
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
-	p, err := s.AddParticipant(ctx, cal.ID, "Alice")
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
@@ -77,11 +77,11 @@ func TestSetAvailabilityClearAll(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test")
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID)
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
-	p, err := s.AddParticipant(ctx, cal.ID, "Alice")
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
@@ -106,15 +106,15 @@ func TestSetAvailabilityMultipleParticipants(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test")
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID)
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
-	alice, err := s.AddParticipant(ctx, cal.ID, "Alice")
+	alice, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
 	if err != nil {
 		t.Fatalf("add alice: %v", err)
 	}
-	bob, err := s.AddParticipant(ctx, cal.ID, "Bob")
+	bob, err := s.AddParticipant(ctx, cal.ID, "Bob", nil)
 	if err != nil {
 		t.Fatalf("add bob: %v", err)
 	}
