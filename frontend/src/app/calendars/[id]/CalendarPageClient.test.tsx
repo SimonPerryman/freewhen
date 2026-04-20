@@ -59,8 +59,19 @@ vi.mock("@/components/JoinForm/JoinForm", () => ({
   },
 }));
 
+interface MockedCalendarGridProps {
+  onToggle: (date: string) => void;
+  onRangeToggle?: (dates: string[], target: boolean) => void;
+  selectedDates?: Set<string>;
+}
+
+let capturedGridProps: MockedCalendarGridProps | null = null;
+
 vi.mock("@/components/CalendarGrid/CalendarGrid", () => ({
-  default: () => <div data-testid="calendar-grid" />,
+  default: (props: MockedCalendarGridProps) => {
+    capturedGridProps = props;
+    return <div data-testid="calendar-grid" />;
+  },
 }));
 
 interface MockedParticipantListProps {
@@ -129,6 +140,7 @@ Object.defineProperty(window, "localStorage", {
 
 // --- Import component under test after mocks ---
 
+import { StrictMode } from "react";
 import type React from "react";
 import AuthProvider from "@/components/AuthProvider/AuthProvider";
 import CalendarPageClient from "./CalendarPageClient";
@@ -173,6 +185,7 @@ describe("CalendarPageClient", () => {
     capturedJoinError = null;
     _capturedDefaultName = undefined;
     capturedParticipantListProps = null;
+    capturedGridProps = null;
     mockUser = null;
     localStorageMock.getItem.mockReturnValue(null);
   });
@@ -180,7 +193,11 @@ describe("CalendarPageClient", () => {
   it("loads calendar and renders heading", async () => {
     mockGetCalendar.mockResolvedValue(makeCalendarData());
 
-    render(<AuthProvider><CalendarPageClient calendarId={CALENDAR_ID} /></AuthProvider>);
+    render(
+      <AuthProvider>
+        <CalendarPageClient calendarId={CALENDAR_ID} />
+      </AuthProvider>,
+    );
 
     await waitFor(() => {
       expect(screen.getByText("Team Meetup")).toBeInTheDocument();
@@ -202,7 +219,11 @@ describe("CalendarPageClient", () => {
       }),
     );
 
-    render(<AuthProvider><CalendarPageClient calendarId={CALENDAR_ID} /></AuthProvider>);
+    render(
+      <AuthProvider>
+        <CalendarPageClient calendarId={CALENDAR_ID} />
+      </AuthProvider>,
+    );
 
     await waitFor(() => {
       expect(screen.getByText("Team Meetup")).toBeInTheDocument();
@@ -223,7 +244,11 @@ describe("CalendarPageClient", () => {
       }),
     );
 
-    render(<AuthProvider><CalendarPageClient calendarId={CALENDAR_ID} /></AuthProvider>);
+    render(
+      <AuthProvider>
+        <CalendarPageClient calendarId={CALENDAR_ID} />
+      </AuthProvider>,
+    );
 
     await waitFor(() => {
       expect(screen.getByText("Team Meetup")).toBeInTheDocument();
@@ -237,7 +262,11 @@ describe("CalendarPageClient", () => {
   it("shows join form when no stored participant", async () => {
     mockGetCalendar.mockResolvedValue(makeCalendarData());
 
-    render(<AuthProvider><CalendarPageClient calendarId={CALENDAR_ID} /></AuthProvider>);
+    render(
+      <AuthProvider>
+        <CalendarPageClient calendarId={CALENDAR_ID} />
+      </AuthProvider>,
+    );
 
     await waitFor(() => {
       expect(screen.getByTestId("join-form")).toBeInTheDocument();
@@ -256,7 +285,11 @@ describe("CalendarPageClient", () => {
     );
     mockGetCalendar.mockResolvedValue(calendarData);
 
-    render(<AuthProvider><CalendarPageClient calendarId={CALENDAR_ID} /></AuthProvider>);
+    render(
+      <AuthProvider>
+        <CalendarPageClient calendarId={CALENDAR_ID} />
+      </AuthProvider>,
+    );
 
     await waitFor(() => {
       expect(screen.getByText("Team Meetup")).toBeInTheDocument();
@@ -272,7 +305,11 @@ describe("CalendarPageClient", () => {
     const newParticipant = makeParticipant({ id: "p-new", name: "Bob" });
     mockAddParticipant.mockResolvedValue(newParticipant);
 
-    render(<AuthProvider><CalendarPageClient calendarId={CALENDAR_ID} /></AuthProvider>);
+    render(
+      <AuthProvider>
+        <CalendarPageClient calendarId={CALENDAR_ID} />
+      </AuthProvider>,
+    );
 
     await waitFor(() => {
       expect(capturedOnJoin).not.toBeNull();
@@ -301,12 +338,14 @@ describe("CalendarPageClient", () => {
     const { ApiError } = await import("@/lib/api");
     mockGetCalendar.mockRejectedValue(new ApiError(404, "not found"));
 
-    render(<AuthProvider><CalendarPageClient calendarId={CALENDAR_ID} /></AuthProvider>);
+    render(
+      <AuthProvider>
+        <CalendarPageClient calendarId={CALENDAR_ID} />
+      </AuthProvider>,
+    );
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("heading", { name: "Calendar not found" }),
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Calendar not found" })).toBeInTheDocument();
     });
 
     const cta = screen.getByRole("link", { name: "Back to home" });
@@ -316,7 +355,11 @@ describe("CalendarPageClient", () => {
   it("renders a retry panel on generic load failure and retries on click", async () => {
     mockGetCalendar.mockRejectedValueOnce(new Error("network down"));
 
-    render(<AuthProvider><CalendarPageClient calendarId={CALENDAR_ID} /></AuthProvider>);
+    render(
+      <AuthProvider>
+        <CalendarPageClient calendarId={CALENDAR_ID} />
+      </AuthProvider>,
+    );
 
     await waitFor(() => {
       expect(
@@ -375,7 +418,9 @@ describe("CalendarPageClient", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Rename calendar" }));
 
-    const input = (await screen.findByRole("textbox", { name: "Calendar name" })) as HTMLInputElement;
+    const input = (await screen.findByRole("textbox", {
+      name: "Calendar name",
+    })) as HTMLInputElement;
     fireEvent.change(input, { target: { value: "Renamed Trip" } });
     fireEvent.keyDown(input, { key: "Enter" });
 
@@ -435,10 +480,150 @@ describe("CalendarPageClient", () => {
     expect(capturedParticipantListProps?.canRemove).toBe(false);
   });
 
+  it("range toggle: updates selectedDates and calls setAvailability once with merged set", async () => {
+    const participant = makeParticipant();
+    const calendarData = makeCalendarData({
+      participants: [participant],
+      availability: [],
+    });
+
+    localStorageMock.getItem.mockReturnValue(
+      JSON.stringify({ participantId: participant.id, name: participant.name }),
+    );
+    mockGetCalendar.mockResolvedValue(calendarData);
+    mockSetAvailability.mockResolvedValue(undefined);
+
+    render(
+      <AuthProvider>
+        <CalendarPageClient calendarId={CALENDAR_ID} />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(capturedGridProps?.onRangeToggle).toBeDefined();
+    });
+
+    // Select three consecutive dates via range toggle
+    const dates = ["2030-01-01", "2030-01-02", "2030-01-03"];
+    capturedGridProps!.onRangeToggle!(dates, true);
+
+    await waitFor(() => {
+      expect(mockSetAvailability).toHaveBeenCalledTimes(1);
+    });
+    expect(mockSetAvailability).toHaveBeenCalledWith(CALENDAR_ID, {
+      participantId: participant.id,
+      dates: expect.arrayContaining(dates),
+    });
+
+    // Deselect one of them; selectedDates should now omit it
+    mockSetAvailability.mockClear();
+    capturedGridProps!.onRangeToggle!(["2030-01-02"], false);
+
+    await waitFor(() => {
+      expect(mockSetAvailability).toHaveBeenCalledTimes(1);
+    });
+    const call = mockSetAvailability.mock.calls[0];
+    expect(call[1].dates).toEqual(expect.arrayContaining(["2030-01-01", "2030-01-03"]));
+    expect(call[1].dates).not.toContain("2030-01-02");
+  });
+
+  it("under StrictMode: single toggle fires exactly one setAvailability call", async () => {
+    const participant = makeParticipant();
+    const calendarData = makeCalendarData({
+      participants: [participant],
+      availability: [],
+    });
+
+    localStorageMock.getItem.mockReturnValue(
+      JSON.stringify({ participantId: participant.id, name: participant.name }),
+    );
+    mockGetCalendar.mockResolvedValue(calendarData);
+
+    // Hold the save pending so the second StrictMode-invoked updater would have
+    // time to re-queue if the bug regressed.
+    let resolveSave: (() => void) | null = null;
+    mockSetAvailability.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSave = () => resolve();
+        }),
+    );
+
+    render(
+      <StrictMode>
+        <AuthProvider>
+          <CalendarPageClient calendarId={CALENDAR_ID} />
+        </AuthProvider>
+      </StrictMode>,
+    );
+
+    await waitFor(() => {
+      expect(capturedGridProps?.onToggle).toBeDefined();
+    });
+
+    capturedGridProps!.onToggle("2030-01-01");
+
+    await waitFor(() => {
+      expect(mockSetAvailability).toHaveBeenCalledTimes(1);
+    });
+
+    resolveSave!();
+    // Wait a tick to let any (bug-induced) follow-up PUT fire.
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mockSetAvailability).toHaveBeenCalledTimes(1);
+  });
+
+  it("under StrictMode: range toggle fires exactly one setAvailability call", async () => {
+    const participant = makeParticipant();
+    const calendarData = makeCalendarData({
+      participants: [participant],
+      availability: [],
+    });
+
+    localStorageMock.getItem.mockReturnValue(
+      JSON.stringify({ participantId: participant.id, name: participant.name }),
+    );
+    mockGetCalendar.mockResolvedValue(calendarData);
+
+    let resolveSave: (() => void) | null = null;
+    mockSetAvailability.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSave = () => resolve();
+        }),
+    );
+
+    render(
+      <StrictMode>
+        <AuthProvider>
+          <CalendarPageClient calendarId={CALENDAR_ID} />
+        </AuthProvider>
+      </StrictMode>,
+    );
+
+    await waitFor(() => {
+      expect(capturedGridProps?.onRangeToggle).toBeDefined();
+    });
+
+    capturedGridProps!.onRangeToggle!(["2030-01-04", "2030-01-05", "2030-01-06"], true);
+
+    await waitFor(() => {
+      expect(mockSetAvailability).toHaveBeenCalledTimes(1);
+    });
+
+    resolveSave!();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mockSetAvailability).toHaveBeenCalledTimes(1);
+  });
+
   it("join flow: duplicate name shows 'already taken' error", async () => {
     mockGetCalendar.mockResolvedValue(makeCalendarData());
 
-    render(<AuthProvider><CalendarPageClient calendarId={CALENDAR_ID} /></AuthProvider>);
+    render(
+      <AuthProvider>
+        <CalendarPageClient calendarId={CALENDAR_ID} />
+      </AuthProvider>,
+    );
 
     await waitFor(() => {
       expect(capturedOnJoin).not.toBeNull();

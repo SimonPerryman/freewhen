@@ -81,6 +81,12 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   const participantIdRef = useRef<string | null>(null);
   const currentParticipantRef = useRef<Participant | null>(null);
   const suppressRefreshUntilRef = useRef(0);
+  // Mirrors selectedDates so handlers can compute the next set outside of a
+  // setState updater — the updater must stay pure (StrictMode invokes it twice).
+  const selectedDatesRef = useRef<Set<string>>(selectedDates);
+  useEffect(() => {
+    selectedDatesRef.current = selectedDates;
+  }, [selectedDates]);
 
   // Keep participantIdRef in sync
   useEffect(() => {
@@ -269,29 +275,42 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   const firstSubmitRef = useRef(false);
   const handleToggle = useCallback(
     (date: string) => {
-      setSelectedDates((prev) => {
-        const next = new Set(prev);
-        if (next.has(date)) next.delete(date);
-        else next.add(date);
-        // If the viewer is transitioning from zero → some selection in a hidden
-        // view, the backend will reveal on refetch. Trigger one opportunistically.
-        if (
-          prev.size === 0 &&
-          next.size > 0 &&
-          calendar?.calendar.visibility === "submit_to_view" &&
-          calendar.participants.length === 0 &&
-          !firstSubmitRef.current
-        ) {
-          firstSubmitRef.current = true;
-          analytics.capture("availability_gate_unlocked", { calendar_id: calendarId });
-          // Refetch once the save lands — slight delay to let the POST complete.
-          setTimeout(() => setLoadAttempt((n) => n + 1), 400);
-        }
-        queueSave(Array.from(next));
-        return next;
-      });
+      const prev = selectedDatesRef.current;
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      setSelectedDates(next);
+
+      if (
+        prev.size === 0 &&
+        next.size > 0 &&
+        calendar?.calendar.visibility === "submit_to_view" &&
+        calendar.participants.length === 0 &&
+        !firstSubmitRef.current
+      ) {
+        firstSubmitRef.current = true;
+        analytics.capture("availability_gate_unlocked", { calendar_id: calendarId });
+        setTimeout(() => setLoadAttempt((n) => n + 1), 400);
+      }
+
+      queueSave(Array.from(next));
     },
     [queueSave, calendar, calendarId],
+  );
+
+  const handleRangeToggle = useCallback(
+    (dates: string[], target: boolean) => {
+      if (dates.length === 0) return;
+      const next = new Set(selectedDatesRef.current);
+      if (target) {
+        for (const d of dates) next.add(d);
+      } else {
+        for (const d of dates) next.delete(d);
+      }
+      setSelectedDates(next);
+      queueSave(Array.from(next));
+    },
+    [queueSave],
   );
 
   const handleRetry = useCallback(() => {
@@ -674,6 +693,8 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           freeByDate={freeByDate}
           currentParticipantId={currentParticipant?.id ?? null}
           onToggle={handleToggle}
+          onRangeToggle={handleRangeToggle}
+          selectedDates={selectedDates}
           joined={!!currentParticipant}
           finalisedDate={finalisedDate}
         />
