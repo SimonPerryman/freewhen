@@ -62,10 +62,10 @@ func (h *EventsHandler) Stream(w http.ResponseWriter, r *http.Request) {
 	// exist. We use the non-viewed fetch so visibility rules don't interfere.
 	if _, err := h.svc.GetCalendarOnly(r.Context(), id); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "calendar not found")
+			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "failed to load calendar")
+		respondError(w, http.StatusInternalServerError, "internal_error", "failed to load calendar")
 		return
 	}
 
@@ -74,7 +74,7 @@ func (h *EventsHandler) Stream(w http.ResponseWriter, r *http.Request) {
 		// Streaming isn't supported by this ResponseWriter (e.g. a buffered
 		// test recorder). Fall through as a plain 500 — the client falls
 		// back to polling.
-		respondError(w, http.StatusInternalServerError, "streaming not supported")
+		respondError(w, http.StatusInternalServerError, "internal_error", "streaming not supported")
 		return
 	}
 

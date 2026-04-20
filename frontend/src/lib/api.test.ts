@@ -205,6 +205,38 @@ describe("unfinaliseCalendar", () => {
   });
 });
 
+describe("error body code field", () => {
+  it("exposes the server error code on ApiError", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse({ error: "this calendar is full", code: "calendar_full" }, 409),
+    );
+
+    try {
+      await addParticipant("abc", { name: "Alice" });
+      expect.fail("expected ApiError");
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      if (err instanceof ApiError) {
+        expect(err.code).toBe("calendar_full");
+        expect(err.status).toBe(409);
+      }
+    }
+  });
+
+  it("leaves code as null when the server omits it", async () => {
+    mockFetch.mockResolvedValue(jsonResponse({ error: "legacy shape" }, 500));
+
+    try {
+      await addParticipant("abc", { name: "Alice" });
+      expect.fail("expected ApiError");
+    } catch (err) {
+      if (err instanceof ApiError) {
+        expect(err.code).toBeNull();
+      }
+    }
+  });
+});
+
 describe("base URL", () => {
   it("uses default localhost URL", async () => {
     mockFetch.mockResolvedValue(

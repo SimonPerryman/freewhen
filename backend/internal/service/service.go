@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/freewhen/backend/internal/limits"
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/realtime"
 	"github.com/freewhen/backend/internal/store"
@@ -45,6 +46,7 @@ type Store interface {
 	UpdateCalendarVisibility(ctx context.Context, calendarID, visibility string) (model.Calendar, error)
 	DeleteParticipant(ctx context.Context, calendarID, participantID string) error
 	CountCalendarParticipants(ctx context.Context, calendarID string) (int, error)
+	CountCalendarsForOwner(ctx context.Context, ownerID string) (int, error)
 	ParticipantHasAvailability(ctx context.Context, participantID string) (bool, error)
 	TouchCalendar(ctx context.Context, calendarID string) error
 	ListCalendarsForUser(ctx context.Context, userID string, limit int) ([]store.CalendarListItem, error)
@@ -65,6 +67,13 @@ func New(s Store, pub Publisher) *Service {
 func (s *Service) CreateCalendar(ctx context.Context, name, ownerID, visibility string) (model.Calendar, error) {
 	if !model.IsValidVisibility(visibility) {
 		visibility = model.VisibilityOpen
+	}
+	count, err := s.store.CountCalendarsForOwner(ctx, ownerID)
+	if err != nil {
+		return model.Calendar{}, err
+	}
+	if count >= limits.MaxCalendarsPerUser {
+		return model.Calendar{}, store.ErrCalendarLimitReached
 	}
 	return s.store.CreateCalendar(ctx, name, pickRandomEmoji(), ownerID, visibility)
 }
@@ -156,6 +165,13 @@ func (s *Service) shouldReveal(ctx context.Context, details model.CalendarWithDe
 }
 
 func (s *Service) AddParticipant(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error) {
+	count, err := s.store.CountCalendarParticipants(ctx, calendarID)
+	if err != nil {
+		return model.Participant{}, err
+	}
+	if count >= limits.MaxParticipantsPerCalendar {
+		return model.Participant{}, store.ErrCalendarFull
+	}
 	p, err := s.store.AddParticipant(ctx, calendarID, name, userID)
 	if err != nil {
 		return model.Participant{}, err

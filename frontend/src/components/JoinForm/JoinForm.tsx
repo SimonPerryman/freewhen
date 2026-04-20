@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { MAX_PARTICIPANT_NAME_LENGTH } from "@/lib/limits";
 import styles from "./JoinForm.module.css";
+
+// Show a live character count once the user is within this many characters of the cap.
+const COUNTER_THRESHOLD = 10;
 
 interface JoinFormProps {
   onJoin: (name: string) => Promise<void>;
@@ -25,6 +29,8 @@ export default function JoinForm({ onJoin, error, defaultName = "" }: JoinFormPr
     }
   }
 
+  const showCounter = name.length >= MAX_PARTICIPANT_NAME_LENGTH - COUNTER_THRESHOLD;
+
   return (
     <form className={styles.form} onSubmit={handleSubmit}>
       <label className={styles.label} htmlFor="participant-name">
@@ -40,11 +46,17 @@ export default function JoinForm({ onJoin, error, defaultName = "" }: JoinFormPr
           placeholder="Enter your name"
           autoComplete="off"
           disabled={submitting}
+          maxLength={MAX_PARTICIPANT_NAME_LENGTH}
         />
         <button type="submit" className={styles.button} disabled={submitting || !name.trim()}>
           {submitting ? "Joining…" : "Join"}
         </button>
       </div>
+      {showCounter ? (
+        <p className={styles.counter} aria-live="polite">
+          {name.length} / {MAX_PARTICIPANT_NAME_LENGTH}
+        </p>
+      ) : null}
       {error ? (
         <p role="alert" className={styles.error}>
           {error}

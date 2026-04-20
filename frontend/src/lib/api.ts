@@ -15,15 +15,18 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 export class ApiError extends Error {
   public requestId: string | null;
+  public code: string | null;
 
   constructor(
     public status: number,
     message: string,
     requestId: string | null = null,
+    code: string | null = null,
   ) {
     super(message);
     this.name = "ApiError";
     this.requestId = requestId;
+    this.code = code;
   }
 }
 
@@ -68,8 +71,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   });
 
   if (!response.ok) {
-    const body = (await response.json()) as { error: string };
-    throw new ApiError(response.status, body.error, response.headers.get("X-Request-ID"));
+    const body = (await response.json()) as { error: string; code?: string };
+    throw new ApiError(
+      response.status,
+      body.error,
+      response.headers.get("X-Request-ID"),
+      body.code ?? null,
+    );
   }
 
   if (response.status === 204) {

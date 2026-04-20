@@ -11,6 +11,8 @@ func respondJSON(w http.ResponseWriter, status int, data any) {
 	_ = json.NewEncoder(w).Encode(data)
 }
 
-func respondError(w http.ResponseWriter, status int, message string) {
-	respondJSON(w, status, map[string]string{"error": message})
+// respondError writes a JSON error body with a stable machine-readable code.
+// Clients branch on code rather than the human-readable message.
+func respondError(w http.ResponseWriter, status int, code, message string) {
+	respondJSON(w, status, map[string]string{"error": message, "code": code})
 }

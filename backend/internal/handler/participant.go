@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/freewhen/backend/internal/limits"
 	"github.com/freewhen/backend/internal/store"
 )
 
@@ -17,12 +18,16 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 		Name string `json:"name"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid JSON")
+		respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
 		return
 	}
 
 	if req.Name == "" {
-		respondError(w, http.StatusBadRequest, "name is required")
+		respondError(w, http.StatusBadRequest, "invalid_request", "name is required")
+		return
+	}
+	if len(req.Name) > limits.MaxParticipantNameLength {
+		respondError(w, http.StatusBadRequest, "name_too_long", "participant name is too long")
 		return
 	}
 
@@ -35,22 +40,26 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 	p, err := h.service.AddParticipant(r.Context(), calendarID, req.Name, userID)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "calendar not found")
+			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
 		if errors.Is(err, store.ErrDuplicateName) {
-			respondError(w, http.StatusConflict, "participant name already taken")
+			respondError(w, http.StatusConflict, "duplicate_name", "participant name already taken")
 			return
 		}
 		if errors.Is(err, store.ErrCalendarFinalised) {
-			respondError(w, http.StatusConflict, "calendar is finalised")
+			respondError(w, http.StatusConflict, "already_finalised", "calendar is finalised")
 			return
 		}
 		if errors.Is(err, store.ErrUserAlreadyJoined) {
-			respondError(w, http.StatusConflict, "you have already joined this calendar")
+			respondError(w, http.StatusConflict, "already_joined", "you have already joined this calendar")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "failed to add participant")
+		if errors.Is(err, store.ErrCalendarFull) {
+			respondError(w, http.StatusConflict, "calendar_full", "this calendar is full")
+			return
+		}
+		respondError(w, http.StatusInternalServerError, "internal_error", "failed to add participant")
 		return
 	}
 
@@ -60,7 +69,7 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ClaimParticipant(w http.ResponseWriter, r *http.Request) {
 	user := UserFromContext(r)
 	if user == nil {
-		respondError(w, http.StatusUnauthorized, "unauthorized")
+		respondError(w, http.StatusUnauthorized, "unauthorized", "unauthorized")
 		return
 	}
 
@@ -70,18 +79,18 @@ func (h *Handler) ClaimParticipant(w http.ResponseWriter, r *http.Request) {
 	p, err := h.service.ClaimParticipant(r.Context(), calendarID, participantID, user.ID)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "participant not found")
+			respondError(w, http.StatusNotFound, "not_found", "participant not found")
 			return
 		}
 		if errors.Is(err, store.ErrAlreadyLinked) {
-			respondError(w, http.StatusConflict, "participant already linked to a user")
+			respondError(w, http.StatusConflict, "already_linked", "participant already linked to a user")
 			return
 		}
 		if errors.Is(err, store.ErrUserAlreadyJoined) {
-			respondError(w, http.StatusConflict, "you have already joined this calendar")
+			respondError(w, http.StatusConflict, "already_joined", "you have already joined this calendar")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "failed to claim participant")
+		respondError(w, http.StatusInternalServerError, "internal_error", "failed to claim participant")
 		return
 	}
 

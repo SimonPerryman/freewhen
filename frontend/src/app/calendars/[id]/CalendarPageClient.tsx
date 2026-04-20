@@ -16,6 +16,7 @@ import {
 } from "@/lib/api";
 import analytics from "@/lib/analytics";
 import { useCalendarEvents } from "@/lib/useCalendarEvents";
+import { MAX_CALENDAR_NAME_LENGTH, MAX_PARTICIPANTS_PER_CALENDAR } from "@/lib/limits";
 import type { CalendarWithDetails, Participant } from "@/lib/types";
 import { useAuth } from "@/components/AuthProvider/AuthProvider";
 import CalendarGrid from "@/components/CalendarGrid/CalendarGrid";
@@ -468,8 +469,9 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
         );
       } catch (err) {
         if (err instanceof ApiError && err.status === 409) {
-          const msg = err.message;
-          if (msg.includes("already joined")) {
+          if (err.code === "calendar_full") {
+            setJoinError(`This calendar is full (${MAX_PARTICIPANTS_PER_CALENDAR} people).`);
+          } else if (err.code === "already_joined") {
             setJoinError("You've already joined this calendar");
           } else {
             setJoinError("That name is already taken");
@@ -556,6 +558,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     calendar.participants.length > 0 ||
     selectedDates.size > 0;
   const participantCount = calendar.participantCount;
+  const isFull = calendar.participants.length >= MAX_PARTICIPANTS_PER_CALENDAR;
 
   return (
     <div className={styles.page}>
@@ -585,7 +588,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
                   }
                 }}
                 aria-label="Calendar name"
-                maxLength={120}
+                maxLength={MAX_CALENDAR_NAME_LENGTH}
               />
             ) : (
               <h1 className={styles.heading}>{calendarName}</h1>
@@ -626,7 +629,13 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
         ) : null}
 
         {!currentParticipant && !finalisedDate ? (
-          <JoinForm onJoin={handleJoin} error={joinError} defaultName={storedName} />
+          isFull ? (
+            <p className={styles.emptyHint}>
+              This calendar is full ({MAX_PARTICIPANTS_PER_CALENDAR} people).
+            </p>
+          ) : (
+            <JoinForm onJoin={handleJoin} error={joinError} defaultName={storedName} />
+          )
         ) : null}
 
         {!currentParticipant && finalisedDate ? (

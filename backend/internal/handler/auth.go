@@ -79,7 +79,7 @@ type oauthState struct {
 // GoogleLogin redirects to the Google OAuth consent screen.
 func (h *AuthHandler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 	if h.oauth == nil {
-		respondError(w, http.StatusServiceUnavailable, "Google OAuth not configured")
+		respondError(w, http.StatusServiceUnavailable, "service_unavailable", "Google OAuth not configured")
 		return
 	}
 
@@ -91,7 +91,7 @@ func (h *AuthHandler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 
 	state, err := json.Marshal(oauthState{Nonce: nonce, ReturnURL: returnURL})
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to encode state")
+		respondError(w, http.StatusInternalServerError, "internal_error", "failed to encode state")
 		return
 	}
 
@@ -121,20 +121,20 @@ type googleUserInfo struct {
 // GoogleCallback handles the Google OAuth callback.
 func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	if h.oauth == nil {
-		respondError(w, http.StatusServiceUnavailable, "Google OAuth not configured")
+		respondError(w, http.StatusServiceUnavailable, "service_unavailable", "Google OAuth not configured")
 		return
 	}
 
 	// Verify state nonce
 	var state oauthState
 	if err := json.Unmarshal([]byte(r.URL.Query().Get("state")), &state); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid state")
+		respondError(w, http.StatusBadRequest, "invalid_request", "invalid state")
 		return
 	}
 
 	nonceCookie, err := r.Cookie("oauth_nonce")
 	if err != nil || nonceCookie.Value != state.Nonce {
-		respondError(w, http.StatusBadRequest, "invalid state nonce")
+		respondError(w, http.StatusBadRequest, "invalid_request", "invalid state nonce")
 		return
 	}
 
@@ -153,14 +153,14 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	// Exchange code for token
 	code := r.URL.Query().Get("code")
 	if code == "" {
-		respondError(w, http.StatusBadRequest, "missing code")
+		respondError(w, http.StatusBadRequest, "invalid_request", "missing code")
 		return
 	}
 
 	token, err := h.oauth.Exchange(r.Context(), code)
 	if err != nil {
 		h.logger.Error("oauth exchange failed", "error", err)
-		respondError(w, http.StatusInternalServerError, "authentication failed")
+		respondError(w, http.StatusInternalServerError, "internal_error", "authentication failed")
 		return
 	}
 
@@ -169,7 +169,7 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	resp, err := client.Get("https://www.googleapis.com/oauth2/v3/userinfo")
 	if err != nil {
 		h.logger.Error("failed to fetch user info", "error", err)
-		respondError(w, http.StatusInternalServerError, "authentication failed")
+		respondError(w, http.StatusInternalServerError, "internal_error", "authentication failed")
 		return
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -177,7 +177,7 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	var info googleUserInfo
 	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
 		h.logger.Error("failed to decode user info", "error", err)
-		respondError(w, http.StatusInternalServerError, "authentication failed")
+		respondError(w, http.StatusInternalServerError, "internal_error", "authentication failed")
 		return
 	}
 
@@ -185,7 +185,7 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	user, err := h.findOrCreateUser(r.Context(), info)
 	if err != nil {
 		h.logger.Error("failed to find or create user", "error", err)
-		respondError(w, http.StatusInternalServerError, "authentication failed")
+		respondError(w, http.StatusInternalServerError, "internal_error", "authentication failed")
 		return
 	}
 
@@ -193,7 +193,7 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	sessionToken, err := h.store.CreateSession(r.Context(), user.ID)
 	if err != nil {
 		h.logger.Error("failed to create session", "error", err)
-		respondError(w, http.StatusInternalServerError, "authentication failed")
+		respondError(w, http.StatusInternalServerError, "internal_error", "authentication failed")
 		return
 	}
 
@@ -211,19 +211,19 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("session")
 	if err != nil {
-		respondError(w, http.StatusUnauthorized, "not authenticated")
+		respondError(w, http.StatusUnauthorized, "unauthorized", "not authenticated")
 		return
 	}
 
 	sess, err := h.store.GetSession(r.Context(), cookie.Value)
 	if err != nil || sess == nil {
-		respondError(w, http.StatusUnauthorized, "not authenticated")
+		respondError(w, http.StatusUnauthorized, "unauthorized", "not authenticated")
 		return
 	}
 
 	user, err := h.store.GetUser(r.Context(), sess.UserID)
 	if err != nil {
-		respondError(w, http.StatusUnauthorized, "not authenticated")
+		respondError(w, http.StatusUnauthorized, "unauthorized", "not authenticated")
 		return
 	}
 
@@ -260,18 +260,18 @@ type magicLinkRequest struct {
 // SendMagicLink generates a magic link token and emails it to the user.
 func (h *AuthHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
 	if h.email == nil {
-		respondError(w, http.StatusServiceUnavailable, "magic link not configured")
+		respondError(w, http.StatusServiceUnavailable, "service_unavailable", "magic link not configured")
 		return
 	}
 
 	var req magicLinkRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+		respondError(w, http.StatusBadRequest, "invalid_json", "invalid request body")
 		return
 	}
 
 	if !isValidEmail(req.Email) {
-		respondError(w, http.StatusBadRequest, "invalid email address")
+		respondError(w, http.StatusBadRequest, "invalid_email", "invalid email address")
 		return
 	}
 
@@ -302,14 +302,14 @@ func (h *AuthHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) MagicLinkCallback(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
 	if token == "" {
-		respondError(w, http.StatusBadRequest, "missing token")
+		respondError(w, http.StatusBadRequest, "invalid_request", "missing token")
 		return
 	}
 
 	email, returnURL, err := h.store.VerifyMagicLinkToken(r.Context(), token)
 	if err != nil {
 		h.logger.Error("magic link verification failed", "error", err)
-		respondError(w, http.StatusBadRequest, "invalid or expired link")
+		respondError(w, http.StatusBadRequest, "invalid_request", "invalid or expired link")
 		return
 	}
 
@@ -317,14 +317,14 @@ func (h *AuthHandler) MagicLinkCallback(w http.ResponseWriter, r *http.Request) 
 	user, err := h.findOrCreateEmailUser(r.Context(), email)
 	if err != nil {
 		h.logger.Error("failed to find or create user", "error", err)
-		respondError(w, http.StatusInternalServerError, "authentication failed")
+		respondError(w, http.StatusInternalServerError, "internal_error", "authentication failed")
 		return
 	}
 
 	sessionToken, err := h.store.CreateSession(r.Context(), user.ID)
 	if err != nil {
 		h.logger.Error("failed to create session", "error", err)
-		respondError(w, http.StatusInternalServerError, "authentication failed")
+		respondError(w, http.StatusInternalServerError, "internal_error", "authentication failed")
 		return
 	}
 
@@ -412,4 +412,3 @@ func isValidEmail(email string) bool {
 	}
 	return strings.Contains(email[at+1:], ".")
 }
-

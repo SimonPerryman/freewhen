@@ -3,6 +3,7 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, createCalendar } from "@/lib/api";
+import { MAX_CALENDAR_NAME_LENGTH } from "@/lib/limits";
 import analytics from "@/lib/analytics";
 import { useAuth } from "@/components/AuthProvider/AuthProvider";
 import styles from "./page.module.css";
@@ -57,7 +58,15 @@ export default function Home() {
         router.push(`/login?return_url=${encodeURIComponent("/")}`);
         return;
       }
-      const message = err instanceof ApiError ? err.message : "Something went wrong";
+      let message = "Something went wrong";
+      if (err instanceof ApiError) {
+        if (err.code === "calendar_limit_reached") {
+          message =
+            "You've reached the 200-calendar limit. Delete an old calendar to create a new one.";
+        } else {
+          message = err.message;
+        }
+      }
       setError(message);
       setSubmitting(false);
     }
@@ -93,6 +102,7 @@ export default function Home() {
             placeholder="Weekend trip"
             autoComplete="off"
             disabled={submitting}
+            maxLength={MAX_CALENDAR_NAME_LENGTH}
           />
           <label className={styles.toggleRow}>
             <input

@@ -34,4 +34,21 @@ describe("JoinForm", () => {
     render(<JoinForm onJoin={onJoin} error={null} defaultName="Bob" />);
     expect(screen.getByLabelText(/your name/i)).toHaveValue("Bob");
   });
+
+  it("does not show the counter for short names", () => {
+    render(<JoinForm onJoin={onJoin} error={null} defaultName="Alice" />);
+    expect(screen.queryByText(/\/ 50/)).not.toBeInTheDocument();
+  });
+
+  it("shows the counter once the user is within 10 chars of the cap", () => {
+    const name = "a".repeat(40);
+    render(<JoinForm onJoin={onJoin} error={null} defaultName={name} />);
+    expect(screen.getByText("40 / 50")).toBeInTheDocument();
+  });
+
+  it("caps the input at the participant-name limit via maxLength", () => {
+    render(<JoinForm onJoin={onJoin} error={null} />);
+    const input = screen.getByLabelText(/your name/i) as HTMLInputElement;
+    expect(input.maxLength).toBe(50);
+  });
 });

@@ -68,6 +68,19 @@ func (s *Store) CountCalendarParticipants(ctx context.Context, calendarID string
 	return s.participantCount(ctx, calendarID)
 }
 
+// CountCalendarsForOwner returns the number of calendars owned by the given user.
+// Used by the service layer to enforce the per-owner calendar cap.
+func (s *Store) CountCalendarsForOwner(ctx context.Context, ownerID string) (int, error) {
+	var count int
+	err := s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM calendars WHERE owner_id = $1`, ownerID,
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count calendars for owner: %w", err)
+	}
+	return count, nil
+}
+
 // ParticipantHasAvailability reports whether the participant has any availability rows.
 func (s *Store) ParticipantHasAvailability(ctx context.Context, participantID string) (bool, error) {
 	var has bool

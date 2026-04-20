@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/freewhen/backend/internal/limits"
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/service"
 	"github.com/freewhen/backend/internal/store"
@@ -145,8 +147,8 @@ func TestCreateCalendar_Valid(t *testing.T) {
 	}
 
 	var got struct {
-		ID          string            `json:"id"`
-		Name        string            `json:"name"`
+		ID          string             `json:"id"`
+		Name        string             `json:"name"`
 		Participant *model.Participant `json:"participant"`
 	}
 	decodeJSON(t, rec, &got)
@@ -1036,4 +1038,141 @@ func TestCreateCalendar_InvalidVisibility(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
+}
+
+// --- Input limit tests ---
+
+// assertErrorCode decodes the JSON error body and fails the test if the code
+// field doesn't match. Use after checking status.
+func assertErrorCode(t *testing.T, rec *httptest.ResponseRecorder, wantCode string) {
+	t.Helper()
+	var body struct {
+		Error string `json:"error"`
+		Code  string `json:"code"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode error body: %v", err)
+	}
+	if body.Code != wantCode {
+		t.Fatalf("code = %q, want %q (error=%q)", body.Code, wantCode, body.Error)
+	}
+}
+
+func TestCreateCalendar_NameTooLong(t *testing.T) {
+	h := New(&mockService{})
+	longName := strings.Repeat("a", limits.MaxCalendarNameLength+1)
+	req := withUser(httptest.NewRequest(http.MethodPost, "/calendars", jsonBody(t, map[string]string{"name": longName})), testUser)
+	rec := httptest.NewRecorder()
+	h.CreateCalendar(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+	assertErrorCode(t, rec, "name_too_long")
+}
+
+func TestCreateCalendar_CalendarLimitReached(t *testing.T) {
+	h := New(&mockService{
+		createCalendar: func(_ context.Context, _, _, _ string) (model.Calendar, error) {
+			return model.Calendar{}, store.ErrCalendarLimitReached
+		},
+	})
+	req := withUser(httptest.NewRequest(http.MethodPost, "/calendars", jsonBody(t, map[string]string{"name": "Trip"})), testUser)
+	rec := httptest.NewRecorder()
+	h.CreateCalendar(rec, req)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusConflict)
+	}
+	assertErrorCode(t, rec, "calendar_limit_reached")
+}
+
+func TestUpdateCalendar_NameTooLong(t *testing.T) {
+	h := New(&mockService{})
+	longName := strings.Repeat("a", limits.MaxCalendarNameLength+1)
+	req := withUser(httptest.NewRequest(http.MethodPatch, "/calendars/cal1", jsonBody(t, map[string]string{"name": longName})), testUser)
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.UpdateCalendar(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+	assertErrorCode(t, rec, "name_too_long")
+}
+
+func TestAddParticipant_NameTooLong(t *testing.T) {
+	h := New(&mockService{})
+	longName := strings.Repeat("a", limits.MaxParticipantNameLength+1)
+	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/participants", jsonBody(t, map[string]string{"name": longName}))
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.AddParticipant(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+	assertErrorCode(t, rec, "name_too_long")
+}
+
+func TestAddParticipant_CalendarFull(t *testing.T) {
+	h := New(&mockService{
+		addParticipant: func(_ context.Context, _, _ string, _ *string) (model.Participant, error) {
+			return model.Participant{}, store.ErrCalendarFull
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/participants", jsonBody(t, map[string]string{"name": "Bob"}))
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.AddParticipant(rec, req)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusConflict)
+	}
+	assertErrorCode(t, rec, "calendar_full")
+}
+
+func TestSetAvailability_TooManyDates(t *testing.T) {
+	h := New(&mockService{})
+	dates := make([]string, limits.MaxDatesPerSubmission+1)
+	for i := range dates {
+		dates[i] = "2026-05-01"
+	}
+	body := map[string]any{"participant_id": "p1", "dates": dates}
+	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.SetAvailability(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+	assertErrorCode(t, rec, "too_many_dates")
+}
+
+func TestSetAvailability_DateOutOfRange(t *testing.T) {
+	h := New(&mockService{})
+	body := map[string]any{"participant_id": "p1", "dates": []string{"2099-05-01"}}
+	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.SetAvailability(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+	assertErrorCode(t, rec, "date_out_of_range")
+}
+
+func TestFinaliseCalendar_DateOutOfRange(t *testing.T) {
+	h := New(&mockService{})
+	req := withUser(httptest.NewRequest(http.MethodPost, "/calendars/cal1/finalise", jsonBody(t, map[string]string{"date": "2099-05-01"})), testUser)
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.FinaliseCalendar(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+	assertErrorCode(t, rec, "date_out_of_range")
 }
