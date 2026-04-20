@@ -31,7 +31,9 @@ See `future-ideas.md` for detailed descriptions of each feature.
 | Feature | Requires | Notes |
 |---|---|---|
 | Participant initials in cells | — | See who's free at a glance. Nice polish. |
-| Edit name / clear availability | — | Small QoL. |
+| Edit participant name | — | Self-rename (typo fix) + owner-rename (cleanup). Same unique-name check as join. No rename limit — rate-limit server-side only if abuse shows up. |
+| Default name from signed-in user | Auth | Prefill join input with user's display name (still editable). Falls back to empty for magic-link users without a name. |
+| Clear availability | — | Small QoL. |
 | Date range suggestions | — | Highlight creator's preferred window. Might be a solution looking for a problem. |
 | Duplicate a calendar | Auth | "Same group, new event." Can't auto-invite anonymous users. |
 | Calendar integrations | Auth | Import/export Google/Apple. High value, high complexity. |
