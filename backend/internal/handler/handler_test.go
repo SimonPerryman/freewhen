@@ -11,29 +11,36 @@ import (
 	"time"
 
 	"github.com/freewhen/backend/internal/model"
+	"github.com/freewhen/backend/internal/service"
 	"github.com/freewhen/backend/internal/store"
 )
 
 // mockService implements CalendarService for testing.
 type mockService struct {
-	createCalendar     func(ctx context.Context, name, ownerID string) (model.Calendar, error)
-	getCalendar        func(ctx context.Context, id string) (model.CalendarWithDetails, error)
-	getCalendarOnly    func(ctx context.Context, id string) (model.Calendar, error)
-	addParticipant     func(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
-	setAvailability    func(ctx context.Context, calendarID, participantID string, dates []string) error
-	finaliseCalendar   func(ctx context.Context, calendarID, date string) (model.Calendar, error)
-	unfinaliseCalendar func(ctx context.Context, calendarID string) (model.Calendar, error)
-	claimParticipant   func(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error)
-	renameCalendar     func(ctx context.Context, calendarID, name string) (model.Calendar, error)
-	removeParticipant  func(ctx context.Context, calendarID, participantID string) error
+	createCalendar           func(ctx context.Context, name, ownerID, visibility string) (model.Calendar, error)
+	getCalendar              func(ctx context.Context, id string) (model.CalendarWithDetails, error)
+	getCalendarView          func(ctx context.Context, id string, viewer service.Viewer) (service.CalendarView, error)
+	getCalendarOnly          func(ctx context.Context, id string) (model.Calendar, error)
+	addParticipant           func(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
+	setAvailability          func(ctx context.Context, calendarID, participantID string, dates []string) error
+	finaliseCalendar         func(ctx context.Context, calendarID, date string) (model.Calendar, error)
+	unfinaliseCalendar       func(ctx context.Context, calendarID string) (model.Calendar, error)
+	claimParticipant         func(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error)
+	renameCalendar           func(ctx context.Context, calendarID, name string) (model.Calendar, error)
+	updateCalendarVisibility func(ctx context.Context, calendarID, visibility string) (model.Calendar, error)
+	removeParticipant        func(ctx context.Context, calendarID, participantID string) error
 }
 
-func (m *mockService) CreateCalendar(ctx context.Context, name, ownerID string) (model.Calendar, error) {
-	return m.createCalendar(ctx, name, ownerID)
+func (m *mockService) CreateCalendar(ctx context.Context, name, ownerID, visibility string) (model.Calendar, error) {
+	return m.createCalendar(ctx, name, ownerID, visibility)
 }
 
 func (m *mockService) GetCalendar(ctx context.Context, id string) (model.CalendarWithDetails, error) {
 	return m.getCalendar(ctx, id)
+}
+
+func (m *mockService) GetCalendarView(ctx context.Context, id string, viewer service.Viewer) (service.CalendarView, error) {
+	return m.getCalendarView(ctx, id, viewer)
 }
 
 func (m *mockService) GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error) {
@@ -62,6 +69,10 @@ func (m *mockService) UnfinaliseCalendar(ctx context.Context, calendarID string)
 
 func (m *mockService) RenameCalendar(ctx context.Context, calendarID, name string) (model.Calendar, error) {
 	return m.renameCalendar(ctx, calendarID, name)
+}
+
+func (m *mockService) UpdateCalendarVisibility(ctx context.Context, calendarID, visibility string) (model.Calendar, error) {
+	return m.updateCalendarVisibility(ctx, calendarID, visibility)
 }
 
 func (m *mockService) RemoveParticipant(ctx context.Context, calendarID, participantID string) error {
@@ -97,12 +108,15 @@ func TestCreateCalendar_Valid(t *testing.T) {
 	cal := model.Calendar{ID: "abc12345", Name: "Trip", OwnerID: "u1", CreatedAt: time.Now()}
 	ownerParticipant := model.Participant{ID: "p1", CalendarID: "abc12345", Name: "Test", Colour: "#E63946", UserID: strPtr("u1")}
 	h := New(&mockService{
-		createCalendar: func(_ context.Context, name, ownerID string) (model.Calendar, error) {
+		createCalendar: func(_ context.Context, name, ownerID, visibility string) (model.Calendar, error) {
 			if name != "Trip" {
 				t.Fatalf("expected name %q, got %q", "Trip", name)
 			}
 			if ownerID != "u1" {
 				t.Fatalf("expected ownerID %q, got %q", "u1", ownerID)
+			}
+			if visibility != model.VisibilityOpen {
+				t.Fatalf("expected visibility %q, got %q", model.VisibilityOpen, visibility)
 			}
 			return cal, nil
 		},
@@ -168,7 +182,7 @@ func TestCreateCalendar_MalformedJSON(t *testing.T) {
 
 func TestCreateCalendar_ServiceError(t *testing.T) {
 	h := New(&mockService{
-		createCalendar: func(_ context.Context, _, _ string) (model.Calendar, error) {
+		createCalendar: func(_ context.Context, _, _, _ string) (model.Calendar, error) {
 			return model.Calendar{}, fmt.Errorf("db down")
 		},
 	})
@@ -190,11 +204,11 @@ func TestGetCalendar_Valid(t *testing.T) {
 		Availability: []model.Availability{},
 	}
 	h := New(&mockService{
-		getCalendar: func(_ context.Context, id string) (model.CalendarWithDetails, error) {
+		getCalendarView: func(_ context.Context, id string, _ service.Viewer) (service.CalendarView, error) {
 			if id != "abc12345" {
 				t.Fatalf("expected id %q, got %q", "abc12345", id)
 			}
-			return details, nil
+			return service.CalendarView{Details: details, Revealed: true}, nil
 		},
 	})
 
@@ -210,8 +224,8 @@ func TestGetCalendar_Valid(t *testing.T) {
 
 func TestGetCalendar_NotFound(t *testing.T) {
 	h := New(&mockService{
-		getCalendar: func(_ context.Context, _ string) (model.CalendarWithDetails, error) {
-			return model.CalendarWithDetails{}, store.ErrNotFound
+		getCalendarView: func(_ context.Context, _ string, _ service.Viewer) (service.CalendarView, error) {
+			return service.CalendarView{}, store.ErrNotFound
 		},
 	})
 
@@ -227,8 +241,8 @@ func TestGetCalendar_NotFound(t *testing.T) {
 
 func TestGetCalendar_ServiceError(t *testing.T) {
 	h := New(&mockService{
-		getCalendar: func(_ context.Context, _ string) (model.CalendarWithDetails, error) {
-			return model.CalendarWithDetails{}, fmt.Errorf("db down")
+		getCalendarView: func(_ context.Context, _ string, _ service.Viewer) (service.CalendarView, error) {
+			return service.CalendarView{}, fmt.Errorf("db down")
 		},
 	})
 
@@ -239,6 +253,40 @@ func TestGetCalendar_ServiceError(t *testing.T) {
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
+	}
+}
+
+func TestGetCalendar_HiddenForUnsubmittedViewer(t *testing.T) {
+	hidden := model.CalendarWithDetails{
+		Calendar:         model.Calendar{ID: "c", Visibility: model.VisibilitySubmitToView},
+		Participants:     []model.Participant{},
+		Availability:     []model.Availability{},
+		ParticipantCount: 3,
+	}
+	h := New(&mockService{
+		getCalendarView: func(_ context.Context, _ string, v service.Viewer) (service.CalendarView, error) {
+			if v.ParticipantID == nil || *v.ParticipantID != "p1" {
+				t.Fatalf("expected participant id p1, got %v", v.ParticipantID)
+			}
+			return service.CalendarView{Details: hidden, Revealed: false}, nil
+		},
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/calendars/c?as=p1", nil)
+	req.SetPathValue("id", "c")
+	rec := httptest.NewRecorder()
+	h.GetCalendar(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	var got model.CalendarWithDetails
+	decodeJSON(t, rec, &got)
+	if got.ParticipantCount != 3 {
+		t.Fatalf("participantCount = %d, want 3", got.ParticipantCount)
+	}
+	if len(got.Participants) != 0 || len(got.Availability) != 0 {
+		t.Fatal("expected empty participants/availability in hidden view")
 	}
 }
 
@@ -627,7 +675,7 @@ func TestRenameCalendar_Valid(t *testing.T) {
 	req := withUser(httptest.NewRequest(http.MethodPatch, "/calendars/cal1", jsonBody(t, map[string]string{"name": "New Name"})), testUser)
 	req.SetPathValue("id", "cal1")
 	rec := httptest.NewRecorder()
-	h.RenameCalendar(rec, req)
+	h.UpdateCalendar(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
@@ -644,7 +692,7 @@ func TestRenameCalendar_Unauthorized(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPatch, "/calendars/cal1", jsonBody(t, map[string]string{"name": "X"}))
 	req.SetPathValue("id", "cal1")
 	rec := httptest.NewRecorder()
-	h.RenameCalendar(rec, req)
+	h.UpdateCalendar(rec, req)
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
@@ -656,7 +704,7 @@ func TestRenameCalendar_MalformedJSON(t *testing.T) {
 	req := withUser(httptest.NewRequest(http.MethodPatch, "/calendars/cal1", bytes.NewReader([]byte("{nope"))), testUser)
 	req.SetPathValue("id", "cal1")
 	rec := httptest.NewRecorder()
-	h.RenameCalendar(rec, req)
+	h.UpdateCalendar(rec, req)
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
@@ -668,7 +716,7 @@ func TestRenameCalendar_EmptyName(t *testing.T) {
 	req := withUser(httptest.NewRequest(http.MethodPatch, "/calendars/cal1", jsonBody(t, map[string]string{"name": "   "})), testUser)
 	req.SetPathValue("id", "cal1")
 	rec := httptest.NewRecorder()
-	h.RenameCalendar(rec, req)
+	h.UpdateCalendar(rec, req)
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
@@ -684,7 +732,7 @@ func TestRenameCalendar_NotOwner(t *testing.T) {
 	req := withUser(httptest.NewRequest(http.MethodPatch, "/calendars/cal1", jsonBody(t, map[string]string{"name": "X"})), testUser)
 	req.SetPathValue("id", "cal1")
 	rec := httptest.NewRecorder()
-	h.RenameCalendar(rec, req)
+	h.UpdateCalendar(rec, req)
 
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
@@ -700,7 +748,7 @@ func TestRenameCalendar_NotFound(t *testing.T) {
 	req := withUser(httptest.NewRequest(http.MethodPatch, "/calendars/missing", jsonBody(t, map[string]string{"name": "X"})), testUser)
 	req.SetPathValue("id", "missing")
 	rec := httptest.NewRecorder()
-	h.RenameCalendar(rec, req)
+	h.UpdateCalendar(rec, req)
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
@@ -797,5 +845,70 @@ func TestRemoveParticipant_ParticipantNotFound(t *testing.T) {
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+	}
+}
+
+// --- UpdateCalendar visibility tests ---
+
+func TestUpdateCalendar_VisibilityOnly(t *testing.T) {
+	updated := model.Calendar{ID: "cal1", Name: "X", OwnerID: "u1", Visibility: model.VisibilitySubmitToView}
+	h := New(&mockService{
+		getCalendarOnly: func(_ context.Context, id string) (model.Calendar, error) {
+			return model.Calendar{ID: id, OwnerID: "u1"}, nil
+		},
+		updateCalendarVisibility: func(_ context.Context, calendarID, visibility string) (model.Calendar, error) {
+			if calendarID != "cal1" || visibility != model.VisibilitySubmitToView {
+				t.Fatalf("unexpected args: calendarID=%q visibility=%q", calendarID, visibility)
+			}
+			return updated, nil
+		},
+	})
+	req := withUser(httptest.NewRequest(http.MethodPatch, "/calendars/cal1", jsonBody(t, map[string]string{"visibility": model.VisibilitySubmitToView})), testUser)
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.UpdateCalendar(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	var got model.Calendar
+	decodeJSON(t, rec, &got)
+	if got.Visibility != model.VisibilitySubmitToView {
+		t.Fatalf("visibility = %q, want %q", got.Visibility, model.VisibilitySubmitToView)
+	}
+}
+
+func TestUpdateCalendar_InvalidVisibility(t *testing.T) {
+	h := New(&mockService{})
+	req := withUser(httptest.NewRequest(http.MethodPatch, "/calendars/cal1", jsonBody(t, map[string]string{"visibility": "bogus"})), testUser)
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.UpdateCalendar(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestUpdateCalendar_EmptyBody(t *testing.T) {
+	h := New(&mockService{})
+	req := withUser(httptest.NewRequest(http.MethodPatch, "/calendars/cal1", jsonBody(t, map[string]string{})), testUser)
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.UpdateCalendar(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestCreateCalendar_InvalidVisibility(t *testing.T) {
+	h := New(&mockService{})
+	req := withUser(httptest.NewRequest(http.MethodPost, "/calendars", jsonBody(t, map[string]string{"name": "Trip", "visibility": "bogus"})), testUser)
+	rec := httptest.NewRecorder()
+	h.CreateCalendar(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
 }

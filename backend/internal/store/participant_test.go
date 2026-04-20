@@ -13,7 +13,7 @@ func TestAddParticipant(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID)
+	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestAddParticipantWithUserID(t *testing.T) {
 	owner := createTestUser(t, s, "Owner")
 	alice := createTestUser(t, s, "Alice")
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID)
+	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestAddParticipantUserAlreadyJoined(t *testing.T) {
 	owner := createTestUser(t, s, "Owner")
 	alice := createTestUser(t, s, "Alice")
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID)
+	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -92,11 +92,11 @@ func TestAddParticipantSameUserDifferentCalendar(t *testing.T) {
 	owner := createTestUser(t, s, "Owner")
 	alice := createTestUser(t, s, "Alice")
 
-	cal1, err := s.CreateCalendar(ctx, "Calendar 1", "", owner.ID)
+	cal1, err := s.CreateCalendar(ctx, "Calendar 1", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create cal1: %v", err)
 	}
-	cal2, err := s.CreateCalendar(ctx, "Calendar 2", "", owner.ID)
+	cal2, err := s.CreateCalendar(ctx, "Calendar 2", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create cal2: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestAddParticipantColourAssignment(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID)
+	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -145,7 +145,7 @@ func TestAddParticipantDuplicateName(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID)
+	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -165,11 +165,11 @@ func TestAddParticipantSameNameDifferentCalendar(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal1, err := s.CreateCalendar(ctx, "Calendar 1", "", owner.ID)
+	cal1, err := s.CreateCalendar(ctx, "Calendar 1", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create cal1: %v", err)
 	}
-	cal2, err := s.CreateCalendar(ctx, "Calendar 2", "", owner.ID)
+	cal2, err := s.CreateCalendar(ctx, "Calendar 2", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create cal2: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestClaimParticipant(t *testing.T) {
 	owner := createTestUser(t, s, "Owner")
 	alice := createTestUser(t, s, "Alice")
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID)
+	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -231,7 +231,7 @@ func TestClaimParticipantAlreadyLinked(t *testing.T) {
 	alice := createTestUser(t, s, "Alice")
 	bob := createTestUser(t, s, "Bob")
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID)
+	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -253,7 +253,7 @@ func TestClaimParticipantUserAlreadyInCalendar(t *testing.T) {
 	owner := createTestUser(t, s, "Owner")
 	alice := createTestUser(t, s, "Alice")
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID)
+	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -282,7 +282,7 @@ func TestClaimParticipantNotFound(t *testing.T) {
 	owner := createTestUser(t, s, "Owner")
 	alice := createTestUser(t, s, "Alice")
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID)
+	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -298,7 +298,7 @@ func TestDeleteParticipant(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID)
+	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -332,7 +332,7 @@ func TestDeleteParticipantNotFound(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID)
+	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -347,11 +347,11 @@ func TestDeleteParticipantWrongCalendar(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal1, err := s.CreateCalendar(ctx, "Cal1", "", owner.ID)
+	cal1, err := s.CreateCalendar(ctx, "Cal1", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create cal1: %v", err)
 	}
-	cal2, err := s.CreateCalendar(ctx, "Cal2", "", owner.ID)
+	cal2, err := s.CreateCalendar(ctx, "Cal2", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create cal2: %v", err)
 	}
@@ -376,7 +376,7 @@ func TestGetCalendarParticipantUserID(t *testing.T) {
 	owner := createTestUser(t, s, "Owner")
 	alice := createTestUser(t, s, "Alice")
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID)
+	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}

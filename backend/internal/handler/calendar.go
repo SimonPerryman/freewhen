@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/freewhen/backend/internal/model"
+	"github.com/freewhen/backend/internal/service"
 	"github.com/freewhen/backend/internal/store"
 )
 
@@ -21,14 +22,24 @@ func (h *Handler) CreateCalendar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Name string `json:"name"`
+		Name       string `json:"name"`
+		Visibility string `json:"visibility"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid JSON")
 		return
 	}
 
-	cal, err := h.service.CreateCalendar(r.Context(), req.Name, user.ID)
+	visibility := req.Visibility
+	if visibility == "" {
+		visibility = model.VisibilityOpen
+	}
+	if !model.IsValidVisibility(visibility) {
+		respondError(w, http.StatusBadRequest, "invalid visibility value")
+		return
+	}
+
+	cal, err := h.service.CreateCalendar(r.Context(), req.Name, user.ID, visibility)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create calendar")
 		return
@@ -55,7 +66,16 @@ func (h *Handler) CreateCalendar(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetCalendar(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
-	cal, err := h.service.GetCalendar(r.Context(), id)
+	viewer := service.Viewer{}
+	if u := UserFromContext(r); u != nil {
+		uid := u.ID
+		viewer.UserID = &uid
+	}
+	if as := strings.TrimSpace(r.URL.Query().Get("as")); as != "" {
+		viewer.ParticipantID = &as
+	}
+
+	view, err := h.service.GetCalendarView(r.Context(), id, viewer)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			respondError(w, http.StatusNotFound, "calendar not found")
@@ -65,7 +85,7 @@ func (h *Handler) GetCalendar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusOK, cal)
+	respondJSON(w, http.StatusOK, view.Details)
 }
 
 func (h *Handler) FinaliseCalendar(w http.ResponseWriter, r *http.Request) {
@@ -118,7 +138,9 @@ func (h *Handler) FinaliseCalendar(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, cal)
 }
 
-func (h *Handler) RenameCalendar(w http.ResponseWriter, r *http.Request) {
+// UpdateCalendar handles PATCH /calendars/{id}. Accepts any combination of
+// optional name and visibility fields. Owner only.
+func (h *Handler) UpdateCalendar(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
 	user := UserFromContext(r)
@@ -130,14 +152,23 @@ func (h *Handler) RenameCalendar(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
 	var req struct {
-		Name string `json:"name"`
+		Name       *string `json:"name"`
+		Visibility *string `json:"visibility"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid JSON")
 		return
 	}
-	if strings.TrimSpace(req.Name) == "" {
+	if req.Name == nil && req.Visibility == nil {
+		respondError(w, http.StatusBadRequest, "no updatable fields provided")
+		return
+	}
+	if req.Name != nil && strings.TrimSpace(*req.Name) == "" {
 		respondError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	if req.Visibility != nil && !model.IsValidVisibility(*req.Visibility) {
+		respondError(w, http.StatusBadRequest, "invalid visibility value")
 		return
 	}
 
@@ -151,18 +182,34 @@ func (h *Handler) RenameCalendar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if existing.OwnerID != user.ID {
-		respondError(w, http.StatusForbidden, "only the owner can rename this calendar")
+		respondError(w, http.StatusForbidden, "only the owner can update this calendar")
 		return
 	}
 
-	cal, err := h.service.RenameCalendar(r.Context(), id, req.Name)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "calendar not found")
+	cal := existing
+	if req.Name != nil {
+		updated, err := h.service.RenameCalendar(r.Context(), id, *req.Name)
+		if err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				respondError(w, http.StatusNotFound, "calendar not found")
+				return
+			}
+			respondError(w, http.StatusInternalServerError, "failed to rename calendar")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "failed to rename calendar")
-		return
+		cal = updated
+	}
+	if req.Visibility != nil {
+		updated, err := h.service.UpdateCalendarVisibility(r.Context(), id, *req.Visibility)
+		if err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				respondError(w, http.StatusNotFound, "calendar not found")
+				return
+			}
+			respondError(w, http.StatusInternalServerError, "failed to update calendar visibility")
+			return
+		}
+		cal = updated
 	}
 
 	respondJSON(w, http.StatusOK, cal)

@@ -14,7 +14,7 @@ func TestCreateCalendar(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "Weekend Trip", "✨", owner.ID)
+	cal, err := s.CreateCalendar(ctx, "Weekend Trip", "✨", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -43,7 +43,7 @@ func TestCreateCalendarNoEmoji(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "No Icon", "", owner.ID)
+	cal, err := s.CreateCalendar(ctx, "No Icon", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestCreateCalendarEmojiRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "Round Trip", "🪩", owner.ID)
+	cal, err := s.CreateCalendar(ctx, "Round Trip", "🪩", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestCreateCalendarDefaultName(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "", "", owner.ID)
+	cal, err := s.CreateCalendar(ctx, "", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestGetCalendar(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "Test", "🦊", owner.ID)
+	cal, err := s.CreateCalendar(ctx, "Test", "🦊", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestUpdateCalendarName(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "Old Name", "🌿", owner.ID)
+	cal, err := s.CreateCalendar(ctx, "Old Name", "🌿", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -189,7 +189,7 @@ func TestGetCalendarEmpty(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "Empty", "🌿", owner.ID)
+	cal, err := s.CreateCalendar(ctx, "Empty", "🌿", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -203,5 +203,69 @@ func TestGetCalendarEmpty(t *testing.T) {
 	}
 	if len(result.Availability) != 0 {
 		t.Errorf("expected 0 availability, got %d", len(result.Availability))
+	}
+}
+
+func TestUpdateCalendarVisibility(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
+
+	cal, err := s.CreateCalendar(ctx, "Visibility", "", owner.ID, "open")
+	if err != nil {
+		t.Fatalf("create calendar: %v", err)
+	}
+	if cal.Visibility != "open" {
+		t.Fatalf("visibility = %q, want open", cal.Visibility)
+	}
+
+	updated, err := s.UpdateCalendarVisibility(ctx, cal.ID, "submit_to_view")
+	if err != nil {
+		t.Fatalf("update visibility: %v", err)
+	}
+	if updated.Visibility != "submit_to_view" {
+		t.Fatalf("visibility = %q, want submit_to_view", updated.Visibility)
+	}
+
+	got, err := s.GetCalendar(ctx, cal.ID)
+	if err != nil {
+		t.Fatalf("get calendar: %v", err)
+	}
+	if got.Calendar.Visibility != "submit_to_view" {
+		t.Fatalf("re-read visibility = %q, want submit_to_view", got.Calendar.Visibility)
+	}
+}
+
+func TestParticipantHasAvailability(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
+
+	cal, err := s.CreateCalendar(ctx, "Avail", "", owner.ID, "submit_to_view")
+	if err != nil {
+		t.Fatalf("create calendar: %v", err)
+	}
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	if err != nil {
+		t.Fatalf("add participant: %v", err)
+	}
+
+	has, err := s.ParticipantHasAvailability(ctx, p.ID)
+	if err != nil {
+		t.Fatalf("has availability (none): %v", err)
+	}
+	if has {
+		t.Fatal("expected no availability, got some")
+	}
+
+	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01"}); err != nil {
+		t.Fatalf("set availability: %v", err)
+	}
+	has, err = s.ParticipantHasAvailability(ctx, p.ID)
+	if err != nil {
+		t.Fatalf("has availability (one): %v", err)
+	}
+	if !has {
+		t.Fatal("expected availability, got none")
 	}
 }

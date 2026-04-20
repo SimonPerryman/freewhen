@@ -144,10 +144,12 @@ function makeCalendarData(overrides: Partial<CalendarWithDetails> = {}): Calenda
       name: "Team Meetup",
       emoji: "✨",
       ownerId: "owner-1",
+      visibility: "open",
       createdAt: "2026-01-01T00:00:00Z",
     },
     participants: [],
     availability: [],
+    participantCount: 0,
     ...overrides,
   };
 }
@@ -184,7 +186,7 @@ describe("CalendarPageClient", () => {
       expect(screen.getByText("Team Meetup")).toBeInTheDocument();
     });
 
-    expect(mockGetCalendar).toHaveBeenCalledWith(CALENDAR_ID);
+    expect(mockGetCalendar).toHaveBeenCalledWith(CALENDAR_ID, undefined);
   });
 
   it("renders the calendar emoji alongside the name when present", async () => {
@@ -283,7 +285,7 @@ describe("CalendarPageClient", () => {
 
     expect(localStorageMock.setItem).toHaveBeenCalledWith(
       `freewhen:${CALENDAR_ID}`,
-      JSON.stringify({ participantId: "p-new", name: "Bob" }),
+      JSON.stringify({ participantId: "p-new", name: "Bob", colour: "#ff0000" }),
     );
 
     // After joining, the join form should disappear

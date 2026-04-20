@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/freewhen/backend/internal/model"
+	"github.com/freewhen/backend/internal/service"
 )
 
 type contextKey struct{}
@@ -14,8 +15,9 @@ var UserContextKey = contextKey{}
 
 // CalendarService defines the operations the handler needs from the service layer.
 type CalendarService interface {
-	CreateCalendar(ctx context.Context, name, ownerID string) (model.Calendar, error)
+	CreateCalendar(ctx context.Context, name, ownerID, visibility string) (model.Calendar, error)
 	GetCalendar(ctx context.Context, id string) (model.CalendarWithDetails, error)
+	GetCalendarView(ctx context.Context, calendarID string, viewer service.Viewer) (service.CalendarView, error)
 	GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error)
 	AddParticipant(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
 	SetAvailability(ctx context.Context, calendarID, participantID string, dates []string) error
@@ -23,6 +25,7 @@ type CalendarService interface {
 	UnfinaliseCalendar(ctx context.Context, calendarID string) (model.Calendar, error)
 	ClaimParticipant(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error)
 	RenameCalendar(ctx context.Context, calendarID, name string) (model.Calendar, error)
+	UpdateCalendarVisibility(ctx context.Context, calendarID, visibility string) (model.Calendar, error)
 	RemoveParticipant(ctx context.Context, calendarID, participantID string) error
 }
 

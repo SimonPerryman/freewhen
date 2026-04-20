@@ -1,8 +1,11 @@
+export type Visibility = "open" | "submit_to_view";
+
 export interface Calendar {
   id: string;
   name: string;
   emoji?: string;
   ownerId: string;
+  visibility: Visibility;
   createdAt: string;
   finalisedDate?: string;
   finalisedAt?: string;
@@ -26,6 +29,7 @@ export interface CalendarWithDetails {
   calendar: Calendar;
   participants: Participant[];
   availability: Availability[];
+  participantCount: number;
 }
 
 export interface CreateCalendarResponse extends Calendar {
@@ -34,6 +38,12 @@ export interface CreateCalendarResponse extends Calendar {
 
 export interface CreateCalendarRequest {
   name: string;
+  visibility?: Visibility;
+}
+
+export interface UpdateCalendarRequest {
+  name?: string;
+  visibility?: Visibility;
 }
 
 export interface AddParticipantRequest {

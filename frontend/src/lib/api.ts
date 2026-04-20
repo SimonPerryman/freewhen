@@ -6,6 +6,7 @@ import type {
   CreateCalendarResponse,
   Participant,
   SetAvailabilityRequest,
+  UpdateCalendarRequest,
   User,
 } from "./types";
 
@@ -85,8 +86,9 @@ export async function createCalendar(req: CreateCalendarRequest): Promise<Create
   });
 }
 
-export async function getCalendar(id: string): Promise<CalendarWithDetails> {
-  return request<CalendarWithDetails>(`/calendars/${id}`);
+export async function getCalendar(id: string, as?: string): Promise<CalendarWithDetails> {
+  const query = as ? `?as=${encodeURIComponent(as)}` : "";
+  return request<CalendarWithDetails>(`/calendars/${id}${query}`);
 }
 
 export async function addParticipant(
@@ -122,11 +124,18 @@ export async function unfinaliseCalendar(calendarId: string): Promise<Calendar> 
   });
 }
 
-export async function renameCalendar(calendarId: string, name: string): Promise<Calendar> {
+export async function updateCalendar(
+  calendarId: string,
+  patch: UpdateCalendarRequest,
+): Promise<Calendar> {
   return request<Calendar>(`/calendars/${calendarId}`, {
     method: "PATCH",
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(toSnakeCaseKeys(patch)),
   });
+}
+
+export async function renameCalendar(calendarId: string, name: string): Promise<Calendar> {
+  return updateCalendar(calendarId, { name });
 }
 
 export async function removeParticipant(

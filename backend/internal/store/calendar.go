@@ -10,16 +10,16 @@ import (
 	"github.com/freewhen/backend/internal/model"
 )
 
-func (s *Store) CreateCalendar(ctx context.Context, name, emoji, ownerID string) (model.Calendar, error) {
+func (s *Store) CreateCalendar(ctx context.Context, name, emoji, ownerID, visibility string) (model.Calendar, error) {
 	const maxRetries = 3
 	for i := 0; i < maxRetries; i++ {
 		id := generateID(8)
 		var cal model.Calendar
 		var emojiCol sql.NullString
 		err := s.db.QueryRowContext(ctx,
-			`INSERT INTO calendars (id, name, emoji, owner_id) VALUES ($1, $2, $3, $4) RETURNING id, name, emoji, owner_id, created_at`,
-			id, name, nullableString(emoji), ownerID,
-		).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.CreatedAt)
+			`INSERT INTO calendars (id, name, emoji, owner_id, visibility) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, emoji, owner_id, visibility, created_at`,
+			id, name, nullableString(emoji), ownerID, visibility,
+		).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.Visibility, &cal.CreatedAt)
 		if err != nil {
 			if isUniqueViolation(err) {
 				continue
@@ -56,10 +56,29 @@ func (s *Store) GetCalendar(ctx context.Context, id string) (model.CalendarWithD
 	}
 
 	return model.CalendarWithDetails{
-		Calendar:     cal,
-		Participants: participants,
-		Availability: availability,
+		Calendar:         cal,
+		Participants:     participants,
+		Availability:     availability,
+		ParticipantCount: len(participants),
 	}, nil
+}
+
+// CountCalendarParticipants returns the number of participants in the given calendar.
+func (s *Store) CountCalendarParticipants(ctx context.Context, calendarID string) (int, error) {
+	return s.participantCount(ctx, calendarID)
+}
+
+// ParticipantHasAvailability reports whether the participant has any availability rows.
+func (s *Store) ParticipantHasAvailability(ctx context.Context, participantID string) (bool, error) {
+	var has bool
+	err := s.db.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM availability WHERE participant_id = $1)`,
+		participantID,
+	).Scan(&has)
+	if err != nil {
+		return false, fmt.Errorf("participant has availability: %w", err)
+	}
+	return has, nil
 }
 
 // GetCalendarOnly returns the calendar row without details. Used by handlers
@@ -74,9 +93,9 @@ func (s *Store) getCalendarRow(ctx context.Context, id string) (model.Calendar, 
 	var finalisedDate sql.NullString
 	var finalisedAt sql.NullTime
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, name, emoji, owner_id, created_at, finalised_date::text, finalised_at
+		`SELECT id, name, emoji, owner_id, visibility, created_at, finalised_date::text, finalised_at
 		 FROM calendars WHERE id = $1`, id,
-	).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.CreatedAt, &finalisedDate, &finalisedAt)
+	).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.Visibility, &cal.CreatedAt, &finalisedDate, &finalisedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Calendar{}, ErrNotFound
@@ -103,6 +122,26 @@ func (s *Store) UpdateCalendarName(ctx context.Context, calendarID, name string)
 	)
 	if err != nil {
 		return model.Calendar{}, fmt.Errorf("update calendar name: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return model.Calendar{}, fmt.Errorf("rows affected: %w", err)
+	}
+	if rows == 0 {
+		return model.Calendar{}, ErrNotFound
+	}
+	return s.getCalendarRow(ctx, calendarID)
+}
+
+// UpdateCalendarVisibility sets the visibility mode on a calendar.
+// Returns ErrNotFound if the calendar does not exist.
+func (s *Store) UpdateCalendarVisibility(ctx context.Context, calendarID, visibility string) (model.Calendar, error) {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE calendars SET visibility = $1 WHERE id = $2`,
+		visibility, calendarID,
+	)
+	if err != nil {
+		return model.Calendar{}, fmt.Errorf("update calendar visibility: %w", err)
 	}
 	rows, err := res.RowsAffected()
 	if err != nil {

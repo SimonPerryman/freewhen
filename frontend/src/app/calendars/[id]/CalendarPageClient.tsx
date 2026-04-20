@@ -11,6 +11,7 @@ import {
   claimParticipant,
   removeParticipant,
   renameCalendar,
+  updateCalendar,
   ApiError,
 } from "@/lib/api";
 import analytics from "@/lib/analytics";
@@ -33,6 +34,7 @@ const STORAGE_PREFIX = "freewhen:";
 interface StoredParticipant {
   participantId: string;
   name: string;
+  colour?: string;
 }
 
 function getToday(): string {
@@ -91,7 +93,8 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
 
     async function load() {
       try {
-        const data = await getCalendar(calendarId);
+        const stored = readStorage(calendarId);
+        const data = await getCalendar(calendarId, stored?.participantId);
         if (cancelled) return;
         setCalendar(data);
         analytics.capture("calendar_opened", {
@@ -108,7 +111,6 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
         }
 
         // 2. Fall back to localStorage
-        const stored = readStorage(calendarId);
         if (!resolved && stored) {
           const existing = data.participants.find((p) => p.id === stored.participantId);
           if (existing) {
@@ -118,7 +120,11 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
               try {
                 const claimed = await claimParticipant(calendarId, existing.id);
                 resolved = claimed;
-                writeStorage(calendarId, { participantId: claimed.id, name: claimed.name });
+                writeStorage(calendarId, {
+                  participantId: claimed.id,
+                  name: claimed.name,
+                  colour: claimed.colour,
+                });
               } catch {
                 // Claim failed (already linked, or user already joined) — fall through
                 // If user already has a participant, the userId match above would have found it
@@ -128,6 +134,18 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
             } else {
               resolved = existing;
             }
+          } else if (
+            data.calendar.visibility === "submit_to_view" &&
+            data.participants.length === 0
+          ) {
+            // Hidden view — trust stored participant as the current viewer.
+            // Minimal shape: id/name/calendarId are all the page actually reads.
+            resolved = {
+              id: stored.participantId,
+              calendarId,
+              name: stored.name,
+              colour: stored.colour ?? "#9CA3AF",
+            };
           } else {
             // Stale participant — pre-fill name
             setStoredName(stored.name);
@@ -142,7 +160,11 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
         if (resolved) {
           setCurrentParticipant(resolved);
           participantIdRef.current = resolved.id;
-          writeStorage(calendarId, { participantId: resolved.id, name: resolved.name });
+          writeStorage(calendarId, {
+            participantId: resolved.id,
+            name: resolved.name,
+            colour: resolved.colour,
+          });
 
           // Seed selected dates, pruning past dates
           const today = getToday();
@@ -204,17 +226,32 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     [flushSave],
   );
 
+  const firstSubmitRef = useRef(false);
   const handleToggle = useCallback(
     (date: string) => {
       setSelectedDates((prev) => {
         const next = new Set(prev);
         if (next.has(date)) next.delete(date);
         else next.add(date);
+        // If the viewer is transitioning from zero → some selection in a hidden
+        // view, the backend will reveal on refetch. Trigger one opportunistically.
+        if (
+          prev.size === 0 &&
+          next.size > 0 &&
+          calendar?.calendar.visibility === "submit_to_view" &&
+          calendar.participants.length === 0 &&
+          !firstSubmitRef.current
+        ) {
+          firstSubmitRef.current = true;
+          analytics.capture("availability_gate_unlocked", { calendar_id: calendarId });
+          // Refetch once the save lands — slight delay to let the POST complete.
+          setTimeout(() => setLoadAttempt((n) => n + 1), 400);
+        }
         queueSave(Array.from(next));
         return next;
       });
     },
-    [queueSave],
+    [queueSave, calendar, calendarId],
   );
 
   const handleRetry = useCallback(() => {
@@ -299,6 +336,25 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     }
   }, [calendarId, calendar]);
 
+  const handleVisibilityToggle = useCallback(async () => {
+    if (!calendar) return;
+    const current = calendar.calendar.visibility;
+    const next = current === "submit_to_view" ? "open" : "submit_to_view";
+    const previous = calendar;
+    setCalendar((prev) =>
+      prev ? { ...prev, calendar: { ...prev.calendar, visibility: next } } : prev,
+    );
+    try {
+      await updateCalendar(calendarId, { visibility: next });
+      analytics.capture("calendar_visibility_set", {
+        calendar_id: calendarId,
+        visibility: next,
+      });
+    } catch {
+      setCalendar(previous);
+    }
+  }, [calendar, calendarId]);
+
   const handleRemoveParticipant = useCallback(
     async (target: Participant) => {
       if (!confirm(`Remove ${target.name}?`)) return;
@@ -355,6 +411,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
         writeStorage(calendarId, {
           participantId: participant.id,
           name,
+          colour: participant.colour,
         });
         analytics.capture("participant_added", { calendar_id: calendarId });
         // Add participant to local calendar state
@@ -450,6 +507,12 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   const calendarEmoji = calendar.calendar.emoji;
   const finalisedDate = calendar.calendar.finalisedDate ?? null;
   const isOwner = !!user && calendar.calendar.ownerId === user.id;
+  const revealed =
+    calendar.calendar.visibility === "open" ||
+    isOwner ||
+    calendar.participants.length > 0 ||
+    selectedDates.size > 0;
+  const participantCount = calendar.participantCount;
 
   return (
     <div className={styles.page}>
@@ -495,6 +558,18 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
               </button>
             ) : null}
           </div>
+          {isOwner && !finalisedDate ? (
+            <button
+              type="button"
+              className={styles.visibilityToggle}
+              onClick={handleVisibilityToggle}
+              aria-pressed={calendar.calendar.visibility === "submit_to_view"}
+            >
+              {calendar.calendar.visibility === "submit_to_view"
+                ? "Hiding others until they respond — tap to show everyone"
+                : "Hide others' availability until they respond"}
+            </button>
+          ) : null}
         </div>
 
         {finalisedDate ? (
@@ -531,8 +606,22 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           </p>
         ) : null}
 
+        {!revealed && !finalisedDate ? (
+          <p className={styles.hiddenBanner} role="status">
+            {participantCount > 0
+              ? `Mark a day to see when the other ${participantCount === 1 ? "person is" : `${participantCount} people are`} free.`
+              : "Mark a day — you're the first to respond."}
+          </p>
+        ) : null}
+
         <CalendarGrid
-          participants={calendar.participants}
+          participants={
+            revealed
+              ? calendar.participants
+              : currentParticipant
+                ? [currentParticipant]
+                : []
+          }
           freeByDate={freeByDate}
           currentParticipantId={currentParticipant?.id ?? null}
           onToggle={handleToggle}
@@ -540,40 +629,44 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           finalisedDate={finalisedDate}
         />
 
-        {!finalisedDate ? (
+        {revealed && !finalisedDate ? (
           <BestDay participants={calendar.participants} freeByDate={freeByDate} />
         ) : null}
 
-        {calendar.participants.length === 1 && !finalisedDate ? (
-          <InvitePrompt calendarName={calendarName} />
-        ) : calendar.participants.length >= 2 && !finalisedDate ? (
-          <>
-            <div className={styles.summaryCard}>
-              <SummaryView
+        {revealed ? (
+          calendar.participants.length === 1 && !finalisedDate ? (
+            <InvitePrompt calendarName={calendarName} />
+          ) : calendar.participants.length >= 2 && !finalisedDate ? (
+            <>
+              <div className={styles.summaryCard}>
+                <SummaryView
+                  participants={calendar.participants}
+                  freeByDate={freeByDate}
+                  canFinalise={isOwner}
+                  onFinalise={handleFinalise}
+                />
+                <ShareButton calendarName={calendarName} variant="hero" />
+              </div>
+              <ParticipantList
                 participants={calendar.participants}
-                freeByDate={freeByDate}
-                canFinalise={isOwner}
-                onFinalise={handleFinalise}
+                currentParticipantId={currentParticipant?.id ?? null}
+                canRemove={isOwner}
+                onRemove={handleRemoveParticipant}
               />
-              <ShareButton calendarName={calendarName} variant="hero" />
-            </div>
-            <ParticipantList
-              participants={calendar.participants}
-              currentParticipantId={currentParticipant?.id ?? null}
-              canRemove={isOwner}
-              onRemove={handleRemoveParticipant}
-            />
-          </>
+            </>
+          ) : (
+            <>
+              <ShareButton calendarName={calendarName} />
+              <ParticipantList
+                participants={calendar.participants}
+                currentParticipantId={currentParticipant?.id ?? null}
+                canRemove={isOwner}
+                onRemove={handleRemoveParticipant}
+              />
+            </>
+          )
         ) : (
-          <>
-            <ShareButton calendarName={calendarName} />
-            <ParticipantList
-              participants={calendar.participants}
-              currentParticipantId={currentParticipant?.id ?? null}
-              canRemove={isOwner}
-              onRemove={handleRemoveParticipant}
-            />
-          </>
+          <ShareButton calendarName={calendarName} />
         )}
       </div>
     </div>

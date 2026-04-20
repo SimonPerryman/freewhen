@@ -70,7 +70,7 @@ describe("Home (calendar creation page)", () => {
     await user.click(screen.getByRole("button", { name: /create calendar/i }));
 
     await waitFor(() => {
-      expect(createCalendarMock).toHaveBeenCalledWith({ name: "Trip" });
+      expect(createCalendarMock).toHaveBeenCalledWith({ name: "Trip", visibility: "open" });
     });
     expect(pushMock).toHaveBeenCalledWith("/calendars/abc123");
   });

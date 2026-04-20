@@ -11,7 +11,7 @@ func TestSetAvailability(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID)
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -45,7 +45,7 @@ func TestSetAvailabilityReplacesExisting(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID)
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestSetAvailabilityClearAll(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID)
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestSetAvailabilityMultipleParticipants(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID)
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}

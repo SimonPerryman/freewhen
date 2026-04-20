@@ -11,6 +11,7 @@ export default function Home() {
   const router = useRouter();
   const { user, isLoading, checkAuth } = useAuth();
   const [name, setName] = useState("");
+  const [hideUntilRespond, setHideUntilRespond] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,8 +30,13 @@ export default function Home() {
 
     setSubmitting(true);
     try {
-      const result = await createCalendar({ name: name.trim() });
+      const visibility = hideUntilRespond ? "submit_to_view" : "open";
+      const result = await createCalendar({ name: name.trim(), visibility });
       analytics.capture("calendar_created", { calendar_id: result.id });
+      analytics.capture("calendar_visibility_set", {
+        calendar_id: result.id,
+        visibility,
+      });
 
       // Store owner's auto-joined participant in localStorage
       if (result.participant) {
@@ -40,6 +46,7 @@ export default function Home() {
           JSON.stringify({
             participantId: result.participant.id,
             name: result.participant.name,
+            colour: result.participant.colour,
           }),
         );
       }
@@ -87,6 +94,21 @@ export default function Home() {
             autoComplete="off"
             disabled={submitting}
           />
+          <label className={styles.toggleRow}>
+            <input
+              type="checkbox"
+              className={styles.checkbox}
+              checked={hideUntilRespond}
+              onChange={(event) => setHideUntilRespond(event.target.checked)}
+              disabled={submitting}
+            />
+            <span>
+              <span className={styles.toggleLabel}>Hide others until you respond</span>
+              <span className={styles.toggleHelp}>
+                Stops people matching the group&apos;s dates instead of picking their own.
+              </span>
+            </span>
+          </label>
           <button type="submit" className={styles.button} disabled={submitting || isLoading}>
             {submitting ? "Creating…" : user ? "Create calendar" : "Sign in to create"}
           </button>
