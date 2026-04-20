@@ -9,6 +9,7 @@ import "time"
 const (
 	MaxCalendarNameLength      = 100
 	MaxParticipantNameLength   = 50
+	MaxUserNameLength          = 50
 	MaxDatesPerSubmission      = 366
 	MaxParticipantsPerCalendar = 100
 	MaxCalendarsPerUser        = 200

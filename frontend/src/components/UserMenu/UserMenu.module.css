@@ -1,0 +1,442 @@
+.root {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Trigger — avatar + (optional) name + chevron */
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 4px 4px;
+  font: inherit;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.trigger:hover {
+  background: var(--accent-subtle);
+  border-color: var(--border);
+}
+
+.trigger:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.trigger[aria-expanded="true"] {
+  background: var(--accent-subtle);
+  border-color: var(--border);
+}
+
+.avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 50%;
+  letter-spacing: 0;
+}
+
+.pulse {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  border: 2px solid var(--page-bg);
+  border-radius: 50%;
+  animation: pulseDot 1.8s ease-in-out infinite;
+}
+
+@keyframes pulseDot {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 0.75;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse {
+    animation: none;
+  }
+}
+
+.triggerName {
+  display: none;
+  max-width: 140px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (min-width: 480px) {
+  .triggerName {
+    display: inline;
+  }
+}
+
+.chevron {
+  display: none;
+  color: var(--text-secondary);
+  transition: transform 0.15s ease;
+}
+
+@media (min-width: 480px) {
+  .chevron {
+    display: inline-block;
+  }
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+/* Backdrop — only visible as a sheet scrim on mobile */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 40;
+  animation: fadeIn 0.15s ease-out;
+}
+
+@media (min-width: 560px) {
+  .backdrop {
+    background: transparent;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Panel — bottom sheet on mobile, dropdown on desktop */
+.panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  padding: 8px 8px calc(12px + env(safe-area-inset-bottom));
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--shadow-lg);
+  animation: slideUp 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (min-width: 560px) {
+  .panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: auto;
+    right: 0;
+    bottom: auto;
+    width: 288px;
+    padding: 8px;
+    border-radius: var(--radius-lg);
+    animation: fadeSlide 0.15s ease-out;
+  }
+
+  @keyframes fadeSlide {
+    from {
+      transform: translateY(-4px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    animation: none;
+  }
+}
+
+/* Bottom-sheet drag-handle — only shown on mobile */
+.handle {
+  display: block;
+  width: 36px;
+  height: 4px;
+  margin: 2px auto 8px;
+  background: var(--border);
+  border-radius: 2px;
+}
+
+@media (min-width: 560px) {
+  .handle {
+    display: none;
+  }
+}
+
+/* Identity block */
+.identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 8px 12px;
+}
+
+.avatarLarge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 50%;
+}
+
+.identityText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nameRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  font: inherit;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.name {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: var(--text-primary);
+}
+
+.nameRowEmpty .name {
+  color: var(--accent);
+}
+
+.editIcon {
+  color: var(--text-secondary);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.nameRow:hover .editIcon,
+.nameRow:focus-visible .editIcon {
+  opacity: 1;
+}
+
+.nameRowEmpty .editIcon {
+  opacity: 1;
+  color: var(--accent);
+}
+
+.nameRow:focus-visible {
+  outline: none;
+}
+
+.nameRow:focus-visible .name {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+}
+
+.email {
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Edit form */
+.editForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.nameInput {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--page-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.nameInput:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+.editActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.textButton {
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.textButton:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--accent-subtle);
+}
+
+.primaryButton {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--accent-text);
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.primaryButton:disabled,
+.textButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.counter {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--error);
+}
+
+.divider {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--border);
+}
+
+/* Menu items */
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  text-decoration: none;
+  transition: background 0.1s;
+}
+
+.menuItem svg {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.menuItem:hover:not(:disabled) {
+  background: var(--accent-subtle);
+}
+
+.menuItem:hover:not(:disabled) svg {
+  color: var(--accent);
+}
+
+.menuItem:focus-visible {
+  outline: none;
+  background: var(--accent-subtle);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.menuItem:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

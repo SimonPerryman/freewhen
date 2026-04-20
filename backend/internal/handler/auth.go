@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/freewhen/backend/internal/config"
+	"github.com/freewhen/backend/internal/limits"
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/store"
 
@@ -25,6 +26,7 @@ type AuthStore interface {
 	GetUser(ctx context.Context, id string) (model.User, error)
 	FindUserByEmail(ctx context.Context, email string) (model.User, error)
 	FindUserByProviderID(ctx context.Context, provider, providerID string) (model.User, error)
+	UpdateUserName(ctx context.Context, userID, name string) (model.User, error)
 	CreateSession(ctx context.Context, userID string) (string, error)
 	GetSession(ctx context.Context, token string) (*model.Session, error)
 	DeleteSession(ctx context.Context, token string) error
@@ -228,6 +230,50 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, user)
+}
+
+// updateMeRequest is the JSON body for PATCH /auth/me.
+type updateMeRequest struct {
+	Name *string `json:"name"`
+}
+
+// UpdateMe updates the authenticated user's profile fields (currently: name).
+func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
+	user := UserFromContext(r)
+	if user == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized", "not authenticated")
+		return
+	}
+
+	var req updateMeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid_json", "invalid request body")
+		return
+	}
+
+	if req.Name == nil {
+		respondError(w, http.StatusBadRequest, "invalid_request", "no fields to update")
+		return
+	}
+
+	name := strings.TrimSpace(*req.Name)
+	if name == "" {
+		respondError(w, http.StatusBadRequest, "invalid_name", "name cannot be empty")
+		return
+	}
+	if len([]rune(name)) > limits.MaxUserNameLength {
+		respondError(w, http.StatusBadRequest, "invalid_name", "name is too long")
+		return
+	}
+
+	updated, err := h.store.UpdateUserName(r.Context(), user.ID, name)
+	if err != nil {
+		h.logger.Error("update user name failed", "error", err)
+		respondError(w, http.StatusInternalServerError, "internal_error", "failed to update")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, updated)
 }
 
 // Logout deletes the session and clears the cookie.

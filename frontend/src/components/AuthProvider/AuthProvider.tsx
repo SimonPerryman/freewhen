@@ -11,6 +11,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   checkAuth: () => Promise<User | null>;
   clearAuth: () => void;
+  setUser: (user: User) => void;
   signOut: () => Promise<void>;
 }
 
@@ -73,6 +74,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         checkAuth,
         clearAuth,
+        setUser,
         signOut,
       }}
     >

@@ -3,4 +3,5 @@
 // When a server limit changes, both files change in the same commit.
 export const MAX_CALENDAR_NAME_LENGTH = 100;
 export const MAX_PARTICIPANT_NAME_LENGTH = 50;
+export const MAX_USER_NAME_LENGTH = 50;
 export const MAX_PARTICIPANTS_PER_CALENDAR = 100;

@@ -71,12 +71,21 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   });
 
   if (!response.ok) {
-    const body = (await response.json()) as { error: string; code?: string };
+    let message = `Request failed (${response.status})`;
+    let code: string | null = null;
+    try {
+      const body = (await response.json()) as { error?: string; code?: string };
+      if (body.error) message = body.error;
+      code = body.code ?? null;
+    } catch {
+      // Non-JSON error body (e.g. Go's default 405 "Method Not Allowed").
+      // Keep the status-based fallback message.
+    }
     throw new ApiError(
       response.status,
-      body.error,
+      message,
       response.headers.get("X-Request-ID"),
-      body.code ?? null,
+      code,
     );
   }
 
@@ -155,6 +164,13 @@ export async function removeParticipant(calendarId: string, participantId: strin
 
 export async function getMe(): Promise<User> {
   return request<User>("/auth/me");
+}
+
+export async function updateMe(patch: { name?: string }): Promise<User> {
+  return request<User>("/auth/me", {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
 }
 
 export async function listMyCalendars(): Promise<MyCalendarsResponse> {

@@ -65,6 +65,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /auth/google", s.auth.GoogleLogin)
 	s.mux.HandleFunc("GET /auth/google/callback", s.auth.GoogleCallback)
 	s.mux.HandleFunc("GET /auth/me", s.auth.Me)
+	s.mux.HandleFunc("PATCH /auth/me", s.requireAuth(s.auth.UpdateMe))
 	s.mux.HandleFunc("POST /auth/logout", s.auth.Logout)
 	s.mux.HandleFunc("POST /auth/magic-link", s.auth.SendMagicLink)
 	s.mux.HandleFunc("GET /auth/magic-link/callback", s.auth.MagicLinkCallback)

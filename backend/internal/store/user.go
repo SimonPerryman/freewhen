@@ -59,6 +59,22 @@ func (s *Store) GetUser(ctx context.Context, id string) (model.User, error) {
 	return u, nil
 }
 
+func (s *Store) UpdateUserName(ctx context.Context, userID, name string) (model.User, error) {
+	var u model.User
+	err := s.db.QueryRowContext(ctx,
+		`UPDATE users SET name = $1 WHERE id = $2
+		 RETURNING id, email, name, is_admin, provider, provider_id, created_at`,
+		name, userID,
+	).Scan(&u.ID, &u.Email, &u.Name, &u.IsAdmin, &u.Provider, &u.ProviderID, &u.CreatedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.User{}, ErrNotFound
+		}
+		return model.User{}, fmt.Errorf("update user name: %w", err)
+	}
+	return u, nil
+}
+
 func (s *Store) FindUserByProviderID(ctx context.Context, provider, providerID string) (model.User, error) {
 	var u model.User
 	err := s.db.QueryRowContext(ctx,
