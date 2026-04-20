@@ -544,17 +544,26 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           <BestDay participants={calendar.participants} freeByDate={freeByDate} />
         ) : null}
 
-        {!finalisedDate ? (
-          <SummaryView
-            participants={calendar.participants}
-            freeByDate={freeByDate}
-            canFinalise={isOwner}
-            onFinalise={handleFinalise}
-          />
-        ) : null}
-
         {calendar.participants.length === 1 && !finalisedDate ? (
           <InvitePrompt calendarName={calendarName} />
+        ) : calendar.participants.length >= 2 && !finalisedDate ? (
+          <>
+            <div className={styles.summaryCard}>
+              <SummaryView
+                participants={calendar.participants}
+                freeByDate={freeByDate}
+                canFinalise={isOwner}
+                onFinalise={handleFinalise}
+              />
+              <ShareButton calendarName={calendarName} variant="hero" />
+            </div>
+            <ParticipantList
+              participants={calendar.participants}
+              currentParticipantId={currentParticipant?.id ?? null}
+              canRemove={isOwner}
+              onRemove={handleRemoveParticipant}
+            />
+          </>
         ) : (
           <>
             <ShareButton calendarName={calendarName} />

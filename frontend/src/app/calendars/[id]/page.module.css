@@ -196,3 +196,21 @@
   border-radius: var(--radius-md);
   line-height: 1.5;
 }
+
+.summaryCard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (min-width: 640px) {
+  .summaryCard {
+    padding: 24px;
+  }
+}
