@@ -61,8 +61,10 @@ vi.mock("@/components/JoinForm/JoinForm", () => ({
 
 interface MockedCalendarGridProps {
   onToggle: (date: string) => void;
+  onOpenDay?: (date: string) => void;
   onRangeToggle?: (dates: string[], target: boolean) => void;
   selectedDates?: Set<string>;
+  noteAuthorsByDate?: Map<string, Set<string>>;
 }
 
 let capturedGridProps: MockedCalendarGridProps | null = null;
@@ -71,6 +73,25 @@ vi.mock("@/components/CalendarGrid/CalendarGrid", () => ({
   default: (props: MockedCalendarGridProps) => {
     capturedGridProps = props;
     return <div data-testid="calendar-grid" />;
+  },
+}));
+
+interface MockedDaySheetProps {
+  date: string;
+  currentNote: string;
+  isSelected: boolean;
+  finalised: boolean;
+  onSaveNote: (text: string) => void;
+  onRemoveAvailability: () => void;
+  onClose: () => void;
+}
+
+let capturedSheetProps: MockedDaySheetProps | null = null;
+
+vi.mock("@/components/DayDetailSheet/DayDetailSheet", () => ({
+  default: (props: MockedDaySheetProps) => {
+    capturedSheetProps = props;
+    return <div data-testid="day-detail-sheet" />;
   },
 }));
 
@@ -186,6 +207,7 @@ describe("CalendarPageClient", () => {
     _capturedDefaultName = undefined;
     capturedParticipantListProps = null;
     capturedGridProps = null;
+    capturedSheetProps = null;
     mockUser = null;
     localStorageMock.getItem.mockReturnValue(null);
   });
@@ -640,5 +662,139 @@ describe("CalendarPageClient", () => {
     await waitFor(() => {
       expect(capturedJoinError).toBe("That name is already taken");
     });
+  });
+
+  it("toggling dates without editing notes: PUT omits the notes field entirely", async () => {
+    const participant = makeParticipant();
+    const calendarData = makeCalendarData({
+      participants: [participant],
+      availability: [],
+    });
+
+    localStorageMock.getItem.mockReturnValue(
+      JSON.stringify({ participantId: participant.id, name: participant.name }),
+    );
+    mockGetCalendar.mockResolvedValue(calendarData);
+    mockSetAvailability.mockResolvedValue(undefined);
+
+    render(
+      <AuthProvider>
+        <CalendarPageClient calendarId={CALENDAR_ID} />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(capturedGridProps?.onToggle).toBeDefined();
+    });
+
+    capturedGridProps!.onToggle("2030-05-01");
+
+    await waitFor(() => {
+      expect(mockSetAvailability).toHaveBeenCalledTimes(1);
+    });
+    const [, body] = mockSetAvailability.mock.calls[0];
+    expect(body).toEqual({
+      participantId: participant.id,
+      dates: ["2030-05-01"],
+    });
+    // Critical: absent `notes` key triggers the server's "don't touch" path.
+    expect("notes" in body).toBe(false);
+  });
+
+  it("editing a note fires a setAvailability call with only the edited key", async () => {
+    const participant = makeParticipant();
+    const calendarData = makeCalendarData({
+      participants: [participant],
+      availability: [
+        {
+          participantId: participant.id,
+          calendarId: CALENDAR_ID,
+          date: "2030-06-01",
+        },
+        {
+          participantId: participant.id,
+          calendarId: CALENDAR_ID,
+          date: "2030-06-02",
+        },
+      ],
+    });
+
+    localStorageMock.getItem.mockReturnValue(
+      JSON.stringify({ participantId: participant.id, name: participant.name }),
+    );
+    mockGetCalendar.mockResolvedValue(calendarData);
+    mockSetAvailability.mockResolvedValue(undefined);
+
+    render(
+      <AuthProvider>
+        <CalendarPageClient calendarId={CALENDAR_ID} />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(capturedGridProps?.onOpenDay).toBeDefined();
+    });
+
+    // Open the sheet and edit a note on 2030-06-01.
+    capturedGridProps!.onOpenDay!("2030-06-01");
+
+    await waitFor(() => {
+      expect(capturedSheetProps?.onSaveNote).toBeDefined();
+    });
+
+    capturedSheetProps!.onSaveNote("only after 6pm");
+
+    await waitFor(() => {
+      expect(mockSetAvailability).toHaveBeenCalled();
+    });
+    const [, body] = mockSetAvailability.mock.calls[0];
+    expect(body.participantId).toBe(participant.id);
+    expect(body.dates).toEqual(expect.arrayContaining(["2030-06-01", "2030-06-02"]));
+    // The notes map contains ONLY the edited key; the backend's partial-override
+    // rule preserves the untouched 2030-06-02.
+    expect(body.notes).toEqual({ "2030-06-01": "only after 6pm" });
+  });
+
+  it("deselecting a date that had a note: PUT omits notes (row delete drops the note)", async () => {
+    const participant = makeParticipant();
+    const calendarData = makeCalendarData({
+      participants: [participant],
+      availability: [
+        {
+          participantId: participant.id,
+          calendarId: CALENDAR_ID,
+          date: "2030-07-01",
+          note: "existing note",
+        },
+      ],
+    });
+
+    localStorageMock.getItem.mockReturnValue(
+      JSON.stringify({ participantId: participant.id, name: participant.name }),
+    );
+    mockGetCalendar.mockResolvedValue(calendarData);
+    mockSetAvailability.mockResolvedValue(undefined);
+
+    render(
+      <AuthProvider>
+        <CalendarPageClient calendarId={CALENDAR_ID} />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(capturedGridProps?.onToggle).toBeDefined();
+    });
+
+    // Simulate a "deselect" — the page treats a toggle on a currently-selected
+    // date as a removal. Here we call onToggle with the noted date, which
+    // should remove the selection and fire one PUT with no `notes` field.
+    capturedGridProps!.onToggle("2030-07-01");
+
+    await waitFor(() => {
+      expect(mockSetAvailability).toHaveBeenCalled();
+    });
+    const [, body] = mockSetAvailability.mock.calls[0];
+    expect(body.dates).not.toContain("2030-07-01");
+    expect("notes" in body).toBe(false);
   });
 });

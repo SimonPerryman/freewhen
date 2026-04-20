@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/freewhen/backend/internal/limits"
 	"github.com/freewhen/backend/internal/store"
@@ -16,8 +18,9 @@ func (h *Handler) SetAvailability(w http.ResponseWriter, r *http.Request) {
 	calendarID := r.PathValue("id")
 
 	var req struct {
-		ParticipantID string   `json:"participant_id"`
-		Dates         []string `json:"dates"`
+		ParticipantID string             `json:"participant_id"`
+		Dates         []string           `json:"dates"`
+		Notes         *map[string]string `json:"notes"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
@@ -34,6 +37,7 @@ func (h *Handler) SetAvailability(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	dateSet := make(map[string]struct{}, len(req.Dates))
 	now := time.Now().UTC()
 	for _, d := range req.Dates {
 		parsed, err := time.Parse("2006-01-02", d)
@@ -45,9 +49,39 @@ func (h *Handler) SetAvailability(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusBadRequest, "date_out_of_range", "date out of range: "+d)
 			return
 		}
+		dateSet[d] = struct{}{}
 	}
 
-	err := h.service.SetAvailability(r.Context(), calendarID, req.ParticipantID, req.Dates)
+	var noteOverrides map[string]string
+	if req.Notes != nil {
+		noteOverrides = make(map[string]string, len(*req.Notes))
+		for date, raw := range *req.Notes {
+			if _, ok := dateSet[date]; !ok {
+				respondError(w, http.StatusBadRequest, "note_unknown_date", "note key not in dates: "+date)
+				return
+			}
+			if strings.ContainsAny(raw, "\r\n") {
+				respondError(w, http.StatusBadRequest, "note_newline", "notes must not contain line breaks")
+				return
+			}
+			if raw == "" {
+				noteOverrides[date] = ""
+				continue
+			}
+			trimmed := strings.TrimSpace(raw)
+			if trimmed == "" {
+				respondError(w, http.StatusBadRequest, "note_whitespace", "notes must not be whitespace-only")
+				return
+			}
+			if utf8.RuneCountInString(trimmed) > limits.MaxNoteLength {
+				respondError(w, http.StatusBadRequest, "note_too_long", "note exceeds maximum length")
+				return
+			}
+			noteOverrides[date] = trimmed
+		}
+	}
+
+	err := h.service.SetAvailability(r.Context(), calendarID, req.ParticipantID, req.Dates, noteOverrides)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			respondError(w, http.StatusNotFound, "not_found", "participant not found")

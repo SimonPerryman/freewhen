@@ -306,7 +306,7 @@ func TestDeleteParticipant(t *testing.T) {
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
-	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01", "2026-05-02"}); err != nil {
+	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01", "2026-05-02"}, nil); err != nil {
 		t.Fatalf("set availability: %v", err)
 	}
 

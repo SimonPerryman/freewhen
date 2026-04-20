@@ -1,0 +1,303 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, black 45%, transparent);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 50;
+  animation: backdropIn 0.16s ease-out;
+}
+
+@keyframes backdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.sheet {
+  width: 100%;
+  max-width: 540px;
+  padding: 20px 20px 24px;
+  background: var(--card-bg);
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-md);
+  box-shadow: 0 -8px 24px color-mix(in srgb, black 15%, transparent);
+  animation: sheetIn 0.22s ease-out;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+@keyframes sheetIn {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop,
+  .sheet {
+    animation: none;
+  }
+}
+
+@media (min-width: 640px) {
+  .backdrop {
+    align-items: center;
+  }
+  .sheet {
+    border-radius: var(--radius-md);
+    box-shadow: 0 12px 32px color-mix(in srgb, black 20%, transparent);
+  }
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.closeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: -6px -6px 0 0;
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+
+.closeButton:hover {
+  color: var(--text-primary);
+  background: var(--accent-subtle);
+}
+
+.section + .section {
+  margin-top: 18px;
+}
+
+.sectionLabel {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.whoList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.whoItem {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.swatch {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 5px;
+}
+
+.whoBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.whoName {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.meTag {
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border-radius: 999px;
+  vertical-align: 1px;
+}
+
+.whoNote {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.editorLabel {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.editorHint {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.textarea {
+  width: 100%;
+  min-height: 72px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text-primary);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+.editorFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  gap: 12px;
+}
+
+.counter,
+.counterOver {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.counterOver {
+  color: var(--error);
+  font-weight: 500;
+}
+
+.editorActions {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.cancelButton,
+.saveButton {
+  padding: 8px 14px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.cancelButton {
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+}
+
+.cancelButton:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.cancelButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.saveButton {
+  color: var(--accent-text);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+}
+
+.saveButton:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.saveButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.removeButton {
+  display: block;
+  margin: 20px 0 0;
+  padding: 10px 14px;
+  width: 100%;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--error);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--error) 40%, transparent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.removeButton:hover {
+  background: color-mix(in srgb, var(--error) 8%, transparent);
+  border-color: var(--error);
+}

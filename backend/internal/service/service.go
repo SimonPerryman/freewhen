@@ -38,7 +38,7 @@ type Store interface {
 	GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error)
 	AddParticipant(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
 	GetParticipant(ctx context.Context, id string) (model.Participant, error)
-	SetAvailability(ctx context.Context, participantID string, dates []string) error
+	SetAvailability(ctx context.Context, participantID string, dates []string, noteOverrides map[string]string) error
 	SetFinalisedDate(ctx context.Context, calendarID, date string) (model.Calendar, error)
 	ClearFinalisedDate(ctx context.Context, calendarID string) (model.Calendar, error)
 	ClaimParticipant(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error)
@@ -191,7 +191,7 @@ func (s *Service) ClaimParticipant(ctx context.Context, calendarID, participantI
 	return p, nil
 }
 
-func (s *Service) SetAvailability(ctx context.Context, calendarID, participantID string, dates []string) error {
+func (s *Service) SetAvailability(ctx context.Context, calendarID, participantID string, dates []string, noteOverrides map[string]string) error {
 	p, err := s.store.GetParticipant(ctx, participantID)
 	if err != nil {
 		return err
@@ -199,7 +199,7 @@ func (s *Service) SetAvailability(ctx context.Context, calendarID, participantID
 	if p.CalendarID != calendarID {
 		return store.ErrNotFound
 	}
-	if err := s.store.SetAvailability(ctx, participantID, dates); err != nil {
+	if err := s.store.SetAvailability(ctx, participantID, dates, noteOverrides); err != nil {
 		return err
 	}
 	s.touch(ctx, calendarID)

@@ -180,10 +180,14 @@ No auth, no accounts — just a shareable link.
 ## 5. Mark your availability
 
 1. After joining, the calendar grid becomes interactive
-2. Click a date to mark yourself as free (click again to unmark)
-3. Past dates are greyed out and unclickable
-4. Changes save automatically in the background (batched/serialized)
-5. If a save fails, a "Save failed" banner appears with a Retry button
+2. Click a date you haven't selected to mark yourself as free
+3. Click a date you've already marked free to open the **day sheet** — which shows who else is free, any notes they've left, and lets you:
+   - Add or edit a short note on the day ("only after 6pm", up to 140 characters)
+   - Tap **Remove my availability** to un-mark the day
+4. Past dates are greyed out and unclickable
+5. A small coloured dot in the top-right corner of a cell means at least one person has left a note on that day — their colour if it's a single author, neutral grey if multiple
+6. Changes save automatically in the background (batched/serialized)
+7. If a save fails, a "Save failed" banner appears with a Retry button
 
 **Bulk selection.** A toolbar above the week nav offers two controls:
 
@@ -279,6 +283,7 @@ No auth, no accounts — just a shareable link.
 2. Click "Finalise" next to the chosen date — the button becomes a confirm step ("Confirm Sun 26 Apr?")
 3. Click to confirm, and the calendar locks:
    - A hero banner replaces the summary and best-day hints: "📅 Sunday 26 April — Confirmed"
+   - The banner also lists any notes participants have left on that date ("Sarah — only after 6pm") so context travels with the confirmation
    - The grid stays visible but all cells are disabled; the chosen date gets a solid accent treatment
    - New participants cannot join and existing participants cannot edit availability (both return 409)
 4. The owner can click "Unfinalise" on the banner to reopen the calendar if plans change

@@ -32,9 +32,10 @@ type Participant struct {
 }
 
 type Availability struct {
-	ParticipantID string `json:"participant_id"`
-	CalendarID    string `json:"calendar_id"`
-	Date          string `json:"date"`
+	ParticipantID string  `json:"participant_id"`
+	CalendarID    string  `json:"calendar_id"`
+	Date          string  `json:"date"`
+	Note          *string `json:"note,omitempty"`
 }
 
 type CalendarWithDetails struct {

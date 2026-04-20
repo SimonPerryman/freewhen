@@ -108,13 +108,16 @@ Get a calendar with all participants and their availability.
     {
       "participant_id": "string",
       "calendar_id": "string",
-      "date": "YYYY-MM-DD"
+      "date": "YYYY-MM-DD",
+      "note": "string (optional, up to 140 Unicode code points)"
     }
   ]
 }
 ```
 
 `finalised_date` and `finalised_at` are omitted when the calendar is open. When set, the calendar is read-only.
+
+`note` is omitted from availability rows that have no note attached.
 
 **Errors:** 404 (calendar not found)
 
@@ -173,8 +176,23 @@ Replace a participant's available dates. Sending an empty `dates` array clears a
 **Request**
 
 ```json
-{"participant_id": "string", "dates": ["YYYY-MM-DD"]}
+{
+  "participant_id": "string",
+  "dates": ["YYYY-MM-DD"],
+  "notes": { "YYYY-MM-DD": "string (optional, ≤ 140 code points)" }
+}
 ```
+
+`notes` is a partial-override map keyed by ISO date.
+
+- `notes` **absent or `null`** → server preserves all existing notes on kept dates ("don't touch"). This is what protects a stale client bundle from silently wiping notes on the next availability edit.
+- `notes` **present, partial** → only the listed dates are updated; other kept dates' notes are preserved.
+- A key with value `""` → clears that date's note (stores NULL).
+- A key that isn't in `dates` → 400.
+- A non-empty value longer than 140 Unicode code points → 400.
+- A value containing `\r` or `\n` → 400 (notes are single-line).
+- An all-whitespace non-empty value → 400. (An empty string `""` is the explicit "clear" signal.)
+- A date removed from `dates` takes its note with it (row deletion cascades).
 
 **Response 200**
 
@@ -182,7 +200,7 @@ Replace a participant's available dates. Sending an empty `dates` array clears a
 {"ok": true}
 ```
 
-**Errors:** 400 (participant_id required, invalid date) | 404 (participant not found) | 409 (calendar finalised)
+**Errors:** 400 (participant_id required, invalid date, note validation) | 404 (participant not found) | 409 (calendar finalised)
 
 ---
 

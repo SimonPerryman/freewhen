@@ -24,6 +24,7 @@ export interface Availability {
   participantId: string;
   calendarId: string;
   date: string;
+  note?: string;
 }
 
 export interface CalendarWithDetails {
@@ -54,6 +55,10 @@ export interface AddParticipantRequest {
 export interface SetAvailabilityRequest {
   participantId: string;
   dates: string[];
+  // Partial override map keyed by ISO date. Omitted entirely to preserve all
+  // existing notes ("don't touch" semantics). A key with an empty string clears
+  // that date's note; a key with a non-empty value sets/replaces it.
+  notes?: Record<string, string>;
 }
 
 export interface User {

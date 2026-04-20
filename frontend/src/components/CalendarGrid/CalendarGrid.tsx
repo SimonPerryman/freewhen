@@ -27,8 +27,13 @@ const WEEKS_VISIBLE = 5;
 interface CalendarGridProps {
   participants: Participant[];
   freeByDate: Map<string, Set<string>>;
+  // noteAuthorsByDate[date] = set of participant IDs who have a note on that date.
+  // Drives the note dot colour rule: single author → that participant's colour;
+  // multiple authors → neutral.
+  noteAuthorsByDate?: Map<string, Set<string>>;
   currentParticipantId: string | null;
   onToggle: (date: string) => void;
+  onOpenDay?: (date: string) => void;
   onRangeToggle?: (dates: string[], target: boolean) => void;
   selectedDates?: Set<string>;
   joined: boolean;
@@ -80,8 +85,10 @@ const SWIPE_THRESHOLD = 50;
 export default function CalendarGrid({
   participants,
   freeByDate,
+  noteAuthorsByDate,
   currentParticipantId,
   onToggle,
+  onOpenDay,
   onRangeToggle,
   selectedDates,
   joined,
@@ -122,13 +129,20 @@ export default function CalendarGrid({
   );
 
   const handleDayClick = useCallback(
-    (dateStr: string) => {
+    (dateStr: string, alreadySelected: boolean) => {
+      // Tap-on-own-free-cell opens the day sheet (notes + "Remove availability").
+      // Tap on an unselected cell still toggles fast. Range-mode taps (onRangeToggle)
+      // come through a different path and are not affected.
+      if (alreadySelected && onOpenDay) {
+        onOpenDay(dateStr);
+        return;
+      }
       if (pulseTimer.current) clearTimeout(pulseTimer.current);
       setPulsing(dateStr);
       pulseTimer.current = setTimeout(() => setPulsing(null), 300);
       onToggle(dateStr);
     },
-    [onToggle],
+    [onToggle, onOpenDay],
   );
 
   const today = getToday();
@@ -337,11 +351,31 @@ export default function CalendarGrid({
             cellStyle.backgroundColor = `color-mix(in srgb, var(--accent) ${heatPercent}%, var(--card-bg))`;
           }
 
-          const canInteract = joined && !locked && !isFinalised;
+          const alreadySelected = isSelectedForCurrent(dateStr);
+          const canToggle = joined && !locked && !isFinalised;
+          // When locked/finalised we still allow opening the day sheet (read-only)
+          // so viewers can see notes on the finalised day.
+          const canOpenSheet = joined && !!onOpenDay && (locked || isFinalised);
+          const canInteract = canToggle || canOpenSheet;
           const onCellClick = () => {
-            if (!canInteract) return;
-            handleDayClick(dateStr);
+            if (canToggle) {
+              handleDayClick(dateStr, alreadySelected);
+              return;
+            }
+            if (canOpenSheet && onOpenDay) {
+              onOpenDay(dateStr);
+            }
           };
+
+          const noteAuthors = noteAuthorsByDate?.get(dateStr);
+          const showNoteDot = !!noteAuthors && noteAuthors.size > 0;
+          let noteDotColour: string | undefined;
+          if (showNoteDot) {
+            if (noteAuthors.size === 1) {
+              const [onlyId] = noteAuthors;
+              noteDotColour = sorted.find((p) => p.id === onlyId)?.colour;
+            }
+          }
 
           return (
             <button
@@ -350,7 +384,7 @@ export default function CalendarGrid({
               data-testid="day-cell"
               className={classNames.join(" ")}
               onClick={onCellClick}
-              disabled={!joined || locked || isFinalised}
+              disabled={!canInteract}
               style={cellStyle}
               aria-label={isFinalised ? `${ariaLabel} — finalised` : ariaLabel}
               title={ariaLabel}
@@ -359,6 +393,18 @@ export default function CalendarGrid({
                 <span className={styles.monthLabel}>{MONTH_SHORT[date.getMonth()]}</span>
               ) : null}
               <span className={styles.dayNumber}>{date.getDate()}</span>
+              {showNoteDot ? (
+                <span
+                  className={styles.noteDot}
+                  data-testid="note-dot"
+                  aria-hidden="true"
+                  style={
+                    noteDotColour
+                      ? ({ ["--note-dot-colour" as string]: noteDotColour } as React.CSSProperties)
+                      : undefined
+                  }
+                />
+              ) : null}
               {sorted.length > 0 ? (
                 <div
                   className={styles.slotGrid}

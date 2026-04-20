@@ -325,3 +325,19 @@
   min-height: 4px;
   background: transparent;
 }
+
+.noteDot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--note-dot-colour, var(--text-secondary));
+  box-shadow: 0 0 0 1px var(--card-bg);
+  pointer-events: none;
+}
+
+.finalised .noteDot {
+  box-shadow: 0 0 0 1px var(--accent);
+}

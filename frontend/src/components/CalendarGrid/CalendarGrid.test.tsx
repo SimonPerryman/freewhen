@@ -551,4 +551,135 @@ describe("CalendarGrid", () => {
     const finalisedCell = screen.getByRole("button", { name: /finalised/i });
     expect(finalisedCell.className).toMatch(/finalised/);
   });
+
+  it("renders a note dot when a participant has a note on a date", () => {
+    const ps = makeParticipants(2);
+    const date = futureDateStr(2);
+    const noteAuthorsByDate = new Map([[date, new Set([ps[0].id])]]);
+
+    render(
+      <CalendarGrid
+        participants={ps}
+        freeByDate={new Map()}
+        noteAuthorsByDate={noteAuthorsByDate}
+        currentParticipantId={ps[0].id}
+        onToggle={onToggle}
+        joined={true}
+      />,
+    );
+
+    const dots = screen.getAllByTestId("note-dot");
+    expect(dots).toHaveLength(1);
+    // Single-author rule: colour matches the author's participant colour.
+    expect(dots[0].getAttribute("style")).toContain(ps[0].colour);
+  });
+
+  it("note dot is neutral when more than one participant has a note", () => {
+    const ps = makeParticipants(3);
+    const date = futureDateStr(2);
+    const noteAuthorsByDate = new Map([[date, new Set([ps[0].id, ps[1].id])]]);
+
+    render(
+      <CalendarGrid
+        participants={ps}
+        freeByDate={new Map()}
+        noteAuthorsByDate={noteAuthorsByDate}
+        currentParticipantId={ps[0].id}
+        onToggle={onToggle}
+        joined={true}
+      />,
+    );
+
+    const dots = screen.getAllByTestId("note-dot");
+    expect(dots).toHaveLength(1);
+    // Neutral rule: no inline --note-dot-colour → falls through to the CSS
+    // default (var(--text-secondary)).
+    const style = dots[0].getAttribute("style") ?? "";
+    expect(style).not.toContain(ps[0].colour);
+    expect(style).not.toContain(ps[1].colour);
+  });
+
+  it("tap on an unselected cell toggles (marks free)", async () => {
+    const ps = makeParticipants(1);
+    const futureDate = futureDateStr(3);
+    const user = userEvent.setup();
+    const onOpenDay = vi.fn();
+
+    render(
+      <CalendarGrid
+        participants={ps}
+        freeByDate={new Map()}
+        currentParticipantId={ps[0].id}
+        onToggle={onToggle}
+        onOpenDay={onOpenDay}
+        selectedDates={new Set()}
+        joined={true}
+      />,
+    );
+
+    const d = new Date();
+    d.setDate(d.getDate() + 3);
+    const monthName = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ][d.getMonth()];
+    const cell = screen.getByRole("button", {
+      name: new RegExp(`${monthName} ${d.getDate()}, ${d.getFullYear()}`),
+    });
+    await user.click(cell);
+    expect(onToggle).toHaveBeenCalledWith(futureDate);
+    expect(onOpenDay).not.toHaveBeenCalled();
+  });
+
+  it("tap on a cell the current user has marked free opens the day sheet", async () => {
+    const ps = makeParticipants(1);
+    const futureDate = futureDateStr(3);
+    const user = userEvent.setup();
+    const onOpenDay = vi.fn();
+
+    render(
+      <CalendarGrid
+        participants={ps}
+        freeByDate={new Map()}
+        currentParticipantId={ps[0].id}
+        onToggle={onToggle}
+        onOpenDay={onOpenDay}
+        selectedDates={new Set([futureDate])}
+        joined={true}
+      />,
+    );
+
+    const d = new Date();
+    d.setDate(d.getDate() + 3);
+    const monthName = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ][d.getMonth()];
+    const cell = screen.getByRole("button", {
+      name: new RegExp(`${monthName} ${d.getDate()}, ${d.getFullYear()}`),
+    });
+    await user.click(cell);
+    expect(onOpenDay).toHaveBeenCalledWith(futureDate);
+    expect(onToggle).not.toHaveBeenCalled();
+  });
 });

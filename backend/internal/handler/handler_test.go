@@ -24,7 +24,7 @@ type mockService struct {
 	getCalendarView          func(ctx context.Context, id string, viewer service.Viewer) (service.CalendarView, error)
 	getCalendarOnly          func(ctx context.Context, id string) (model.Calendar, error)
 	addParticipant           func(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
-	setAvailability          func(ctx context.Context, calendarID, participantID string, dates []string) error
+	setAvailability          func(ctx context.Context, calendarID, participantID string, dates []string, noteOverrides map[string]string) error
 	finaliseCalendar         func(ctx context.Context, calendarID, date string) (model.Calendar, error)
 	unfinaliseCalendar       func(ctx context.Context, calendarID string) (model.Calendar, error)
 	claimParticipant         func(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error)
@@ -58,8 +58,8 @@ func (m *mockService) ClaimParticipant(ctx context.Context, calendarID, particip
 	return m.claimParticipant(ctx, calendarID, participantID, userID)
 }
 
-func (m *mockService) SetAvailability(ctx context.Context, calendarID, participantID string, dates []string) error {
-	return m.setAvailability(ctx, calendarID, participantID, dates)
+func (m *mockService) SetAvailability(ctx context.Context, calendarID, participantID string, dates []string, noteOverrides map[string]string) error {
+	return m.setAvailability(ctx, calendarID, participantID, dates, noteOverrides)
 }
 
 func (m *mockService) FinaliseCalendar(ctx context.Context, calendarID, date string) (model.Calendar, error) {
@@ -405,7 +405,7 @@ func TestAddParticipant_ServiceError(t *testing.T) {
 
 func TestSetAvailability_Valid(t *testing.T) {
 	h := New(&mockService{
-		setAvailability: func(_ context.Context, calendarID, participantID string, dates []string) error {
+		setAvailability: func(_ context.Context, calendarID, participantID string, dates []string, _ map[string]string) error {
 			if calendarID != "cal1" || participantID != "p1" {
 				t.Fatalf("unexpected args: calendarID=%q participantID=%q", calendarID, participantID)
 			}
@@ -470,7 +470,7 @@ func TestSetAvailability_InvalidDateFormat(t *testing.T) {
 
 func TestSetAvailability_NotFound(t *testing.T) {
 	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string) error {
+		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string) error {
 			return store.ErrNotFound
 		},
 	})
@@ -488,7 +488,7 @@ func TestSetAvailability_NotFound(t *testing.T) {
 
 func TestSetAvailability_ServiceError(t *testing.T) {
 	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string) error {
+		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string) error {
 			return fmt.Errorf("db down")
 		},
 	})
@@ -506,7 +506,7 @@ func TestSetAvailability_ServiceError(t *testing.T) {
 
 func TestSetAvailability_Finalised(t *testing.T) {
 	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string) error {
+		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string) error {
 			return store.ErrCalendarFinalised
 		},
 	})
@@ -518,6 +518,209 @@ func TestSetAvailability_Finalised(t *testing.T) {
 
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusConflict)
+	}
+}
+
+func TestSetAvailability_NotesAbsentPassesNilToService(t *testing.T) {
+	var got map[string]string
+	sawCall := false
+	h := New(&mockService{
+		setAvailability: func(_ context.Context, _, _ string, _ []string, noteOverrides map[string]string) error {
+			sawCall = true
+			got = noteOverrides
+			return nil
+		},
+	})
+
+	body := map[string]any{"participant_id": "p1", "dates": []string{"2026-05-01"}}
+	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.SetAvailability(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if !sawCall {
+		t.Fatal("service not called")
+	}
+	if got != nil {
+		t.Fatalf("noteOverrides = %v, want nil (don't-touch)", got)
+	}
+}
+
+func TestSetAvailability_NotesPresentPassesMap(t *testing.T) {
+	var got map[string]string
+	h := New(&mockService{
+		setAvailability: func(_ context.Context, _, _ string, _ []string, noteOverrides map[string]string) error {
+			got = noteOverrides
+			return nil
+		},
+	})
+
+	body := map[string]any{
+		"participant_id": "p1",
+		"dates":          []string{"2026-05-01", "2026-05-02"},
+		"notes":          map[string]string{"2026-05-01": "  only after 6pm  "},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.SetAvailability(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if got == nil || got["2026-05-01"] != "only after 6pm" {
+		t.Fatalf("noteOverrides = %v, want trimmed value for 2026-05-01", got)
+	}
+	if _, ok := got["2026-05-02"]; ok {
+		t.Fatalf("noteOverrides has unexpected key for 2026-05-02: %v", got)
+	}
+}
+
+func TestSetAvailability_EmptyNoteClears(t *testing.T) {
+	var got map[string]string
+	h := New(&mockService{
+		setAvailability: func(_ context.Context, _, _ string, _ []string, noteOverrides map[string]string) error {
+			got = noteOverrides
+			return nil
+		},
+	})
+
+	body := map[string]any{
+		"participant_id": "p1",
+		"dates":          []string{"2026-05-01"},
+		"notes":          map[string]string{"2026-05-01": ""},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.SetAvailability(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	v, ok := got["2026-05-01"]
+	if !ok || v != "" {
+		t.Fatalf("expected explicit empty-string clear for 2026-05-01, got %v", got)
+	}
+}
+
+func TestSetAvailability_NoteUnknownDateRejected(t *testing.T) {
+	h := New(&mockService{
+		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string) error {
+			t.Fatal("service should not be called on validation error")
+			return nil
+		},
+	})
+
+	body := map[string]any{
+		"participant_id": "p1",
+		"dates":          []string{"2026-05-01"},
+		"notes":          map[string]string{"2026-05-02": "mystery"},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.SetAvailability(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestSetAvailability_NoteOversize(t *testing.T) {
+	// 141 emoji code points. Each 🎉 is one code point but takes 4 bytes UTF-8.
+	// Tests that we count code points, not bytes — the DB check does the same.
+	body := map[string]any{
+		"participant_id": "p1",
+		"dates":          []string{"2026-05-01"},
+		"notes":          map[string]string{"2026-05-01": strings.Repeat("🎉", 141)},
+	}
+	h := New(&mockService{
+		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string) error {
+			t.Fatal("service should not be called on oversize note")
+			return nil
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.SetAvailability(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestSetAvailability_NoteAtBoundaryAccepted(t *testing.T) {
+	called := false
+	h := New(&mockService{
+		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string) error {
+			called = true
+			return nil
+		},
+	})
+	body := map[string]any{
+		"participant_id": "p1",
+		"dates":          []string{"2026-05-01"},
+		"notes":          map[string]string{"2026-05-01": strings.Repeat("🎉", 140)},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.SetAvailability(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if !called {
+		t.Fatal("service not called")
+	}
+}
+
+func TestSetAvailability_NoteWhitespaceRejected(t *testing.T) {
+	h := New(&mockService{
+		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string) error {
+			t.Fatal("service should not be called on whitespace-only note")
+			return nil
+		},
+	})
+	body := map[string]any{
+		"participant_id": "p1",
+		"dates":          []string{"2026-05-01"},
+		"notes":          map[string]string{"2026-05-01": "   "},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.SetAvailability(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestSetAvailability_NoteNewlineRejected(t *testing.T) {
+	h := New(&mockService{
+		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string) error {
+			t.Fatal("service should not be called on newline note")
+			return nil
+		},
+	})
+	body := map[string]any{
+		"participant_id": "p1",
+		"dates":          []string{"2026-05-01"},
+		"notes":          map[string]string{"2026-05-01": "line1\nline2"},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.SetAvailability(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
 }
 

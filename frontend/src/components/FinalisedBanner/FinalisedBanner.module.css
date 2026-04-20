@@ -20,8 +20,15 @@
 
 .contents {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 14px;
+  min-width: 0;
+  flex: 1;
+}
+
+.details {
+  min-width: 0;
+  flex: 1;
 }
 
 .emoji {
@@ -83,4 +90,45 @@
 .cancelButton:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.noteList {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.noteItem {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.35;
+  min-width: 0;
+}
+
+.swatch {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  align-self: center;
+  box-shadow: 0 0 0 1px color-mix(in srgb, white 30%, transparent);
+}
+
+.noteName {
+  font-weight: 600;
+}
+
+.noteDash {
+  opacity: 0.7;
+}
+
+.noteText {
+  opacity: 0.95;
+  word-break: break-word;
+  min-width: 0;
 }

@@ -22,7 +22,7 @@ See `future-ideas.md` for detailed descriptions of each feature.
 | ~~"My calendars" list~~ ✅ | Auth | **Shipped.** See `plans/my-calendars.md`. |
 | Notifications/reminders | Auth | "3 people responded, waiting on 2 more." Only works for signed-in users. |
 | ~~Share with pre-filled message~~ ✅ | — | **Shipped.** See `plans/share-prefilled-message.md`. |
-| Comments/notes on dates | — | "Free but only after 6pm." Low complexity, avoids side convos. |
+| ~~Comments/notes on dates~~ ✅ | — | **Shipped.** Tap a selected cell to open a day sheet with a 140-char note editor. See `plans/comments-on-dates.md`. |
 | Private links / password protection | — | Shared password before calendar loads. Useful for sensitive plans. |
 | ~~Multi-select / range tap~~ ✅ | — | **Shipped.** Two-tap range + Weekends/Weekdays quick actions. See `plans/multi-select-range-tap.md`. |
 

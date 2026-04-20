@@ -13,6 +13,9 @@ const (
 	MaxDatesPerSubmission      = 366
 	MaxParticipantsPerCalendar = 100
 	MaxCalendarsPerUser        = 200
+	// MaxNoteLength is the per-date note ceiling in Unicode code points. The DB
+	// enforces the same rule via a check constraint on availability.note.
+	MaxNoteLength = 140
 )
 
 // DateWithinRange reports whether d falls inside the acceptable availability /

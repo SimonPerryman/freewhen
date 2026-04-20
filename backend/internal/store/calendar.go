@@ -311,7 +311,7 @@ func (s *Store) getParticipants(ctx context.Context, calendarID string) ([]model
 
 func (s *Store) getAvailability(ctx context.Context, calendarID string) ([]model.Availability, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT participant_id, calendar_id, date::text FROM availability WHERE calendar_id = $1`, calendarID,
+		`SELECT participant_id, calendar_id, date::text, note FROM availability WHERE calendar_id = $1`, calendarID,
 	)
 	if err != nil {
 		return nil, err
@@ -321,8 +321,13 @@ func (s *Store) getAvailability(ctx context.Context, calendarID string) ([]model
 	availability := []model.Availability{}
 	for rows.Next() {
 		var a model.Availability
-		if err := rows.Scan(&a.ParticipantID, &a.CalendarID, &a.Date); err != nil {
+		var note sql.NullString
+		if err := rows.Scan(&a.ParticipantID, &a.CalendarID, &a.Date, &note); err != nil {
 			return nil, err
+		}
+		if note.Valid {
+			n := note.String
+			a.Note = &n
 		}
 		availability = append(availability, a)
 	}
