@@ -58,7 +58,7 @@ describe("ShareButton", () => {
     vi.useRealTimers();
   });
 
-  it("uses native share when available", async () => {
+  it("uses native share with the pre-finalise message when available", async () => {
     const shareMock = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "share", {
       value: shareMock,
@@ -67,14 +67,44 @@ describe("ShareButton", () => {
     });
 
     const user = userEvent.setup();
-    render(<ShareButton calendarName="Weekend trip" />);
+    render(<ShareButton calendarName="Weekend trip" calendarEmoji="🏕️" />);
 
     const button = await screen.findByRole("button", { name: /share/i });
     await user.click(button);
 
     expect(shareMock).toHaveBeenCalledWith({
       title: "Weekend trip",
-      text: "Mark your availability on FreeWhen",
+      text: "🏕️ Help me find a date for Weekend trip — mark when you're free:",
+      url: expect.any(String),
+    });
+
+    // Clean up
+    Object.defineProperty(navigator, "share", {
+      value: undefined,
+      configurable: true,
+      writable: true,
+    });
+  });
+
+  it("uses the finalised-state message when finalisedDate is set", async () => {
+    const shareMock = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "share", {
+      value: shareMock,
+      configurable: true,
+      writable: true,
+    });
+
+    const user = userEvent.setup();
+    render(
+      <ShareButton calendarName="Weekend trip" calendarEmoji="🏕️" finalisedDate="2026-05-01" />,
+    );
+
+    const button = await screen.findByRole("button", { name: /share/i });
+    await user.click(button);
+
+    expect(shareMock).toHaveBeenCalledWith({
+      title: "Weekend trip",
+      text: "🏕️ Weekend trip is on Friday 1 May — add it to your calendar:",
       url: expect.any(String),
     });
 

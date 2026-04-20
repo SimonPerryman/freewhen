@@ -103,7 +103,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
         });
 
         // Resolve participant: user_id match first, then localStorage
-        let resolved: typeof data.participants[0] | undefined;
+        let resolved: (typeof data.participants)[0] | undefined;
 
         // 1. Auto-reconnect: if signed in, find participant linked to this user
         if (user) {
@@ -321,9 +321,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     }
 
     setRenameDraft(null);
-    setCalendar((prev) =>
-      prev ? { ...prev, calendar: { ...prev.calendar, name: next } } : prev,
-    );
+    setCalendar((prev) => (prev ? { ...prev, calendar: { ...prev.calendar, name: next } } : prev));
 
     try {
       const updated = await renameCalendar(calendarId, next);
@@ -616,11 +614,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
 
         <CalendarGrid
           participants={
-            revealed
-              ? calendar.participants
-              : currentParticipant
-                ? [currentParticipant]
-                : []
+            revealed ? calendar.participants : currentParticipant ? [currentParticipant] : []
           }
           freeByDate={freeByDate}
           currentParticipantId={currentParticipant?.id ?? null}
@@ -635,7 +629,11 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
 
         {revealed ? (
           calendar.participants.length === 1 && !finalisedDate ? (
-            <InvitePrompt calendarName={calendarName} />
+            <InvitePrompt
+              calendarName={calendarName}
+              calendarEmoji={calendarEmoji}
+              finalisedDate={finalisedDate}
+            />
           ) : calendar.participants.length >= 2 && !finalisedDate ? (
             <>
               <div className={styles.summaryCard}>
@@ -645,7 +643,12 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
                   canFinalise={isOwner}
                   onFinalise={handleFinalise}
                 />
-                <ShareButton calendarName={calendarName} variant="hero" />
+                <ShareButton
+                  calendarName={calendarName}
+                  calendarEmoji={calendarEmoji}
+                  finalisedDate={finalisedDate}
+                  variant="hero"
+                />
               </div>
               <ParticipantList
                 participants={calendar.participants}
@@ -656,7 +659,11 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
             </>
           ) : (
             <>
-              <ShareButton calendarName={calendarName} />
+              <ShareButton
+                calendarName={calendarName}
+                calendarEmoji={calendarEmoji}
+                finalisedDate={finalisedDate}
+              />
               <ParticipantList
                 participants={calendar.participants}
                 currentParticipantId={currentParticipant?.id ?? null}
@@ -666,7 +673,11 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
             </>
           )
         ) : (
-          <ShareButton calendarName={calendarName} />
+          <ShareButton
+            calendarName={calendarName}
+            calendarEmoji={calendarEmoji}
+            finalisedDate={finalisedDate}
+          />
         )}
       </div>
     </div>

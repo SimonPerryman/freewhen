@@ -2,14 +2,22 @@
 
 import { useState, useEffect, useCallback } from "react";
 import analytics from "@/lib/analytics";
+import { buildShareMessage } from "@/lib/share";
 import styles from "./ShareButton.module.css";
 
 interface ShareButtonProps {
   calendarName: string;
+  calendarEmoji?: string | null;
+  finalisedDate?: string | null;
   variant?: "default" | "hero";
 }
 
-export default function ShareButton({ calendarName, variant = "default" }: ShareButtonProps) {
+export default function ShareButton({
+  calendarName,
+  calendarEmoji = null,
+  finalisedDate = null,
+  variant = "default",
+}: ShareButtonProps) {
   const [canShare, setCanShare] = useState(false);
   const [canCopy, setCanCopy] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -26,7 +34,11 @@ export default function ShareButton({ calendarName, variant = "default" }: Share
       try {
         await navigator.share({
           title: calendarName,
-          text: "Mark your availability on FreeWhen",
+          text: buildShareMessage({
+            name: calendarName,
+            emoji: calendarEmoji,
+            finalisedDate,
+          }),
           url,
         });
         analytics.capture("invite_shared", { method: "native" });
@@ -47,7 +59,7 @@ export default function ShareButton({ calendarName, variant = "default" }: Share
         // clipboard write failed — ignore silently
       }
     }
-  }, [canShare, canCopy, calendarName]);
+  }, [canShare, canCopy, calendarName, calendarEmoji, finalisedDate]);
 
   if (!canShare && !canCopy) return null;
 
