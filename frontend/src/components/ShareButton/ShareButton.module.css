@@ -35,21 +35,11 @@
 }
 
 @media (min-width: 640px) {
-  .button {
+  .button.default {
     width: auto;
-    padding: 6px 14px;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-primary);
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    box-shadow: var(--shadow-sm);
-  }
-
-  .button:hover {
-    border-color: var(--accent);
-    background: var(--card-bg);
-    box-shadow: var(--shadow-md);
+    min-width: 180px;
+    max-width: 260px;
+    margin-left: auto;
+    padding: 10px 20px;
   }
 }

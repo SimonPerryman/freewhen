@@ -19,6 +19,7 @@ import { useAuth } from "@/components/AuthProvider/AuthProvider";
 import CalendarGrid from "@/components/CalendarGrid/CalendarGrid";
 import FinalisedBanner from "@/components/FinalisedBanner/FinalisedBanner";
 import JoinForm from "@/components/JoinForm/JoinForm";
+import InvitePrompt from "@/components/InvitePrompt/InvitePrompt";
 import ParticipantList from "@/components/ParticipantList/ParticipantList";
 import ShareButton from "@/components/ShareButton/ShareButton";
 import SummaryView from "@/components/SummaryView/SummaryView";
@@ -552,14 +553,19 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           />
         ) : null}
 
-        <ShareButton calendarName={calendarName} />
-
-        <ParticipantList
-          participants={calendar.participants}
-          currentParticipantId={currentParticipant?.id ?? null}
-          canRemove={isOwner}
-          onRemove={handleRemoveParticipant}
-        />
+        {calendar.participants.length === 1 && !finalisedDate ? (
+          <InvitePrompt calendarName={calendarName} />
+        ) : (
+          <>
+            <ShareButton calendarName={calendarName} />
+            <ParticipantList
+              participants={calendar.participants}
+              currentParticipantId={currentParticipant?.id ?? null}
+              canRemove={isOwner}
+              onRemove={handleRemoveParticipant}
+            />
+          </>
+        )}
       </div>
     </div>
   );

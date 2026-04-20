@@ -6,9 +6,10 @@ import styles from "./ShareButton.module.css";
 
 interface ShareButtonProps {
   calendarName: string;
+  variant?: "default" | "hero";
 }
 
-export default function ShareButton({ calendarName }: ShareButtonProps) {
+export default function ShareButton({ calendarName, variant = "default" }: ShareButtonProps) {
   const [canShare, setCanShare] = useState(false);
   const [canCopy, setCanCopy] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -51,7 +52,11 @@ export default function ShareButton({ calendarName }: ShareButtonProps) {
   if (!canShare && !canCopy) return null;
 
   return (
-    <button type="button" className={styles.button} onClick={handleClick}>
+    <button
+      type="button"
+      className={`${styles.button} ${variant === "hero" ? styles.hero : styles.default}`}
+      onClick={handleClick}
+    >
       <svg
         className={styles.icon}
         width="16"
