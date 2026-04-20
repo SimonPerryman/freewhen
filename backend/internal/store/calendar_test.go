@@ -144,6 +144,46 @@ func TestGetCalendarNotFound(t *testing.T) {
 	}
 }
 
+func TestUpdateCalendarName(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
+
+	cal, err := s.CreateCalendar(ctx, "Old Name", "🌿", owner.ID)
+	if err != nil {
+		t.Fatalf("create calendar: %v", err)
+	}
+
+	updated, err := s.UpdateCalendarName(ctx, cal.ID, "New Name")
+	if err != nil {
+		t.Fatalf("update name: %v", err)
+	}
+	if updated.Name != "New Name" {
+		t.Errorf("expected name %q, got %q", "New Name", updated.Name)
+	}
+	if updated.Emoji != "🌿" {
+		t.Errorf("expected emoji to be preserved, got %q", updated.Emoji)
+	}
+
+	got, err := s.GetCalendarOnly(ctx, cal.ID)
+	if err != nil {
+		t.Fatalf("get calendar: %v", err)
+	}
+	if got.Name != "New Name" {
+		t.Errorf("expected name on re-read %q, got %q", "New Name", got.Name)
+	}
+}
+
+func TestUpdateCalendarNameNotFound(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	_, err := s.UpdateCalendarName(ctx, "nonexistent", "New Name")
+	if err != ErrNotFound {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+}
+
 func TestGetCalendarEmpty(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()

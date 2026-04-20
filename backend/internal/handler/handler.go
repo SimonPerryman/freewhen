@@ -22,6 +22,8 @@ type CalendarService interface {
 	FinaliseCalendar(ctx context.Context, calendarID, date string) (model.Calendar, error)
 	UnfinaliseCalendar(ctx context.Context, calendarID string) (model.Calendar, error)
 	ClaimParticipant(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error)
+	RenameCalendar(ctx context.Context, calendarID, name string) (model.Calendar, error)
+	RemoveParticipant(ctx context.Context, calendarID, participantID string) error
 }
 
 type Handler struct {

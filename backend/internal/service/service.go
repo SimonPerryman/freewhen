@@ -18,6 +18,8 @@ type Store interface {
 	SetFinalisedDate(ctx context.Context, calendarID, date string) (model.Calendar, error)
 	ClearFinalisedDate(ctx context.Context, calendarID string) (model.Calendar, error)
 	ClaimParticipant(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error)
+	UpdateCalendarName(ctx context.Context, calendarID, name string) (model.Calendar, error)
+	DeleteParticipant(ctx context.Context, calendarID, participantID string) error
 }
 
 type Service struct {
@@ -65,4 +67,12 @@ func (s *Service) FinaliseCalendar(ctx context.Context, calendarID, date string)
 
 func (s *Service) UnfinaliseCalendar(ctx context.Context, calendarID string) (model.Calendar, error) {
 	return s.store.ClearFinalisedDate(ctx, calendarID)
+}
+
+func (s *Service) RenameCalendar(ctx context.Context, calendarID, name string) (model.Calendar, error) {
+	return s.store.UpdateCalendarName(ctx, calendarID, name)
+}
+
+func (s *Service) RemoveParticipant(ctx context.Context, calendarID, participantID string) error {
+	return s.store.DeleteParticipant(ctx, calendarID, participantID)
 }

@@ -56,6 +56,14 @@ func (m *mockStore) SetAvailability(ctx context.Context, participantID string, d
 	return m.setAvailability(ctx, participantID, dates)
 }
 
+func (m *mockStore) UpdateCalendarName(_ context.Context, _, _ string) (model.Calendar, error) {
+	panic("unexpected call to UpdateCalendarName")
+}
+
+func (m *mockStore) DeleteParticipant(_ context.Context, _, _ string) error {
+	panic("unexpected call to DeleteParticipant")
+}
+
 func TestSetAvailability_ParticipantBelongsToCalendar(t *testing.T) {
 	var storeCalled bool
 	ms := &mockStore{

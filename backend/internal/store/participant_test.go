@@ -293,6 +293,83 @@ func TestClaimParticipantNotFound(t *testing.T) {
 	}
 }
 
+func TestDeleteParticipant(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
+
+	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID)
+	if err != nil {
+		t.Fatalf("create calendar: %v", err)
+	}
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	if err != nil {
+		t.Fatalf("add participant: %v", err)
+	}
+	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01", "2026-05-02"}); err != nil {
+		t.Fatalf("set availability: %v", err)
+	}
+
+	if err := s.DeleteParticipant(ctx, cal.ID, p.ID); err != nil {
+		t.Fatalf("delete participant: %v", err)
+	}
+
+	if _, err := s.GetParticipant(ctx, p.ID); err != ErrNotFound {
+		t.Errorf("expected ErrNotFound after delete, got %v", err)
+	}
+
+	avail, err := s.getAvailability(ctx, cal.ID)
+	if err != nil {
+		t.Fatalf("get availability: %v", err)
+	}
+	if len(avail) != 0 {
+		t.Errorf("expected availability to cascade-delete, got %d rows", len(avail))
+	}
+}
+
+func TestDeleteParticipantNotFound(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
+
+	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID)
+	if err != nil {
+		t.Fatalf("create calendar: %v", err)
+	}
+
+	if err := s.DeleteParticipant(ctx, cal.ID, "nonexistent"); err != ErrNotFound {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+}
+
+func TestDeleteParticipantWrongCalendar(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
+
+	cal1, err := s.CreateCalendar(ctx, "Cal1", "", owner.ID)
+	if err != nil {
+		t.Fatalf("create cal1: %v", err)
+	}
+	cal2, err := s.CreateCalendar(ctx, "Cal2", "", owner.ID)
+	if err != nil {
+		t.Fatalf("create cal2: %v", err)
+	}
+	p, err := s.AddParticipant(ctx, cal1.ID, "Alice", nil)
+	if err != nil {
+		t.Fatalf("add participant: %v", err)
+	}
+
+	// Wrong calendar should not delete and should report not found.
+	if err := s.DeleteParticipant(ctx, cal2.ID, p.ID); err != ErrNotFound {
+		t.Errorf("expected ErrNotFound for wrong calendar, got %v", err)
+	}
+
+	if _, err := s.GetParticipant(ctx, p.ID); err != nil {
+		t.Errorf("participant should still exist: %v", err)
+	}
+}
+
 func TestGetCalendarParticipantUserID(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()

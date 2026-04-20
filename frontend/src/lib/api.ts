@@ -70,6 +70,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw new ApiError(response.status, body.error, response.headers.get("X-Request-ID"));
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   const body: unknown = await response.json();
   return toCamelCaseKeys<T>(body);
 }
@@ -114,6 +118,22 @@ export async function finaliseCalendar(calendarId: string, date: string): Promis
 
 export async function unfinaliseCalendar(calendarId: string): Promise<Calendar> {
   return request<Calendar>(`/calendars/${calendarId}/finalise`, {
+    method: "DELETE",
+  });
+}
+
+export async function renameCalendar(calendarId: string, name: string): Promise<Calendar> {
+  return request<Calendar>(`/calendars/${calendarId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function removeParticipant(
+  calendarId: string,
+  participantId: string,
+): Promise<void> {
+  await request(`/calendars/${calendarId}/participants/${participantId}`, {
     method: "DELETE",
   });
 }

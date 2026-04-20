@@ -95,6 +95,25 @@ func (s *Store) getCalendarRow(ctx context.Context, id string) (model.Calendar, 
 	return cal, nil
 }
 
+// UpdateCalendarName renames a calendar. Returns ErrNotFound if the calendar does not exist.
+func (s *Store) UpdateCalendarName(ctx context.Context, calendarID, name string) (model.Calendar, error) {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE calendars SET name = $1 WHERE id = $2`,
+		name, calendarID,
+	)
+	if err != nil {
+		return model.Calendar{}, fmt.Errorf("update calendar name: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return model.Calendar{}, fmt.Errorf("rows affected: %w", err)
+	}
+	if rows == 0 {
+		return model.Calendar{}, ErrNotFound
+	}
+	return s.getCalendarRow(ctx, calendarID)
+}
+
 // SetFinalisedDate locks the calendar to a single date. Replaces any previous value.
 // Returns ErrNotFound if the calendar does not exist.
 func (s *Store) SetFinalisedDate(ctx context.Context, calendarID, date string) (model.Calendar, error) {

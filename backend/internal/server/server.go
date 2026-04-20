@@ -68,8 +68,10 @@ func (s *Server) routes() {
 	// Calendar routes — POST requires auth
 	s.mux.HandleFunc("POST /calendars", s.requireAuth(s.handler.CreateCalendar))
 	s.mux.HandleFunc("GET /calendars/{id}", s.handler.GetCalendar)
+	s.mux.HandleFunc("PATCH /calendars/{id}", s.requireAuth(s.handler.RenameCalendar))
 	s.mux.HandleFunc("POST /calendars/{id}/participants", s.optionalAuth(s.handler.AddParticipant))
 	s.mux.HandleFunc("POST /calendars/{id}/participants/{participantId}/claim", s.requireAuth(s.handler.ClaimParticipant))
+	s.mux.HandleFunc("DELETE /calendars/{id}/participants/{participantId}", s.requireAuth(s.handler.RemoveParticipant))
 	s.mux.HandleFunc("PUT /calendars/{id}/availability", s.handler.SetAvailability)
 	s.mux.HandleFunc("POST /calendars/{id}/finalise", s.requireAuth(s.handler.FinaliseCalendar))
 	s.mux.HandleFunc("DELETE /calendars/{id}/finalise", s.requireAuth(s.handler.UnfinaliseCalendar))

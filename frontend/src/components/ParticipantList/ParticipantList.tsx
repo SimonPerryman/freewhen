@@ -7,11 +7,15 @@ import styles from "./ParticipantList.module.css";
 interface ParticipantListProps {
   participants: Participant[];
   currentParticipantId: string | null;
+  canRemove?: boolean;
+  onRemove?: (participant: Participant) => void;
 }
 
 export default function ParticipantList({
   participants,
   currentParticipantId,
+  canRemove = false,
+  onRemove,
 }: ParticipantListProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -49,6 +53,16 @@ export default function ParticipantList({
                 {p.name}
                 {p.id === currentParticipantId ? " (you)" : ""}
               </span>
+              {canRemove && onRemove ? (
+                <button
+                  type="button"
+                  className={styles.removeButton}
+                  onClick={() => onRemove(p)}
+                  aria-label={`Remove ${p.name}`}
+                >
+                  ×
+                </button>
+              ) : null}
             </li>
           ))}
         </ul>

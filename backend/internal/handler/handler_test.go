@@ -24,6 +24,8 @@ type mockService struct {
 	finaliseCalendar   func(ctx context.Context, calendarID, date string) (model.Calendar, error)
 	unfinaliseCalendar func(ctx context.Context, calendarID string) (model.Calendar, error)
 	claimParticipant   func(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error)
+	renameCalendar     func(ctx context.Context, calendarID, name string) (model.Calendar, error)
+	removeParticipant  func(ctx context.Context, calendarID, participantID string) error
 }
 
 func (m *mockService) CreateCalendar(ctx context.Context, name, ownerID string) (model.Calendar, error) {
@@ -56,6 +58,14 @@ func (m *mockService) FinaliseCalendar(ctx context.Context, calendarID, date str
 
 func (m *mockService) UnfinaliseCalendar(ctx context.Context, calendarID string) (model.Calendar, error) {
 	return m.unfinaliseCalendar(ctx, calendarID)
+}
+
+func (m *mockService) RenameCalendar(ctx context.Context, calendarID, name string) (model.Calendar, error) {
+	return m.renameCalendar(ctx, calendarID, name)
+}
+
+func (m *mockService) RemoveParticipant(ctx context.Context, calendarID, participantID string) error {
+	return m.removeParticipant(ctx, calendarID, participantID)
 }
 
 func jsonBody(t *testing.T, v any) *bytes.Reader {
@@ -595,5 +605,197 @@ func TestUnfinaliseCalendar_NotOwner(t *testing.T) {
 
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
+	}
+}
+
+// --- RenameCalendar tests ---
+
+func TestRenameCalendar_Valid(t *testing.T) {
+	updated := model.Calendar{ID: "cal1", Name: "New Name", OwnerID: "u1"}
+	h := New(&mockService{
+		getCalendarOnly: func(_ context.Context, id string) (model.Calendar, error) {
+			return model.Calendar{ID: id, OwnerID: "u1"}, nil
+		},
+		renameCalendar: func(_ context.Context, calendarID, name string) (model.Calendar, error) {
+			if calendarID != "cal1" || name != "New Name" {
+				t.Fatalf("unexpected args: calendarID=%q name=%q", calendarID, name)
+			}
+			return updated, nil
+		},
+	})
+
+	req := withUser(httptest.NewRequest(http.MethodPatch, "/calendars/cal1", jsonBody(t, map[string]string{"name": "New Name"})), testUser)
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.RenameCalendar(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	var got model.Calendar
+	decodeJSON(t, rec, &got)
+	if got.Name != "New Name" {
+		t.Fatalf("name = %q, want New Name", got.Name)
+	}
+}
+
+func TestRenameCalendar_Unauthorized(t *testing.T) {
+	h := New(&mockService{})
+	req := httptest.NewRequest(http.MethodPatch, "/calendars/cal1", jsonBody(t, map[string]string{"name": "X"}))
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.RenameCalendar(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestRenameCalendar_MalformedJSON(t *testing.T) {
+	h := New(&mockService{})
+	req := withUser(httptest.NewRequest(http.MethodPatch, "/calendars/cal1", bytes.NewReader([]byte("{nope"))), testUser)
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.RenameCalendar(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestRenameCalendar_EmptyName(t *testing.T) {
+	h := New(&mockService{})
+	req := withUser(httptest.NewRequest(http.MethodPatch, "/calendars/cal1", jsonBody(t, map[string]string{"name": "   "})), testUser)
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.RenameCalendar(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestRenameCalendar_NotOwner(t *testing.T) {
+	h := New(&mockService{
+		getCalendarOnly: func(_ context.Context, id string) (model.Calendar, error) {
+			return model.Calendar{ID: id, OwnerID: "other"}, nil
+		},
+	})
+	req := withUser(httptest.NewRequest(http.MethodPatch, "/calendars/cal1", jsonBody(t, map[string]string{"name": "X"})), testUser)
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.RenameCalendar(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
+	}
+}
+
+func TestRenameCalendar_NotFound(t *testing.T) {
+	h := New(&mockService{
+		getCalendarOnly: func(_ context.Context, _ string) (model.Calendar, error) {
+			return model.Calendar{}, store.ErrNotFound
+		},
+	})
+	req := withUser(httptest.NewRequest(http.MethodPatch, "/calendars/missing", jsonBody(t, map[string]string{"name": "X"})), testUser)
+	req.SetPathValue("id", "missing")
+	rec := httptest.NewRecorder()
+	h.RenameCalendar(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+	}
+}
+
+// --- RemoveParticipant tests ---
+
+func TestRemoveParticipant_Valid(t *testing.T) {
+	h := New(&mockService{
+		getCalendarOnly: func(_ context.Context, id string) (model.Calendar, error) {
+			return model.Calendar{ID: id, OwnerID: "u1"}, nil
+		},
+		removeParticipant: func(_ context.Context, calendarID, participantID string) error {
+			if calendarID != "cal1" || participantID != "p1" {
+				t.Fatalf("unexpected args: calendarID=%q participantID=%q", calendarID, participantID)
+			}
+			return nil
+		},
+	})
+
+	req := withUser(httptest.NewRequest(http.MethodDelete, "/calendars/cal1/participants/p1", nil), testUser)
+	req.SetPathValue("id", "cal1")
+	req.SetPathValue("participantId", "p1")
+	rec := httptest.NewRecorder()
+	h.RemoveParticipant(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
+	}
+}
+
+func TestRemoveParticipant_Unauthorized(t *testing.T) {
+	h := New(&mockService{})
+	req := httptest.NewRequest(http.MethodDelete, "/calendars/cal1/participants/p1", nil)
+	req.SetPathValue("id", "cal1")
+	req.SetPathValue("participantId", "p1")
+	rec := httptest.NewRecorder()
+	h.RemoveParticipant(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestRemoveParticipant_NotOwner(t *testing.T) {
+	h := New(&mockService{
+		getCalendarOnly: func(_ context.Context, id string) (model.Calendar, error) {
+			return model.Calendar{ID: id, OwnerID: "other"}, nil
+		},
+	})
+	req := withUser(httptest.NewRequest(http.MethodDelete, "/calendars/cal1/participants/p1", nil), testUser)
+	req.SetPathValue("id", "cal1")
+	req.SetPathValue("participantId", "p1")
+	rec := httptest.NewRecorder()
+	h.RemoveParticipant(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
+	}
+}
+
+func TestRemoveParticipant_CalendarNotFound(t *testing.T) {
+	h := New(&mockService{
+		getCalendarOnly: func(_ context.Context, _ string) (model.Calendar, error) {
+			return model.Calendar{}, store.ErrNotFound
+		},
+	})
+	req := withUser(httptest.NewRequest(http.MethodDelete, "/calendars/missing/participants/p1", nil), testUser)
+	req.SetPathValue("id", "missing")
+	req.SetPathValue("participantId", "p1")
+	rec := httptest.NewRecorder()
+	h.RemoveParticipant(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+	}
+}
+
+func TestRemoveParticipant_ParticipantNotFound(t *testing.T) {
+	h := New(&mockService{
+		getCalendarOnly: func(_ context.Context, id string) (model.Calendar, error) {
+			return model.Calendar{ID: id, OwnerID: "u1"}, nil
+		},
+		removeParticipant: func(_ context.Context, _, _ string) error {
+			return store.ErrNotFound
+		},
+	})
+	req := withUser(httptest.NewRequest(http.MethodDelete, "/calendars/cal1/participants/missing", nil), testUser)
+	req.SetPathValue("id", "cal1")
+	req.SetPathValue("participantId", "missing")
+	rec := httptest.NewRecorder()
+	h.RemoveParticipant(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
 	}
 }

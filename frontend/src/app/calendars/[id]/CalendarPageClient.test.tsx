@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import type { CalendarWithDetails, Participant } from "@/lib/types";
 
@@ -12,6 +12,8 @@ vi.mock("@/lib/analytics", () => ({
 const mockGetCalendar = vi.fn();
 const mockAddParticipant = vi.fn();
 const mockSetAvailability = vi.fn();
+const mockRenameCalendar = vi.fn();
+const mockRemoveParticipant = vi.fn();
 
 // ApiError must be defined inline in the factory since vi.mock is hoisted
 vi.mock("@/lib/api", () => {
@@ -27,6 +29,11 @@ vi.mock("@/lib/api", () => {
     getCalendar: (...args: unknown[]) => mockGetCalendar(...args),
     addParticipant: (...args: unknown[]) => mockAddParticipant(...args),
     setAvailability: (...args: unknown[]) => mockSetAvailability(...args),
+    renameCalendar: (...args: unknown[]) => mockRenameCalendar(...args),
+    removeParticipant: (...args: unknown[]) => mockRemoveParticipant(...args),
+    finaliseCalendar: vi.fn(),
+    unfinaliseCalendar: vi.fn(),
+    claimParticipant: vi.fn(),
     getMe: vi.fn().mockRejectedValue(new Error("not authenticated")),
     logout: vi.fn().mockResolvedValue(undefined),
     ApiError,
@@ -56,8 +63,37 @@ vi.mock("@/components/CalendarGrid/CalendarGrid", () => ({
   default: () => <div data-testid="calendar-grid" />,
 }));
 
+interface MockedParticipantListProps {
+  canRemove?: boolean;
+  onRemove?: (p: { id: string; name: string }) => void;
+  participants: Array<{ id: string; name: string }>;
+}
+
+let capturedParticipantListProps: MockedParticipantListProps | null = null;
+
 vi.mock("@/components/ParticipantList/ParticipantList", () => ({
-  default: () => <div data-testid="participant-list" />,
+  default: (props: MockedParticipantListProps) => {
+    capturedParticipantListProps = props;
+    return <div data-testid="participant-list" />;
+  },
+}));
+
+vi.mock("@/components/InvitePrompt/InvitePrompt", () => ({
+  default: () => <div data-testid="invite-prompt" />,
+}));
+
+let mockUser: { id: string; email: string; name: string } | null = null;
+
+vi.mock("@/components/AuthProvider/AuthProvider", () => ({
+  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useAuth: () => ({
+    user: mockUser,
+    isLoading: false,
+    isAuthenticated: !!mockUser,
+    checkAuth: vi.fn(),
+    clearAuth: vi.fn(),
+    signOut: vi.fn(),
+  }),
 }));
 
 vi.mock("@/components/ShareButton/ShareButton", () => ({
@@ -93,6 +129,7 @@ Object.defineProperty(window, "localStorage", {
 
 // --- Import component under test after mocks ---
 
+import type React from "react";
 import AuthProvider from "@/components/AuthProvider/AuthProvider";
 import CalendarPageClient from "./CalendarPageClient";
 
@@ -133,6 +170,8 @@ describe("CalendarPageClient", () => {
     capturedOnJoin = null;
     capturedJoinError = null;
     _capturedDefaultName = undefined;
+    capturedParticipantListProps = null;
+    mockUser = null;
     localStorageMock.getItem.mockReturnValue(null);
   });
 
@@ -294,6 +333,104 @@ describe("CalendarPageClient", () => {
     });
 
     expect(mockGetCalendar).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not show the rename pencil when the user is not the owner", async () => {
+    mockGetCalendar.mockResolvedValue(makeCalendarData());
+
+    render(
+      <AuthProvider>
+        <CalendarPageClient calendarId={CALENDAR_ID} />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Team Meetup")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole("button", { name: /Rename calendar/i })).not.toBeInTheDocument();
+  });
+
+  it("owner can rename the calendar inline", async () => {
+    mockUser = { id: "owner-1", email: "owner@example.com", name: "Owner" };
+    mockGetCalendar.mockResolvedValue(makeCalendarData());
+    mockRenameCalendar.mockResolvedValue({
+      id: CALENDAR_ID,
+      name: "Renamed Trip",
+      ownerId: "owner-1",
+      createdAt: "2026-01-01T00:00:00Z",
+    });
+
+    render(
+      <AuthProvider>
+        <CalendarPageClient calendarId={CALENDAR_ID} />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Team Meetup")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Rename calendar" }));
+
+    const input = (await screen.findByRole("textbox", { name: "Calendar name" })) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Renamed Trip" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(mockRenameCalendar).toHaveBeenCalledWith(CALENDAR_ID, "Renamed Trip");
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Renamed Trip")).toBeInTheDocument();
+    });
+  });
+
+  it("owner forwards canRemove and onRemove to ParticipantList", async () => {
+    mockUser = { id: "owner-1", email: "owner@example.com", name: "Owner" };
+    mockGetCalendar.mockResolvedValue(
+      makeCalendarData({
+        participants: [
+          makeParticipant({ id: "p-1", name: "Alice" }),
+          makeParticipant({ id: "p-2", name: "Bob" }),
+        ],
+      }),
+    );
+
+    render(
+      <AuthProvider>
+        <CalendarPageClient calendarId={CALENDAR_ID} />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(capturedParticipantListProps?.canRemove).toBe(true);
+    });
+
+    expect(typeof capturedParticipantListProps?.onRemove).toBe("function");
+  });
+
+  it("non-owner does not get canRemove on ParticipantList", async () => {
+    mockGetCalendar.mockResolvedValue(
+      makeCalendarData({
+        participants: [
+          makeParticipant({ id: "p-1", name: "Alice" }),
+          makeParticipant({ id: "p-2", name: "Bob" }),
+        ],
+      }),
+    );
+
+    render(
+      <AuthProvider>
+        <CalendarPageClient calendarId={CALENDAR_ID} />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(capturedParticipantListProps).not.toBeNull();
+    });
+
+    expect(capturedParticipantListProps?.canRemove).toBe(false);
   });
 
   it("join flow: duplicate name shows 'already taken' error", async () => {

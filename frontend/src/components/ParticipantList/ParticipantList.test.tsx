@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import ParticipantList from "./ParticipantList";
 import type { Participant } from "@/lib/types";
 
@@ -42,5 +43,50 @@ describe("ParticipantList", () => {
   it("renders heading", () => {
     render(<ParticipantList participants={[participant()]} currentParticipantId={null} />);
     expect(screen.getByText("Participants")).toBeInTheDocument();
+  });
+
+  it("hides remove buttons when canRemove is false", () => {
+    render(
+      <ParticipantList
+        participants={[participant()]}
+        currentParticipantId={null}
+        canRemove={false}
+        onRemove={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /Remove Alice/i })).not.toBeInTheDocument();
+  });
+
+  it("renders a remove button per participant when canRemove is true", () => {
+    render(
+      <ParticipantList
+        participants={[
+          participant({ id: "p1", name: "Alice" }),
+          participant({ id: "p2", name: "Bob" }),
+        ]}
+        currentParticipantId="p1"
+        canRemove
+        onRemove={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Remove Alice" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Bob" })).toBeInTheDocument();
+  });
+
+  it("calls onRemove with the participant when its remove button is clicked", async () => {
+    const onRemove = vi.fn();
+    const alice = participant({ id: "p1", name: "Alice" });
+    const user = userEvent.setup();
+    render(
+      <ParticipantList
+        participants={[alice]}
+        currentParticipantId={null}
+        canRemove
+        onRemove={onRemove}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Remove Alice" }));
+    expect(onRemove).toHaveBeenCalledWith(alice);
   });
 });

@@ -9,6 +9,8 @@ import {
   finaliseCalendar,
   unfinaliseCalendar,
   claimParticipant,
+  removeParticipant,
+  renameCalendar,
   ApiError,
 } from "@/lib/api";
 import analytics from "@/lib/analytics";
@@ -250,6 +252,77 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     [calendarId],
   );
 
+  const [renameDraft, setRenameDraft] = useState<string | null>(null);
+  const renameInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (renameDraft !== null) {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }
+  }, [renameDraft]);
+
+  const handleRenameStart = useCallback(() => {
+    setRenameDraft(calendar?.calendar.name ?? "");
+  }, [calendar]);
+
+  const handleRenameCancel = useCallback(() => {
+    setRenameDraft(null);
+  }, []);
+
+  const handleRenameCommit = useCallback(async () => {
+    const previous = calendar;
+    if (!previous) {
+      setRenameDraft(null);
+      return;
+    }
+    const next = (renameInputRef.current?.value ?? "").trim();
+    if (next === "" || next === previous.calendar.name) {
+      setRenameDraft(null);
+      return;
+    }
+
+    setRenameDraft(null);
+    setCalendar((prev) =>
+      prev ? { ...prev, calendar: { ...prev.calendar, name: next } } : prev,
+    );
+
+    try {
+      const updated = await renameCalendar(calendarId, next);
+      setCalendar((prev) =>
+        prev ? { ...prev, calendar: { ...prev.calendar, name: updated.name } } : prev,
+      );
+      analytics.capture("calendar_renamed", { calendar_id: calendarId });
+    } catch {
+      setCalendar(previous);
+    }
+  }, [calendarId, calendar]);
+
+  const handleRemoveParticipant = useCallback(
+    async (target: Participant) => {
+      if (!confirm(`Remove ${target.name}?`)) return;
+
+      const previous = calendar;
+      setCalendar((prev) =>
+        prev
+          ? {
+              ...prev,
+              participants: prev.participants.filter((p) => p.id !== target.id),
+              availability: prev.availability.filter((a) => a.participantId !== target.id),
+            }
+          : prev,
+      );
+
+      try {
+        await removeParticipant(calendarId, target.id);
+        analytics.capture("participant_removed", { calendar_id: calendarId });
+      } catch {
+        setCalendar(previous);
+      }
+    },
+    [calendarId, calendar],
+  );
+
   const handleUnfinalise = useCallback(async () => {
     try {
       const updated = await unfinaliseCalendar(calendarId);
@@ -387,7 +460,39 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
                 {calendarEmoji}
               </span>
             ) : null}
-            <h1 className={styles.heading}>{calendarName}</h1>
+            {renameDraft !== null ? (
+              <input
+                ref={renameInputRef}
+                type="text"
+                className={styles.headingInput}
+                value={renameDraft}
+                onChange={(e) => setRenameDraft(e.target.value)}
+                onBlur={handleRenameCommit}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleRenameCommit();
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    handleRenameCancel();
+                  }
+                }}
+                aria-label="Calendar name"
+                maxLength={120}
+              />
+            ) : (
+              <h1 className={styles.heading}>{calendarName}</h1>
+            )}
+            {isOwner && renameDraft === null ? (
+              <button
+                type="button"
+                className={styles.renameButton}
+                onClick={handleRenameStart}
+                aria-label="Rename calendar"
+              >
+                ✎
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -452,6 +557,8 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
         <ParticipantList
           participants={calendar.participants}
           currentParticipantId={currentParticipant?.id ?? null}
+          canRemove={isOwner}
+          onRemove={handleRemoveParticipant}
         />
       </div>
     </div>

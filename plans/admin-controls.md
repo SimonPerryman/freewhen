@@ -1,6 +1,6 @@
 # Admin Controls
 
-Status: pending
+Status: done
 Depends on: `plans/participant-user-linking.md`
 
 ## Goal
@@ -168,3 +168,4 @@ A lightweight "Calendar Settings" section below the calendar, visible only to th
 ## Log
 
 - 2026-04-19 21:30 — Created plan
+- 2026-04-20 14:10 — Implemented end-to-end. Backend: `UpdateCalendarName`/`DeleteParticipant` store methods, service wrappers, `RenameCalendar`/`RemoveParticipant` handlers (owner check via existing `GetCalendarOnly` pattern, matching `FinaliseCalendar`), routes `PATCH /calendars/{id}` and `DELETE /calendars/{id}/participants/{participantId}`. Frontend: `renameCalendar`/`removeParticipant` API methods, inline rename on calendar title (pencil icon → input, Enter/blur saves, Esc reverts) with optimistic update + revert on failure, owner-only × button per row in `ParticipantList` with `confirm()` + optimistic remove. Tests: store integration, handler unit (success/401/403/404/400), `ParticipantList` component tests for canRemove behaviour, `CalendarPageClient` tests for rename and ownership-gated controls. Admin promotion deferred per scope.

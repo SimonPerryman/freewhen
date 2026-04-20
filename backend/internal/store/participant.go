@@ -135,6 +135,26 @@ func (s *Store) ClaimParticipant(ctx context.Context, calendarID, participantID,
 	return p, nil
 }
 
+// DeleteParticipant removes a participant from a calendar. Availability rows
+// cascade via the FK. Returns ErrNotFound if no matching participant exists.
+func (s *Store) DeleteParticipant(ctx context.Context, calendarID, participantID string) error {
+	res, err := s.db.ExecContext(ctx,
+		`DELETE FROM participants WHERE id = $1 AND calendar_id = $2`,
+		participantID, calendarID,
+	)
+	if err != nil {
+		return fmt.Errorf("delete participant: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (s *Store) participantCount(ctx context.Context, calendarID string) (int, error) {
 	var count int
 	err := s.db.QueryRowContext(ctx,

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/freewhen/backend/internal/model"
@@ -115,6 +116,92 @@ func (h *Handler) FinaliseCalendar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, cal)
+}
+
+func (h *Handler) RenameCalendar(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
+	user := UserFromContext(r)
+	if user == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	id := r.PathValue("id")
+
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid JSON")
+		return
+	}
+	if strings.TrimSpace(req.Name) == "" {
+		respondError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+
+	existing, err := h.service.GetCalendarOnly(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			respondError(w, http.StatusNotFound, "calendar not found")
+			return
+		}
+		respondError(w, http.StatusInternalServerError, "failed to load calendar")
+		return
+	}
+	if existing.OwnerID != user.ID {
+		respondError(w, http.StatusForbidden, "only the owner can rename this calendar")
+		return
+	}
+
+	cal, err := h.service.RenameCalendar(r.Context(), id, req.Name)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			respondError(w, http.StatusNotFound, "calendar not found")
+			return
+		}
+		respondError(w, http.StatusInternalServerError, "failed to rename calendar")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, cal)
+}
+
+func (h *Handler) RemoveParticipant(w http.ResponseWriter, r *http.Request) {
+	user := UserFromContext(r)
+	if user == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	calendarID := r.PathValue("id")
+	participantID := r.PathValue("participantId")
+
+	existing, err := h.service.GetCalendarOnly(r.Context(), calendarID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			respondError(w, http.StatusNotFound, "calendar not found")
+			return
+		}
+		respondError(w, http.StatusInternalServerError, "failed to load calendar")
+		return
+	}
+	if existing.OwnerID != user.ID {
+		respondError(w, http.StatusForbidden, "only the owner can remove participants")
+		return
+	}
+
+	if err := h.service.RemoveParticipant(r.Context(), calendarID, participantID); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			respondError(w, http.StatusNotFound, "participant not found")
+			return
+		}
+		respondError(w, http.StatusInternalServerError, "failed to remove participant")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) UnfinaliseCalendar(w http.ResponseWriter, r *http.Request) {
