@@ -8,14 +8,17 @@ import (
 	"github.com/freewhen/backend/internal/config"
 	"github.com/freewhen/backend/internal/email"
 	"github.com/freewhen/backend/internal/handler"
+	"github.com/freewhen/backend/internal/realtime"
 	"github.com/freewhen/backend/internal/service"
 	"github.com/freewhen/backend/internal/store"
 )
 
 type Server struct {
 	handler    *handler.Handler
+	events     *handler.EventsHandler
 	auth       *handler.AuthHandler
 	metrics    *handler.MetricsHandler
+	hub        *realtime.Hub
 	store      *store.Store
 	mux        *http.ServeMux
 	logger     *slog.Logger
@@ -26,20 +29,24 @@ type Server struct {
 
 func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 	st := store.New(db)
-	svc := service.New(st)
+	hub := realtime.NewHub(logger)
+	svc := service.New(st, hub)
 	h := handler.New(svc)
+	eh := handler.NewEvents(hub, svc, logger)
 
 	var emailSender handler.EmailSender
 	if cfg.ResendAPIKey != "" {
 		emailSender = email.NewSender(cfg.ResendAPIKey, cfg.MagicLinkFromEmail)
 	}
 	ah := handler.NewAuth(st, emailSender, cfg, logger)
-	mh := handler.NewMetrics(st)
+	mh := handler.NewMetrics(st, hub)
 
 	srv := &Server{
 		handler:    h,
+		events:     eh,
 		auth:       ah,
 		metrics:    mh,
+		hub:        hub,
 		store:      st,
 		mux:        http.NewServeMux(),
 		logger:     logger,
@@ -75,6 +82,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("PUT /calendars/{id}/availability", s.handler.SetAvailability)
 	s.mux.HandleFunc("POST /calendars/{id}/finalise", s.requireAuth(s.handler.FinaliseCalendar))
 	s.mux.HandleFunc("DELETE /calendars/{id}/finalise", s.requireAuth(s.handler.UnfinaliseCalendar))
+
+	// Server-sent events stream for live updates.
+	s.mux.HandleFunc("GET /calendars/{id}/events", s.optionalAuth(s.events.Stream))
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {

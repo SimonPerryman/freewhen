@@ -17,35 +17,48 @@ type MetricsStore interface {
 	ActiveCalendars(ctx context.Context, days int) (int, error)
 }
 
-type MetricsHandler struct {
-	store MetricsStore
+// RealtimeMetrics reports live-stream hub counts.
+type RealtimeMetrics interface {
+	ActiveSubscribers() int
+	ActiveCalendars() int
 }
 
-func NewMetrics(s MetricsStore) *MetricsHandler {
-	return &MetricsHandler{store: s}
+type MetricsHandler struct {
+	store    MetricsStore
+	realtime RealtimeMetrics
+}
+
+func NewMetrics(s MetricsStore, rt RealtimeMetrics) *MetricsHandler {
+	return &MetricsHandler{store: s, realtime: rt}
 }
 
 type metricsResponse struct {
 	Users        userMetrics        `json:"users"`
 	Calendars    calendarMetrics    `json:"calendars"`
 	Participants participantMetrics `json:"participants"`
+	Realtime     realtimeMetrics    `json:"realtime"`
 }
 
 type userMetrics struct {
-	Total  int `json:"total"`
-	Last7d int `json:"last_7d"`
+	Total   int `json:"total"`
+	Last7d  int `json:"last_7d"`
 	Last30d int `json:"last_30d"`
 }
 
 type calendarMetrics struct {
-	Total    int `json:"total"`
-	Last7d   int `json:"last_7d"`
+	Total     int `json:"total"`
+	Last7d    int `json:"last_7d"`
 	Active30d int `json:"active_30d"`
 }
 
 type participantMetrics struct {
 	Total          int     `json:"total"`
 	AvgPerCalendar float64 `json:"avg_per_calendar"`
+}
+
+type realtimeMetrics struct {
+	ActiveSubscribers int `json:"active_subscribers"`
+	ActiveCalendars   int `json:"active_calendars"`
 }
 
 func (h *MetricsHandler) GetMetrics(w http.ResponseWriter, r *http.Request) {
@@ -97,6 +110,12 @@ func (h *MetricsHandler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var rtSubs, rtCals int
+	if h.realtime != nil {
+		rtSubs = h.realtime.ActiveSubscribers()
+		rtCals = h.realtime.ActiveCalendars()
+	}
+
 	respondJSON(w, http.StatusOK, metricsResponse{
 		Users: userMetrics{
 			Total:   usersTotal,
@@ -111,6 +130,10 @@ func (h *MetricsHandler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 		Participants: participantMetrics{
 			Total:          partsTotal,
 			AvgPerCalendar: avgPerCal,
+		},
+		Realtime: realtimeMetrics{
+			ActiveSubscribers: rtSubs,
+			ActiveCalendars:   rtCals,
 		},
 	})
 }

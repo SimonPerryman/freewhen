@@ -103,7 +103,7 @@ func TestSetAvailability_ParticipantBelongsToCalendar(t *testing.T) {
 		},
 	}
 
-	s := &Service{store: ms}
+	s := New(ms, nil)
 	err := s.SetAvailability(context.Background(), "cal1", "p1", []string{"2026-05-01"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -120,7 +120,7 @@ func TestSetAvailability_ParticipantNotFound(t *testing.T) {
 		},
 	}
 
-	s := &Service{store: ms}
+	s := New(ms, nil)
 	err := s.SetAvailability(context.Background(), "cal1", "missing", []string{"2026-05-01"})
 	if err != store.ErrNotFound {
 		t.Fatalf("err = %v, want ErrNotFound", err)
@@ -134,7 +134,7 @@ func TestSetAvailability_ParticipantWrongCalendar(t *testing.T) {
 		},
 	}
 
-	s := &Service{store: ms}
+	s := New(ms, nil)
 	err := s.SetAvailability(context.Background(), "cal1", "p1", []string{"2026-05-01"})
 	if err != store.ErrNotFound {
 		t.Fatalf("err = %v, want ErrNotFound", err)
@@ -165,7 +165,7 @@ func TestCreateCalendar_PassesEmojiToStore(t *testing.T) {
 		},
 	}
 
-	s := &Service{store: ms}
+	s := New(ms, nil)
 	cal, err := s.CreateCalendar(context.Background(), "x", "owner1", model.VisibilityOpen)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -191,7 +191,7 @@ func TestSetAvailability_StoreError(t *testing.T) {
 		},
 	}
 
-	s := &Service{store: ms}
+	s := New(ms, nil)
 	err := s.SetAvailability(context.Background(), "cal1", "p1", []string{"2026-05-01"})
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -212,7 +212,7 @@ func TestGetCalendarView_OpenAlwaysRevealed(t *testing.T) {
 			return details, nil
 		},
 	}
-	s := &Service{store: ms}
+	s := New(ms, nil)
 
 	view, err := s.GetCalendarView(context.Background(), "c1", Viewer{})
 	if err != nil {
@@ -238,7 +238,7 @@ func TestGetCalendarView_SubmitToView_OwnerRevealed(t *testing.T) {
 			return details, nil
 		},
 	}
-	s := &Service{store: ms}
+	s := New(ms, nil)
 
 	ownerID := "owner"
 	view, err := s.GetCalendarView(context.Background(), "c1", Viewer{UserID: &ownerID})
@@ -265,7 +265,7 @@ func TestGetCalendarView_SubmitToView_UnsubmittedAnonymousHidden(t *testing.T) {
 			return pid == "p1", nil
 		},
 	}
-	s := &Service{store: ms}
+	s := New(ms, nil)
 
 	pid := "p2"
 	view, err := s.GetCalendarView(context.Background(), "c1", Viewer{ParticipantID: &pid})
@@ -298,7 +298,7 @@ func TestGetCalendarView_SubmitToView_SubmittedParticipantRevealed(t *testing.T)
 			return true, nil
 		},
 	}
-	s := &Service{store: ms}
+	s := New(ms, nil)
 
 	pid := "p1"
 	view, err := s.GetCalendarView(context.Background(), "c1", Viewer{ParticipantID: &pid})
@@ -326,7 +326,7 @@ func TestGetCalendarView_SubmitToView_SubmittedLinkedUserRevealed(t *testing.T) 
 			return true, nil
 		},
 	}
-	s := &Service{store: ms}
+	s := New(ms, nil)
 
 	view, err := s.GetCalendarView(context.Background(), "c1", Viewer{UserID: &userID})
 	if err != nil {
@@ -338,9 +338,64 @@ func TestGetCalendarView_SubmitToView_SubmittedLinkedUserRevealed(t *testing.T) 
 }
 
 func TestUpdateCalendarVisibility_InvalidValue(t *testing.T) {
-	s := &Service{store: &mockStore{}}
+	s := New(&mockStore{}, nil)
 	_, err := s.UpdateCalendarVisibility(context.Background(), "c1", "bogus")
 	if !errors.Is(err, ErrInvalidVisibility) {
 		t.Fatalf("err = %v, want ErrInvalidVisibility", err)
+	}
+}
+
+// --- Publisher wiring tests ---
+
+type recordingPublisher struct {
+	events []pubCall
+}
+
+type pubCall struct {
+	CalendarID string
+	Type       string
+}
+
+func (r *recordingPublisher) Publish(calendarID, eventType string) {
+	r.events = append(r.events, pubCall{CalendarID: calendarID, Type: eventType})
+}
+
+func TestPublisher_SetAvailability_PublishesOnSuccess(t *testing.T) {
+	ms := &mockStore{
+		getParticipant: func(_ context.Context, id string) (model.Participant, error) {
+			return model.Participant{ID: id, CalendarID: "cal1"}, nil
+		},
+		setAvailability: func(_ context.Context, _ string, _ []string) error { return nil },
+	}
+	rp := &recordingPublisher{}
+	s := New(ms, rp)
+
+	if err := s.SetAvailability(context.Background(), "cal1", "p1", []string{"2026-05-01"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(rp.events) != 1 ||
+		rp.events[0].CalendarID != "cal1" ||
+		rp.events[0].Type != "availability.changed" {
+		t.Fatalf("publisher events = %+v", rp.events)
+	}
+}
+
+func TestPublisher_SetAvailability_NoPublishOnStoreError(t *testing.T) {
+	ms := &mockStore{
+		getParticipant: func(_ context.Context, id string) (model.Participant, error) {
+			return model.Participant{ID: id, CalendarID: "cal1"}, nil
+		},
+		setAvailability: func(_ context.Context, _ string, _ []string) error {
+			return errors.New("db down")
+		},
+	}
+	rp := &recordingPublisher{}
+	s := New(ms, rp)
+
+	if err := s.SetAvailability(context.Background(), "cal1", "p1", []string{"2026-05-01"}); err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if len(rp.events) != 0 {
+		t.Fatalf("expected no publish on error, got %+v", rp.events)
 	}
 }

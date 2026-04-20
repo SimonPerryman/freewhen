@@ -5,12 +5,24 @@ import (
 	"errors"
 
 	"github.com/freewhen/backend/internal/model"
+	"github.com/freewhen/backend/internal/realtime"
 	"github.com/freewhen/backend/internal/store"
 )
 
 // ErrInvalidVisibility is returned when a caller passes an unrecognised
 // visibility value to a mutation endpoint.
 var ErrInvalidVisibility = errors.New("invalid visibility value")
+
+// Publisher fans realtime events out to subscribers. Satisfied by
+// realtime.Hub; a no-op implementation is provided for tests and for
+// environments where realtime is disabled.
+type Publisher interface {
+	Publish(calendarID, eventType string)
+}
+
+type noopPublisher struct{}
+
+func (noopPublisher) Publish(string, string) {}
 
 // Store defines the data operations the service needs.
 type Store interface {
@@ -32,10 +44,14 @@ type Store interface {
 
 type Service struct {
 	store Store
+	pub   Publisher
 }
 
-func New(s Store) *Service {
-	return &Service{store: s}
+func New(s Store, pub Publisher) *Service {
+	if pub == nil {
+		pub = noopPublisher{}
+	}
+	return &Service{store: s, pub: pub}
 }
 
 func (s *Service) CreateCalendar(ctx context.Context, name, ownerID, visibility string) (model.Calendar, error) {
@@ -132,11 +148,21 @@ func (s *Service) shouldReveal(ctx context.Context, details model.CalendarWithDe
 }
 
 func (s *Service) AddParticipant(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error) {
-	return s.store.AddParticipant(ctx, calendarID, name, userID)
+	p, err := s.store.AddParticipant(ctx, calendarID, name, userID)
+	if err != nil {
+		return model.Participant{}, err
+	}
+	s.pub.Publish(calendarID, realtime.EventParticipantJoined)
+	return p, nil
 }
 
 func (s *Service) ClaimParticipant(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error) {
-	return s.store.ClaimParticipant(ctx, calendarID, participantID, userID)
+	p, err := s.store.ClaimParticipant(ctx, calendarID, participantID, userID)
+	if err != nil {
+		return model.Participant{}, err
+	}
+	s.pub.Publish(calendarID, realtime.EventParticipantClaimed)
+	return p, nil
 }
 
 func (s *Service) SetAvailability(ctx context.Context, calendarID, participantID string, dates []string) error {
@@ -147,7 +173,11 @@ func (s *Service) SetAvailability(ctx context.Context, calendarID, participantID
 	if p.CalendarID != calendarID {
 		return store.ErrNotFound
 	}
-	return s.store.SetAvailability(ctx, participantID, dates)
+	if err := s.store.SetAvailability(ctx, participantID, dates); err != nil {
+		return err
+	}
+	s.pub.Publish(calendarID, realtime.EventAvailabilityChanged)
+	return nil
 }
 
 func (s *Service) GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error) {
@@ -155,24 +185,48 @@ func (s *Service) GetCalendarOnly(ctx context.Context, id string) (model.Calenda
 }
 
 func (s *Service) FinaliseCalendar(ctx context.Context, calendarID, date string) (model.Calendar, error) {
-	return s.store.SetFinalisedDate(ctx, calendarID, date)
+	cal, err := s.store.SetFinalisedDate(ctx, calendarID, date)
+	if err != nil {
+		return model.Calendar{}, err
+	}
+	s.pub.Publish(calendarID, realtime.EventCalendarFinalised)
+	return cal, nil
 }
 
 func (s *Service) UnfinaliseCalendar(ctx context.Context, calendarID string) (model.Calendar, error) {
-	return s.store.ClearFinalisedDate(ctx, calendarID)
+	cal, err := s.store.ClearFinalisedDate(ctx, calendarID)
+	if err != nil {
+		return model.Calendar{}, err
+	}
+	s.pub.Publish(calendarID, realtime.EventCalendarUnfinalised)
+	return cal, nil
 }
 
 func (s *Service) RenameCalendar(ctx context.Context, calendarID, name string) (model.Calendar, error) {
-	return s.store.UpdateCalendarName(ctx, calendarID, name)
+	cal, err := s.store.UpdateCalendarName(ctx, calendarID, name)
+	if err != nil {
+		return model.Calendar{}, err
+	}
+	s.pub.Publish(calendarID, realtime.EventCalendarUpdated)
+	return cal, nil
 }
 
 func (s *Service) UpdateCalendarVisibility(ctx context.Context, calendarID, visibility string) (model.Calendar, error) {
 	if !model.IsValidVisibility(visibility) {
 		return model.Calendar{}, ErrInvalidVisibility
 	}
-	return s.store.UpdateCalendarVisibility(ctx, calendarID, visibility)
+	cal, err := s.store.UpdateCalendarVisibility(ctx, calendarID, visibility)
+	if err != nil {
+		return model.Calendar{}, err
+	}
+	s.pub.Publish(calendarID, realtime.EventCalendarUpdated)
+	return cal, nil
 }
 
 func (s *Service) RemoveParticipant(ctx context.Context, calendarID, participantID string) error {
-	return s.store.DeleteParticipant(ctx, calendarID, participantID)
+	if err := s.store.DeleteParticipant(ctx, calendarID, participantID); err != nil {
+		return err
+	}
+	s.pub.Publish(calendarID, realtime.EventParticipantRemoved)
+	return nil
 }

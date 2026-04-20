@@ -15,6 +15,7 @@ import {
   ApiError,
 } from "@/lib/api";
 import analytics from "@/lib/analytics";
+import { useCalendarEvents } from "@/lib/useCalendarEvents";
 import type { CalendarWithDetails, Participant } from "@/lib/types";
 import { useAuth } from "@/components/AuthProvider/AuthProvider";
 import CalendarGrid from "@/components/CalendarGrid/CalendarGrid";
@@ -25,7 +26,10 @@ import ParticipantList from "@/components/ParticipantList/ParticipantList";
 import ShareButton from "@/components/ShareButton/ShareButton";
 import SummaryView from "@/components/SummaryView/SummaryView";
 import BestDay from "@/components/BestDay/BestDay";
+import LiveStatusDot from "@/components/LiveStatusDot/LiveStatusDot";
 import styles from "./page.module.css";
+
+const LOCAL_MUTATION_SUPPRESS_MS = 500;
 
 type LoadError = "not-found" | "load-failed";
 
@@ -74,11 +78,18 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   const savingRef = useRef(false);
   const pendingDatesRef = useRef<string[] | null>(null);
   const participantIdRef = useRef<string | null>(null);
+  const currentParticipantRef = useRef<Participant | null>(null);
+  const suppressRefreshUntilRef = useRef(0);
 
   // Keep participantIdRef in sync
   useEffect(() => {
     participantIdRef.current = currentParticipant?.id ?? null;
+    currentParticipantRef.current = currentParticipant;
   }, [currentParticipant]);
+
+  const markLocalMutation = useCallback(() => {
+    suppressRefreshUntilRef.current = Date.now() + LOCAL_MUTATION_SUPPRESS_MS;
+  }, []);
 
   // Fetch calendar data
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -191,6 +202,32 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     };
   }, [calendarId, loadAttempt]);
 
+  // Lightweight refresh used by the live-updates stream. Unlike the full
+  // load effect it does not re-run the claim flow or re-seed selectedDates
+  // — those belong to initial mount. Local-mutation suppression prevents
+  // our own writes from flickering on echo.
+  const refresh = useCallback(async () => {
+    if (Date.now() < suppressRefreshUntilRef.current) return;
+    try {
+      const pid = participantIdRef.current ?? undefined;
+      const data = await getCalendar(calendarId, pid);
+      setCalendar(data);
+      const currentId = participantIdRef.current;
+      if (currentId) {
+        const fresh = data.participants.find((p) => p.id === currentId);
+        if (fresh) setCurrentParticipant(fresh);
+      }
+    } catch {
+      // Transient refresh failure; next event or the polling fallback retries.
+    }
+  }, [calendarId]);
+
+  const { status: streamStatus } = useCalendarEvents(
+    calendar ? calendarId : "",
+    currentParticipant?.id ?? null,
+    refresh,
+  );
+
   // Serialized save logic
   const flushSave = useCallback(async () => {
     savingRef.current = true;
@@ -207,6 +244,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           participantId: pid,
           dates,
         });
+        markLocalMutation();
         analytics.capture("availability_marked", { calendar_id: calendarId });
       } catch {
         setSaveError(true);
@@ -221,9 +259,10 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   const queueSave = useCallback(
     (dates: string[]) => {
       pendingDatesRef.current = dates;
+      markLocalMutation();
       if (!savingRef.current) flushSave();
     },
-    [flushSave],
+    [flushSave, markLocalMutation],
   );
 
   const firstSubmitRef = useRef(false);
@@ -260,6 +299,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
 
   const handleFinalise = useCallback(
     async (date: string) => {
+      markLocalMutation();
       try {
         const updated = await finaliseCalendar(calendarId, date);
         setCalendar((prev) =>
@@ -287,7 +327,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
         }
       }
     },
-    [calendarId],
+    [calendarId, markLocalMutation],
   );
 
   const [renameDraft, setRenameDraft] = useState<string | null>(null);
@@ -322,6 +362,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
 
     setRenameDraft(null);
     setCalendar((prev) => (prev ? { ...prev, calendar: { ...prev.calendar, name: next } } : prev));
+    markLocalMutation();
 
     try {
       const updated = await renameCalendar(calendarId, next);
@@ -332,7 +373,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     } catch {
       setCalendar(previous);
     }
-  }, [calendarId, calendar]);
+  }, [calendarId, calendar, markLocalMutation]);
 
   const handleVisibilityToggle = useCallback(async () => {
     if (!calendar) return;
@@ -342,6 +383,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     setCalendar((prev) =>
       prev ? { ...prev, calendar: { ...prev.calendar, visibility: next } } : prev,
     );
+    markLocalMutation();
     try {
       await updateCalendar(calendarId, { visibility: next });
       analytics.capture("calendar_visibility_set", {
@@ -351,7 +393,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     } catch {
       setCalendar(previous);
     }
-  }, [calendar, calendarId]);
+  }, [calendar, calendarId, markLocalMutation]);
 
   const handleRemoveParticipant = useCallback(
     async (target: Participant) => {
@@ -367,6 +409,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
             }
           : prev,
       );
+      markLocalMutation();
 
       try {
         await removeParticipant(calendarId, target.id);
@@ -375,10 +418,11 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
         setCalendar(previous);
       }
     },
-    [calendarId, calendar],
+    [calendarId, calendar, markLocalMutation],
   );
 
   const handleUnfinalise = useCallback(async () => {
+    markLocalMutation();
     try {
       const updated = await unfinaliseCalendar(calendarId);
       setCalendar((prev) =>
@@ -397,11 +441,12 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     } catch {
       // ignore; banner stays and user can retry
     }
-  }, [calendarId]);
+  }, [calendarId, markLocalMutation]);
 
   const handleJoin = useCallback(
     async (name: string) => {
       setJoinError(null);
+      markLocalMutation();
       try {
         const participant = await addParticipant(calendarId, { name });
         setCurrentParticipant(participant);
@@ -435,7 +480,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
         throw err; // let JoinForm know submission failed
       }
     },
-    [calendarId],
+    [calendarId, markLocalMutation],
   );
 
   // Build freeByDate: for each date, the set of participant IDs that are free
@@ -568,6 +613,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
                 : "Hide others' availability until they respond"}
             </button>
           ) : null}
+          <LiveStatusDot status={streamStatus} />
         </div>
 
         {finalisedDate ? (
