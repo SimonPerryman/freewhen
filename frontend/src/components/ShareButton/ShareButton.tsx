@@ -9,6 +9,7 @@ interface ShareButtonProps {
   calendarName: string;
   calendarEmoji?: string | null;
   finalisedDate?: string | null;
+  passphrase?: string | null;
   variant?: "default" | "hero";
 }
 
@@ -16,6 +17,7 @@ export default function ShareButton({
   calendarName,
   calendarEmoji = null,
   finalisedDate = null,
+  passphrase = null,
   variant = "default",
 }: ShareButtonProps) {
   const [canShare, setCanShare] = useState(false);
@@ -28,7 +30,12 @@ export default function ShareButton({
   }, []);
 
   const handleClick = useCallback(async () => {
-    const url = window.location.href;
+    let url = window.location.href;
+    if (passphrase) {
+      const u = new URL(window.location.href);
+      u.searchParams.set("unlock", passphrase);
+      url = u.toString();
+    }
 
     if (canShare) {
       try {
@@ -59,7 +66,7 @@ export default function ShareButton({
         // clipboard write failed — ignore silently
       }
     }
-  }, [canShare, canCopy, calendarName, calendarEmoji, finalisedDate]);
+  }, [canShare, canCopy, calendarName, calendarEmoji, finalisedDate, passphrase]);
 
   if (!canShare && !canCopy) return null;
 

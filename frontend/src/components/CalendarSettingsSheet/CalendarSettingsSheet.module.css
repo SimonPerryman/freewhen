@@ -1,0 +1,243 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, black 45%, transparent);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 50;
+  animation: backdropIn 0.16s ease-out;
+}
+
+@keyframes backdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.sheet {
+  width: 100%;
+  max-width: 540px;
+  padding: 20px 20px 28px;
+  background: var(--card-bg);
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-md);
+  box-shadow: 0 -8px 24px color-mix(in srgb, black 15%, transparent);
+  animation: sheetIn 0.22s ease-out;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+@media (min-width: 640px) {
+  .backdrop {
+    align-items: center;
+  }
+
+  .sheet {
+    border-radius: var(--radius-md);
+  }
+}
+
+@keyframes sheetIn {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop,
+  .sheet {
+    animation: none;
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.heading {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.closeButton {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.closeButton:hover {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+.section {
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+
+.section:first-of-type {
+  border-top: none;
+  padding-top: 4px;
+}
+
+.sectionLabel {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.sectionHint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 6px 0;
+  font-family: inherit;
+  text-align: left;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.toggleTitle {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.toggleHint {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.switch {
+  flex: 0 0 auto;
+  position: relative;
+  width: 36px;
+  height: 20px;
+  background: var(--border);
+  border-radius: 999px;
+  transition: background 0.15s;
+}
+
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: var(--card-bg);
+  border-radius: 50%;
+  box-shadow: 0 1px 2px color-mix(in srgb, black 25%, transparent);
+  transition: transform 0.15s;
+}
+
+.switchOn {
+  background: var(--accent);
+}
+
+.switchOn::after {
+  transform: translateX(16px);
+}
+
+.passphrase {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.passphraseValue {
+  display: inline-block;
+  align-self: flex-start;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14px;
+  color: var(--text-primary);
+  padding: 6px 10px;
+  background: var(--page-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  user-select: all;
+}
+
+.destructiveRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.destructiveLink {
+  padding: 2px 0;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.destructiveLink:hover {
+  color: var(--error, #b91c1c);
+}
+
+.dot {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.primaryAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--page-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.primaryAction:hover {
+  border-color: var(--text-secondary);
+}

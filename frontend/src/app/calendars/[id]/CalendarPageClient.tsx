@@ -42,7 +42,7 @@ import ShareButton from "@/components/ShareButton/ShareButton";
 import SummaryView from "@/components/SummaryView/SummaryView";
 import BestDay from "@/components/BestDay/BestDay";
 import LiveStatusDot from "@/components/LiveStatusDot/LiveStatusDot";
-import ThemePicker from "@/components/ThemePicker/ThemePicker";
+import CalendarSettingsSheet from "@/components/CalendarSettingsSheet/CalendarSettingsSheet";
 import WhosMissingPanel from "@/components/WhosMissingPanel/WhosMissingPanel";
 import { resolveTheme } from "@/lib/themes";
 import styles from "./page.module.css";
@@ -105,6 +105,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   const { showToast } = useToast();
   const router = useRouter();
   const [duplicateOpen, setDuplicateOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [calendar, setCalendar] = useState<CalendarWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<LoadError | null>(null);
@@ -876,20 +877,6 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     }
   }, [calendar, calendarId, markLocalMutation]);
 
-  const handleCopyPassphraseLink = useCallback(async () => {
-    if (!calendar?.calendar.passphrase) return;
-    const url = `${window.location.origin}/calendars/${calendarId}?unlock=${encodeURIComponent(
-      calendar.calendar.passphrase,
-    )}`;
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      // Clipboard API may be unavailable; fall back to a prompt so the owner
-      // can still grab the URL by hand.
-      window.prompt("Copy this link:", url);
-    }
-  }, [calendar, calendarId]);
-
   const handleRemoveParticipant = useCallback(
     async (target: Participant) => {
       if (!confirm(`Remove ${target.name}?`)) return;
@@ -1222,88 +1209,33 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
                 ✎
               </button>
             ) : null}
-          </div>
-          {isOwner ? (
-            <button
-              type="button"
-              className={styles.visibilityToggle}
-              onClick={() => setDuplicateOpen(true)}
-            >
-              Duplicate this calendar
-            </button>
-          ) : null}
-          {isOwner && !finalisedDate ? (
-            <button
-              type="button"
-              className={styles.visibilityToggle}
-              onClick={handleVisibilityToggle}
-              aria-pressed={calendar.calendar.visibility === "submit_to_view"}
-            >
-              {calendar.calendar.visibility === "submit_to_view"
-                ? "Hiding others until they respond — tap to show everyone"
-                : "Hide others' availability until they respond"}
-            </button>
-          ) : null}
-          {isOwner && !finalisedDate ? (
-            <ThemePicker currentTheme={calendar.calendar.theme} onChange={handleThemeChange} />
-          ) : null}
-          {isOwner && !finalisedDate ? (
-            <div className={styles.passphraseBlock}>
-              {calendar.calendar.hasPassphrase ? (
-                <>
-                  <p className={styles.passphraseLabel}>
-                    Passphrase:{" "}
-                    <code className={styles.passphraseValue}>
-                      {calendar.calendar.passphrase ?? "••••••••"}
-                    </code>
-                  </p>
-                  <div className={styles.passphraseActions}>
-                    <button
-                      type="button"
-                      className={styles.passphraseButton}
-                      onClick={handleCopyPassphraseLink}
-                      disabled={!calendar.calendar.passphrase}
-                    >
-                      Copy link with passphrase
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.passphraseButton}
-                      onClick={handleRegeneratePassphrase}
-                    >
-                      Regenerate
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.passphraseButton}
-                      onClick={handleDisablePassphrase}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                  <p className={styles.passphraseHint}>
-                    Anyone with the link can view the calendar. Regenerating invalidates old links
-                    immediately.
-                  </p>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  className={styles.visibilityToggle}
-                  onClick={handleEnablePassphrase}
+            {isOwner && !finalisedDate && renameDraft === null ? (
+              <button
+                type="button"
+                className={styles.settingsButton}
+                onClick={() => setSettingsOpen(true)}
+                aria-label="Calendar settings"
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
                 >
-                  Require a passphrase to open this calendar
-                </button>
-              )}
-            </div>
-          ) : null}
-          {isOwner && !finalisedDate ? (
-            <WhosMissingPanel
-              calendarId={calendar.calendar.id}
-              participants={calendar.participants}
-            />
-          ) : null}
-          <LiveStatusDot status={streamStatus} />
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+              </button>
+            ) : null}
+            <span className={styles.liveStatus}>
+              <LiveStatusDot status={streamStatus} />
+            </span>
+          </div>
         </div>
 
         {finalisedDate ? (
@@ -1413,44 +1345,14 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           />
         ) : null}
 
-        {revealed ? (
-          calendar.participants.length === 1 && !finalisedDate ? (
-            <InvitePrompt
-              calendarName={calendarName}
-              calendarEmoji={calendarEmoji}
-              finalisedDate={finalisedDate}
-            />
-          ) : calendar.participants.length >= 2 && !finalisedDate ? (
-            <>
-              <div className={styles.summaryCard}>
-                <SummaryView
-                  participants={calendar.participants}
-                  freeByDate={freeByDate}
-                  canFinalise={isOwner}
-                  onFinalise={handleFinalise}
-                />
-                <ShareButton
-                  calendarName={calendarName}
-                  calendarEmoji={calendarEmoji}
-                  finalisedDate={finalisedDate}
-                  variant="hero"
-                />
-              </div>
-              <ParticipantList
-                participants={calendar.participants}
-                currentParticipantId={currentParticipant?.id ?? null}
-                canRemove={isOwner}
-                canRenameOthers={isOwner}
-                onRemove={handleRemoveParticipant}
-                onRename={currentParticipant ? handleRenameParticipant : undefined}
-              />
-            </>
-          ) : (
+        {finalisedDate ? (
+          revealed && calendar.participants.length >= 1 ? (
             <>
               <ShareButton
                 calendarName={calendarName}
                 calendarEmoji={calendarEmoji}
                 finalisedDate={finalisedDate}
+                passphrase={calendar.calendar.passphrase ?? null}
               />
               <ParticipantList
                 participants={calendar.participants}
@@ -1461,14 +1363,79 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
                 onRename={currentParticipant ? handleRenameParticipant : undefined}
               />
             </>
-          )
+          ) : null
+        ) : calendar.participants.length >= 2 ? (
+          <>
+            <div className={styles.summaryCard}>
+              <SummaryView
+                participants={calendar.participants}
+                freeByDate={freeByDate}
+                canFinalise={isOwner}
+                onFinalise={handleFinalise}
+              />
+              <ShareButton
+                calendarName={calendarName}
+                calendarEmoji={calendarEmoji}
+                finalisedDate={finalisedDate}
+                passphrase={calendar.calendar.passphrase ?? null}
+                variant="hero"
+              />
+            </div>
+            <ParticipantList
+              participants={calendar.participants}
+              currentParticipantId={currentParticipant?.id ?? null}
+              canRemove={isOwner}
+              canRenameOthers={isOwner}
+              onRemove={handleRemoveParticipant}
+              onRename={currentParticipant ? handleRenameParticipant : undefined}
+            />
+          </>
         ) : (
-          <ShareButton
-            calendarName={calendarName}
-            calendarEmoji={calendarEmoji}
-            finalisedDate={finalisedDate}
-          />
+          <>
+            <InvitePrompt
+              calendarName={calendarName}
+              calendarEmoji={calendarEmoji}
+              finalisedDate={finalisedDate}
+              passphrase={calendar.calendar.passphrase ?? null}
+            />
+            {calendar.participants.length === 1 ? (
+              <ParticipantList
+                participants={calendar.participants}
+                currentParticipantId={currentParticipant?.id ?? null}
+                canRemove={isOwner}
+                canRenameOthers={isOwner}
+                onRemove={handleRemoveParticipant}
+                onRename={currentParticipant ? handleRenameParticipant : undefined}
+              />
+            ) : null}
+          </>
         )}
+
+        {isOwner && !finalisedDate ? (
+          <WhosMissingPanel
+            calendarId={calendar.calendar.id}
+            participants={calendar.participants}
+          />
+        ) : null}
+
+        {settingsOpen ? (
+          <CalendarSettingsSheet
+            theme={calendar.calendar.theme}
+            visibility={calendar.calendar.visibility}
+            hasPassphrase={calendar.calendar.hasPassphrase ?? false}
+            passphrase={calendar.calendar.passphrase ?? null}
+            onThemeChange={handleThemeChange}
+            onVisibilityToggle={handleVisibilityToggle}
+            onEnablePassphrase={handleEnablePassphrase}
+            onRegeneratePassphrase={handleRegeneratePassphrase}
+            onDisablePassphrase={handleDisablePassphrase}
+            onDuplicate={() => {
+              setSettingsOpen(false);
+              setDuplicateOpen(true);
+            }}
+            onClose={() => setSettingsOpen(false)}
+          />
+        ) : null}
       </div>
     </div>
   );

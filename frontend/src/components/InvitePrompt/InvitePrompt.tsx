@@ -5,12 +5,14 @@ interface InvitePromptProps {
   calendarName: string;
   calendarEmoji?: string | null;
   finalisedDate?: string | null;
+  passphrase?: string | null;
 }
 
 export default function InvitePrompt({
   calendarName,
   calendarEmoji = null,
   finalisedDate = null,
+  passphrase = null,
 }: InvitePromptProps) {
   return (
     <div className={styles.card}>
@@ -23,6 +25,7 @@ export default function InvitePrompt({
           calendarName={calendarName}
           calendarEmoji={calendarEmoji}
           finalisedDate={finalisedDate}
+          passphrase={passphrase}
           variant="hero"
         />
       </div>
