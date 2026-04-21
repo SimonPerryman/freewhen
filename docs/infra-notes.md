@@ -112,3 +112,17 @@ UPDATE users SET is_admin = true WHERE email = 'you@example.com';
 6. **Point the frontend at the backend:** set `NEXT_PUBLIC_API_URL` in Vercel
    to the Cloud Run URL (or your custom domain). Update `CORS_ORIGIN` on the
    service to match the Vercel domain.
+
+## Integration Tests
+
+`make test-integration` runs the Go integration suite against a real Postgres.
+On first run, [`fergusstrange/embedded-postgres`](https://github.com/fergusstrange/embedded-postgres)
+downloads a Postgres binary (~60MB) to `~/.embedded-postgres-go/` and caches it
+there for subsequent runs. No Docker or local Postgres install required.
+
+CI caches this directory via `actions/cache` so runs don't re-download the
+binary each time. The cache key is keyed on OS+arch+a manual version — bump it
+when upgrading the embedded-postgres library.
+
+To run against an existing database instead (e.g. a Neon branch), set
+`TEST_DATABASE_URL` and the embedded server is skipped.

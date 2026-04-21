@@ -43,6 +43,15 @@ jobs:
       - name: Test
         run: make test
 
+      - name: Cache embedded-postgres binary
+        uses: actions/cache@v4
+        with:
+          path: ~/.embedded-postgres-go
+          key: embedded-postgres-${{ runner.os }}-${{ runner.arch }}-v16
+
+      - name: Test (integration)
+        run: make test-integration
+
       - name: Build backend
         run: make build-backend
 

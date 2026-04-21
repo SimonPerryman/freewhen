@@ -10,16 +10,14 @@ import (
 	"testing"
 
 	"github.com/freewhen/backend/internal/model"
+	"github.com/freewhen/backend/internal/testdb"
 	_ "github.com/lib/pq"
 )
 
 func setupTestStore(t *testing.T) *Store {
 	t.Helper()
 
-	dsn := os.Getenv("TEST_DATABASE_URL")
-	if dsn == "" {
-		t.Fatal("TEST_DATABASE_URL not set")
-	}
+	dsn := testdb.Start(t)
 
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {

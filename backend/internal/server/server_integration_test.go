@@ -19,6 +19,7 @@ import (
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/server"
 	"github.com/freewhen/backend/internal/store"
+	"github.com/freewhen/backend/internal/testdb"
 )
 
 type testServer struct {
@@ -29,10 +30,7 @@ type testServer struct {
 func setupTestServer(t *testing.T) *testServer {
 	t.Helper()
 
-	dsn := os.Getenv("TEST_DATABASE_URL")
-	if dsn == "" {
-		t.Fatal("TEST_DATABASE_URL not set")
-	}
+	dsn := testdb.Start(t)
 
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
@@ -414,7 +412,7 @@ func TestAdminMetrics_OK(t *testing.T) {
 	ts := setupTestServer(t)
 
 	// Promote the test user to admin
-	dsn := os.Getenv("TEST_DATABASE_URL")
+	dsn := testdb.Start(t)
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
@@ -526,9 +524,10 @@ func TestFinaliseFlow(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("unfinalise: status %d, body %s", resp.StatusCode, body)
 	}
-	decodeJSON(t, body, &finalised)
-	if finalised.FinalisedDate != nil {
-		t.Fatalf("expected finalised_date cleared, got %v", *finalised.FinalisedDate)
+	var unfinalised model.Calendar
+	decodeJSON(t, body, &unfinalised)
+	if unfinalised.FinalisedDate != nil {
+		t.Fatalf("expected finalised_date cleared, got %v", *unfinalised.FinalisedDate)
 	}
 
 	// After unfinalise, writes succeed again
@@ -564,7 +563,7 @@ func TestFinalise_NotOwner(t *testing.T) {
 	decodeJSON(t, body, &cal)
 
 	// Second user tries to finalise
-	dsn := os.Getenv("TEST_DATABASE_URL")
+	dsn := testdb.Start(t)
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
@@ -606,7 +605,7 @@ func TestClaimParticipant(t *testing.T) {
 	}
 
 	// Create a second user to claim
-	dsn := os.Getenv("TEST_DATABASE_URL")
+	dsn := testdb.Start(t)
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
@@ -661,7 +660,7 @@ func TestAddParticipant_AuthLinksUser(t *testing.T) {
 	cal := createResp.Calendar
 
 	// Create second user
-	dsn := os.Getenv("TEST_DATABASE_URL")
+	dsn := testdb.Start(t)
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
@@ -738,7 +737,7 @@ func TestListUserCalendars(t *testing.T) {
 	decodeJSON(t, body, &second)
 
 	// Create a second user who joins Alpha.
-	dsn := os.Getenv("TEST_DATABASE_URL")
+	dsn := testdb.Start(t)
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
