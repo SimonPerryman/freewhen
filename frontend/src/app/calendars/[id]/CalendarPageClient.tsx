@@ -22,7 +22,11 @@ import { clearCalendarAccessToken } from "@/lib/calendarAccess";
 import PassphraseGate from "@/components/PassphraseGate/PassphraseGate";
 import analytics from "@/lib/analytics";
 import { useCalendarEvents } from "@/lib/useCalendarEvents";
-import { MAX_CALENDAR_NAME_LENGTH, MAX_PARTICIPANTS_PER_CALENDAR } from "@/lib/limits";
+import {
+  MAX_CALENDAR_NAME_LENGTH,
+  MAX_PARTICIPANT_NAME_LENGTH,
+  MAX_PARTICIPANTS_PER_CALENDAR,
+} from "@/lib/limits";
 import type { CalendarWithDetails, Participant } from "@/lib/types";
 import { useAuth } from "@/components/AuthProvider/AuthProvider";
 import { useToast } from "@/lib/toast";
@@ -43,6 +47,7 @@ const LOCAL_MUTATION_SUPPRESS_MS = 500;
 type LoadError = "not-found" | "load-failed";
 
 const STORAGE_PREFIX = "freewhen:";
+const LAST_NAME_KEY = "freewhen:lastName";
 
 interface StoredParticipant {
   participantId: string;
@@ -70,6 +75,24 @@ function readStorage(calendarId: string): StoredParticipant | null {
 
 function writeStorage(calendarId: string, data: StoredParticipant): void {
   localStorage.setItem(`${STORAGE_PREFIX}${calendarId}`, JSON.stringify(data));
+}
+
+function readLastName(): string {
+  try {
+    const raw = localStorage.getItem(LAST_NAME_KEY);
+    if (!raw) return "";
+    return raw.slice(0, MAX_PARTICIPANT_NAME_LENGTH);
+  } catch {
+    return "";
+  }
+}
+
+function writeLastName(name: string): void {
+  try {
+    localStorage.setItem(LAST_NAME_KEY, name);
+  } catch {
+    // ignore quota / disabled storage
+  }
 }
 
 export default function CalendarPageClient({ calendarId }: { calendarId: string }) {
@@ -174,6 +197,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
 
         // Resolve participant: user_id match first, then localStorage
         let resolved: (typeof data.participants)[0] | undefined;
+        let prefillName: string | null = null;
 
         // 1. Auto-reconnect: if signed in, find participant linked to this user
         if (user) {
@@ -218,13 +242,23 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
             };
           } else {
             // Stale participant — pre-fill name
-            setStoredName(stored.name);
+            prefillName = stored.name;
           }
         }
 
-        // 4. Pre-fill join form with user name if signed in and no participant found
-        if (!resolved && user) {
-          setStoredName(user.name);
+        // 4. Pre-fill join form with user name if signed in, then fall back to
+        //    the last name this browser used on any calendar.
+        if (!resolved && prefillName === null) {
+          if (user?.name) {
+            prefillName = user.name;
+          } else {
+            const last = readLastName();
+            if (last) prefillName = last;
+          }
+        }
+
+        if (prefillName !== null) {
+          setStoredName(prefillName);
         }
 
         if (resolved) {
@@ -855,6 +889,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           name,
           colour: participant.colour,
         });
+        writeLastName(name);
         analytics.capture("participant_added", { calendar_id: calendarId });
         // Add participant to local calendar state
         setCalendar((prev) =>

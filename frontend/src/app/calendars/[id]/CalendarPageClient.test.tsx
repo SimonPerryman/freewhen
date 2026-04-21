@@ -336,6 +336,66 @@ describe("CalendarPageClient", () => {
     expect(screen.queryByTestId("join-form")).not.toBeInTheDocument();
   });
 
+  it("prefills join form from global freewhen:lastName when no stored participant and not signed in", async () => {
+    mockGetCalendar.mockResolvedValue(makeCalendarData());
+    localStorageMock.getItem.mockImplementation((key: string) =>
+      key === "freewhen:lastName" ? "Sam" : null,
+    );
+
+    render(
+      <AuthProvider>
+        <CalendarPageClient calendarId={CALENDAR_ID} />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("join-form")).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(_capturedDefaultName).toBe("Sam");
+    });
+  });
+
+  it("signed-in user name wins over freewhen:lastName fallback", async () => {
+    mockUser = { id: "user-1", email: "alice@example.com", name: "Alice" };
+    mockGetCalendar.mockResolvedValue(makeCalendarData());
+    localStorageMock.getItem.mockImplementation((key: string) =>
+      key === "freewhen:lastName" ? "Sam" : null,
+    );
+
+    render(
+      <AuthProvider>
+        <CalendarPageClient calendarId={CALENDAR_ID} />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("join-form")).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(_capturedDefaultName).toBe("Alice");
+    });
+  });
+
+  it("successful join writes freewhen:lastName to localStorage", async () => {
+    mockGetCalendar.mockResolvedValue(makeCalendarData());
+    mockAddParticipant.mockResolvedValue(makeParticipant({ id: "p-new", name: "Sammy" }));
+
+    render(
+      <AuthProvider>
+        <CalendarPageClient calendarId={CALENDAR_ID} />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(capturedOnJoin).not.toBeNull();
+    });
+
+    await capturedOnJoin!("Sammy");
+
+    expect(localStorageMock.setItem).toHaveBeenCalledWith("freewhen:lastName", "Sammy");
+  });
+
   it("join flow: submitting name calls API, stores to localStorage, shows grid", async () => {
     const calendarData = makeCalendarData();
     mockGetCalendar.mockResolvedValue(calendarData);
