@@ -50,6 +50,11 @@ export interface CreateCalendarRequest {
   visibility?: Visibility;
 }
 
+export interface DuplicateCalendarRequest {
+  name?: string;
+  includeParticipants?: boolean;
+}
+
 export interface UpdateCalendarRequest {
   name?: string;
   visibility?: Visibility;

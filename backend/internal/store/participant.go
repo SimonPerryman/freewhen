@@ -183,6 +183,47 @@ func (s *Store) DeleteParticipant(ctx context.Context, calendarID, participantID
 	return nil
 }
 
+// insertParticipantTx inserts a participant row under the given transaction,
+// retrying on ID collision. The colour is picked from the palette by
+// paletteIndex modulo palette length — callers supplying sequential indexes
+// get the same round-robin assignment as sequential AddParticipant calls.
+// Used by DuplicateCalendar to copy a whole participant list atomically.
+func insertParticipantTx(ctx context.Context, tx *sql.Tx, calendarID, name string, userID *string, paletteIndex int) (model.Participant, error) {
+	colour := colourPalette[paletteIndex%len(colourPalette)]
+	var userIDVal any
+	if userID != nil {
+		userIDVal = *userID
+	}
+	const maxRetries = 3
+	for i := 0; i < maxRetries; i++ {
+		id := generateID(8)
+		var p model.Participant
+		var scannedUserID sql.NullString
+		err := tx.QueryRowContext(ctx,
+			`INSERT INTO participants (id, calendar_id, name, colour, user_id) VALUES ($1, $2, $3, $4, $5)
+			 RETURNING id, calendar_id, name, colour, user_id`,
+			id, calendarID, name, colour, userIDVal,
+		).Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &scannedUserID)
+		if err != nil {
+			if isUniqueViolation(err) {
+				if isDuplicateName(err) {
+					return model.Participant{}, ErrDuplicateName
+				}
+				if isUserAlreadyJoined(err) {
+					return model.Participant{}, ErrUserAlreadyJoined
+				}
+				continue
+			}
+			return model.Participant{}, err
+		}
+		if scannedUserID.Valid {
+			p.UserID = &scannedUserID.String
+		}
+		return p, nil
+	}
+	return model.Participant{}, fmt.Errorf("failed to generate unique participant ID after %d attempts", maxRetries)
+}
+
 func (s *Store) participantCount(ctx context.Context, calendarID string) (int, error) {
 	var count int
 	err := s.db.QueryRowContext(ctx,

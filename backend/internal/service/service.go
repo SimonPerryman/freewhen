@@ -43,6 +43,7 @@ func (noopPublisher) Publish(string, string) {}
 // Store defines the data operations the service needs.
 type Store interface {
 	CreateCalendar(ctx context.Context, name, emoji, ownerID, visibility string) (model.Calendar, error)
+	DuplicateCalendar(ctx context.Context, sourceID, newOwnerID, finalName, ownerParticipantName string, includeParticipants bool) (model.Calendar, model.Participant, error)
 	GetCalendar(ctx context.Context, id string) (model.CalendarWithDetails, error)
 	GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error)
 	AddParticipant(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
@@ -94,6 +95,69 @@ func (s *Service) CreateCalendar(ctx context.Context, name, ownerID, visibility 
 		return model.Calendar{}, store.ErrCalendarLimitReached
 	}
 	return s.store.CreateCalendar(ctx, name, pickRandomEmoji(), ownerID, visibility)
+}
+
+// DuplicateCalendar creates a new calendar derived from sourceID. The caller
+// must have already verified that newOwnerID is the source's owner — the
+// service does not repeat the ownership check because handlers already load
+// the source to produce 404 vs 403 distinctions.
+//
+// overrideName, if non-empty, replaces the default "<source> (copy)" name.
+// Names longer than the cap return ErrInvalidName. includeParticipants
+// defaults to true at the handler layer; when false, only the owner ends up
+// on the new calendar.
+func (s *Service) DuplicateCalendar(
+	ctx context.Context,
+	sourceID, newOwnerID, ownerParticipantName, overrideName string,
+	includeParticipants bool,
+) (model.Calendar, model.Participant, error) {
+	if overrideName != "" {
+		if len(overrideName) > limits.MaxCalendarNameLength {
+			return model.Calendar{}, model.Participant{}, ErrInvalidName
+		}
+	}
+
+	count, err := s.store.CountCalendarsForOwner(ctx, newOwnerID)
+	if err != nil {
+		return model.Calendar{}, model.Participant{}, err
+	}
+	if count >= limits.MaxCalendarsPerUser {
+		return model.Calendar{}, model.Participant{}, store.ErrCalendarLimitReached
+	}
+
+	source, err := s.store.GetCalendarOnly(ctx, sourceID)
+	if err != nil {
+		return model.Calendar{}, model.Participant{}, err
+	}
+
+	finalName := strings.TrimSpace(overrideName)
+	if finalName == "" {
+		finalName = source.Name + " (copy)"
+		if len([]rune(finalName)) > limits.MaxCalendarNameLength {
+			runes := []rune(finalName)
+			finalName = string(runes[:limits.MaxCalendarNameLength])
+		}
+	}
+
+	if includeParticipants {
+		srcCount, err := s.store.CountCalendarParticipants(ctx, sourceID)
+		if err != nil {
+			return model.Calendar{}, model.Participant{}, err
+		}
+		// Owner auto-join on the new calendar adds 1; exclude the source owner
+		// row from the copy (it folds into the auto-join), so total upper
+		// bound is srcCount when the source owner participates, srcCount+1
+		// otherwise. Use srcCount+1 as the defensive ceiling.
+		if srcCount+1 > limits.MaxParticipantsPerCalendar {
+			return model.Calendar{}, model.Participant{}, store.ErrCalendarFull
+		}
+	}
+
+	cal, ownerP, err := s.store.DuplicateCalendar(ctx, sourceID, newOwnerID, finalName, ownerParticipantName, includeParticipants)
+	if err != nil {
+		return model.Calendar{}, model.Participant{}, err
+	}
+	return cal, ownerP, nil
 }
 
 func (s *Service) GetCalendar(ctx context.Context, id string) (model.CalendarWithDetails, error) {

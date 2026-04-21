@@ -7,6 +7,11 @@ vi.mock("@/lib/analytics", () => ({
   default: { init: vi.fn(), identify: vi.fn(), reset: vi.fn(), capture: vi.fn() },
 }));
 
+// --- Mock next/navigation ---
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
+}));
+
 // --- Mock @/lib/api ---
 
 const mockGetCalendar = vi.fn();

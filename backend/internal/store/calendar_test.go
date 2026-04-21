@@ -392,3 +392,107 @@ func TestParticipantHasAvailability(t *testing.T) {
 		t.Fatal("expected availability, got none")
 	}
 }
+
+func TestDuplicateCalendar_CopiesCoreFields(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
+
+	src, err := s.CreateCalendar(ctx, "Tennis", "🎾", owner.ID, "submit_to_view")
+	if err != nil {
+		t.Fatalf("create src: %v", err)
+	}
+	if _, err := s.AddParticipant(ctx, src.ID, "Owner", &owner.ID); err != nil {
+		t.Fatalf("owner join: %v", err)
+	}
+	if _, err := s.AddParticipant(ctx, src.ID, "Alice", nil); err != nil {
+		t.Fatalf("add alice: %v", err)
+	}
+	if _, err := s.AddParticipant(ctx, src.ID, "Bob", nil); err != nil {
+		t.Fatalf("add bob: %v", err)
+	}
+
+	dup, ownerP, err := s.DuplicateCalendar(ctx, src.ID, owner.ID, "Tennis (copy)", "Owner", true)
+	if err != nil {
+		t.Fatalf("duplicate: %v", err)
+	}
+	if dup.ID == src.ID {
+		t.Fatal("expected new calendar id, got same as source")
+	}
+	if dup.Name != "Tennis (copy)" || dup.Emoji != "🎾" || dup.Visibility != "submit_to_view" {
+		t.Fatalf("unexpected duplicate fields: %+v", dup)
+	}
+	if ownerP.Name != "Owner" || ownerP.UserID == nil || *ownerP.UserID != owner.ID {
+		t.Fatalf("unexpected owner participant: %+v", ownerP)
+	}
+
+	got, err := s.GetCalendar(ctx, dup.ID)
+	if err != nil {
+		t.Fatalf("get dup: %v", err)
+	}
+	if len(got.Participants) != 3 {
+		t.Fatalf("participants len = %d, want 3 (owner + alice + bob)", len(got.Participants))
+	}
+	if len(got.Availability) != 0 {
+		t.Fatalf("expected no availability on duplicate, got %d rows", len(got.Availability))
+	}
+	if got.Calendar.FinalisedDate != nil {
+		t.Fatal("expected duplicate to be unfinalised")
+	}
+}
+
+func TestDuplicateCalendar_SkipParticipants(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
+
+	src, err := s.CreateCalendar(ctx, "Tennis", "", owner.ID, "open")
+	if err != nil {
+		t.Fatalf("create src: %v", err)
+	}
+	if _, err := s.AddParticipant(ctx, src.ID, "Owner", &owner.ID); err != nil {
+		t.Fatalf("owner join: %v", err)
+	}
+	if _, err := s.AddParticipant(ctx, src.ID, "Alice", nil); err != nil {
+		t.Fatalf("add alice: %v", err)
+	}
+
+	dup, _, err := s.DuplicateCalendar(ctx, src.ID, owner.ID, "Tennis (copy)", "Owner", false)
+	if err != nil {
+		t.Fatalf("duplicate: %v", err)
+	}
+	got, err := s.GetCalendar(ctx, dup.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if len(got.Participants) != 1 {
+		t.Fatalf("participants len = %d, want 1 (owner only)", len(got.Participants))
+	}
+}
+
+func TestDuplicateCalendar_OwnerDedupedOnIncludeParticipants(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
+
+	src, err := s.CreateCalendar(ctx, "Tennis", "", owner.ID, "open")
+	if err != nil {
+		t.Fatalf("create src: %v", err)
+	}
+	// Owner is a participant on the source (standard auto-join shape).
+	if _, err := s.AddParticipant(ctx, src.ID, "Owner", &owner.ID); err != nil {
+		t.Fatalf("owner join: %v", err)
+	}
+
+	dup, _, err := s.DuplicateCalendar(ctx, src.ID, owner.ID, "Tennis (copy)", "Owner", true)
+	if err != nil {
+		t.Fatalf("duplicate: %v", err)
+	}
+	got, err := s.GetCalendar(ctx, dup.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if len(got.Participants) != 1 {
+		t.Fatalf("participants len = %d, want 1 (owner, not duplicated)", len(got.Participants))
+	}
+}

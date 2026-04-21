@@ -20,6 +20,7 @@ import (
 // mockService implements CalendarService for testing.
 type mockService struct {
 	createCalendar           func(ctx context.Context, name, ownerID, visibility string) (model.Calendar, error)
+	duplicateCalendar        func(ctx context.Context, sourceID, newOwnerID, ownerParticipantName, overrideName string, includeParticipants bool) (model.Calendar, model.Participant, error)
 	getCalendar              func(ctx context.Context, id string) (model.CalendarWithDetails, error)
 	getCalendarView          func(ctx context.Context, id string, viewer service.Viewer) (service.CalendarView, error)
 	getCalendarOnly          func(ctx context.Context, id string) (model.Calendar, error)
@@ -41,6 +42,13 @@ type mockService struct {
 
 func (m *mockService) CreateCalendar(ctx context.Context, name, ownerID, visibility string) (model.Calendar, error) {
 	return m.createCalendar(ctx, name, ownerID, visibility)
+}
+
+func (m *mockService) DuplicateCalendar(ctx context.Context, sourceID, newOwnerID, ownerParticipantName, overrideName string, includeParticipants bool) (model.Calendar, model.Participant, error) {
+	if m.duplicateCalendar == nil {
+		return model.Calendar{}, model.Participant{}, nil
+	}
+	return m.duplicateCalendar(ctx, sourceID, newOwnerID, ownerParticipantName, overrideName, includeParticipants)
 }
 
 func (m *mockService) GetCalendar(ctx context.Context, id string) (model.CalendarWithDetails, error) {
@@ -1327,6 +1335,151 @@ func TestCreateCalendar_CalendarLimitReached(t *testing.T) {
 	rec := httptest.NewRecorder()
 	h.CreateCalendar(rec, req)
 
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusConflict)
+	}
+	assertErrorCode(t, rec, "calendar_limit_reached")
+}
+
+// --- DuplicateCalendar tests ---
+
+func TestDuplicateCalendar_Unauthorized(t *testing.T) {
+	h := New(&mockService{})
+	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/duplicate", nil)
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.DuplicateCalendar(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestDuplicateCalendar_NotOwner(t *testing.T) {
+	h := New(&mockService{
+		getCalendarOnly: func(_ context.Context, id string) (model.Calendar, error) {
+			return model.Calendar{ID: id, OwnerID: "other"}, nil
+		},
+	})
+	req := withUser(httptest.NewRequest(http.MethodPost, "/calendars/cal1/duplicate", nil), testUser)
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.DuplicateCalendar(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
+	}
+}
+
+func TestDuplicateCalendar_NotFound(t *testing.T) {
+	h := New(&mockService{
+		getCalendarOnly: func(_ context.Context, _ string) (model.Calendar, error) {
+			return model.Calendar{}, store.ErrNotFound
+		},
+	})
+	req := withUser(httptest.NewRequest(http.MethodPost, "/calendars/missing/duplicate", nil), testUser)
+	req.SetPathValue("id", "missing")
+	rec := httptest.NewRecorder()
+	h.DuplicateCalendar(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+	}
+}
+
+func TestDuplicateCalendar_HappyPath(t *testing.T) {
+	newCal := model.Calendar{ID: "new12345", Name: "Tennis (copy)", OwnerID: "u1", Emoji: "🎾", Visibility: model.VisibilityOpen}
+	ownerP := model.Participant{ID: "p-new", CalendarID: "new12345", Name: "Test", Colour: "#E63946", UserID: strPtr("u1")}
+	var gotOverride string
+	var gotInclude bool
+	h := New(&mockService{
+		getCalendarOnly: func(_ context.Context, id string) (model.Calendar, error) {
+			return model.Calendar{ID: id, OwnerID: "u1", Name: "Tennis", Emoji: "🎾"}, nil
+		},
+		duplicateCalendar: func(_ context.Context, sourceID, newOwnerID, ownerName, overrideName string, includeParticipants bool) (model.Calendar, model.Participant, error) {
+			if sourceID != "cal1" || newOwnerID != "u1" || ownerName != "Test" {
+				t.Fatalf("unexpected args: sourceID=%q newOwnerID=%q ownerName=%q", sourceID, newOwnerID, ownerName)
+			}
+			gotOverride = overrideName
+			gotInclude = includeParticipants
+			return newCal, ownerP, nil
+		},
+	})
+	req := withUser(httptest.NewRequest(http.MethodPost, "/calendars/cal1/duplicate", jsonBody(t, map[string]any{})), testUser)
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.DuplicateCalendar(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d (body=%s)", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	if gotOverride != "" {
+		t.Fatalf("override = %q, want empty (server-default)", gotOverride)
+	}
+	if !gotInclude {
+		t.Fatal("include_participants should default to true")
+	}
+	var got struct {
+		ID          string             `json:"id"`
+		Participant *model.Participant `json:"participant"`
+	}
+	decodeJSON(t, rec, &got)
+	if got.ID != "new12345" || got.Participant == nil {
+		t.Fatalf("unexpected body: %+v", got)
+	}
+}
+
+func TestDuplicateCalendar_IncludeParticipantsFalse(t *testing.T) {
+	var gotInclude bool
+	h := New(&mockService{
+		getCalendarOnly: func(_ context.Context, id string) (model.Calendar, error) {
+			return model.Calendar{ID: id, OwnerID: "u1"}, nil
+		},
+		duplicateCalendar: func(_ context.Context, _, _, _, _ string, include bool) (model.Calendar, model.Participant, error) {
+			gotInclude = include
+			return model.Calendar{ID: "new", OwnerID: "u1"}, model.Participant{ID: "p"}, nil
+		},
+	})
+	body := map[string]any{"include_participants": false}
+	req := withUser(httptest.NewRequest(http.MethodPost, "/calendars/cal1/duplicate", jsonBody(t, body)), testUser)
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.DuplicateCalendar(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusCreated)
+	}
+	if gotInclude {
+		t.Fatal("include_participants should have been false")
+	}
+}
+
+func TestDuplicateCalendar_NameTooLong(t *testing.T) {
+	h := New(&mockService{
+		getCalendarOnly: func(_ context.Context, id string) (model.Calendar, error) {
+			return model.Calendar{ID: id, OwnerID: "u1"}, nil
+		},
+	})
+	long := strings.Repeat("a", limits.MaxCalendarNameLength+1)
+	body := map[string]any{"name": long}
+	req := withUser(httptest.NewRequest(http.MethodPost, "/calendars/cal1/duplicate", jsonBody(t, body)), testUser)
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.DuplicateCalendar(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+	assertErrorCode(t, rec, "name_too_long")
+}
+
+func TestDuplicateCalendar_LimitReached(t *testing.T) {
+	h := New(&mockService{
+		getCalendarOnly: func(_ context.Context, id string) (model.Calendar, error) {
+			return model.Calendar{ID: id, OwnerID: "u1"}, nil
+		},
+		duplicateCalendar: func(_ context.Context, _, _, _, _ string, _ bool) (model.Calendar, model.Participant, error) {
+			return model.Calendar{}, model.Participant{}, store.ErrCalendarLimitReached
+		},
+	})
+	req := withUser(httptest.NewRequest(http.MethodPost, "/calendars/cal1/duplicate", jsonBody(t, map[string]any{})), testUser)
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.DuplicateCalendar(rec, req)
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusConflict)
 	}

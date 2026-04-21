@@ -14,6 +14,7 @@ import (
 // are exercised; the rest panic if called unexpectedly.
 type mockStore struct {
 	createCalendar             func(name, emoji, ownerID, visibility string) (model.Calendar, error)
+	duplicateCalendar          func(ctx context.Context, sourceID, newOwnerID, finalName, ownerParticipantName string, includeParticipants bool) (model.Calendar, model.Participant, error)
 	getCalendar                func(ctx context.Context, id string) (model.CalendarWithDetails, error)
 	getParticipant             func(ctx context.Context, id string) (model.Participant, error)
 	setAvailability            func(ctx context.Context, participantID string, dates []string, noteOverrides map[string]string) error
@@ -32,6 +33,13 @@ func (m *mockStore) CreateCalendar(_ context.Context, name, emoji, ownerID, visi
 		panic("unexpected call to CreateCalendar")
 	}
 	return m.createCalendar(name, emoji, ownerID, visibility)
+}
+
+func (m *mockStore) DuplicateCalendar(ctx context.Context, sourceID, newOwnerID, finalName, ownerParticipantName string, includeParticipants bool) (model.Calendar, model.Participant, error) {
+	if m.duplicateCalendar == nil {
+		panic("unexpected call to DuplicateCalendar")
+	}
+	return m.duplicateCalendar(ctx, sourceID, newOwnerID, finalName, ownerParticipantName, includeParticipants)
 }
 
 func (m *mockStore) GetCalendar(ctx context.Context, id string) (model.CalendarWithDetails, error) {
@@ -243,6 +251,94 @@ func TestSetAvailability_StoreError(t *testing.T) {
 	err := s.SetAvailability(context.Background(), "cal1", "p1", []string{"2026-05-01"}, nil)
 	if err == nil {
 		t.Fatal("expected error, got nil")
+	}
+}
+
+// --- DuplicateCalendar tests ---
+
+func TestDuplicateCalendar_DefaultNameSuffix(t *testing.T) {
+	var gotFinalName string
+	ms := &mockStore{
+		countCalendarsForOwner: func(_ context.Context, _ string) (int, error) { return 3, nil },
+		getCalendarOnly: func(_ context.Context, id string) (model.Calendar, error) {
+			return model.Calendar{ID: id, OwnerID: "u1", Name: "Tennis"}, nil
+		},
+		countCalendarParticipants: func(_ context.Context, _ string) (int, error) { return 2, nil },
+		duplicateCalendar: func(_ context.Context, sourceID, newOwnerID, finalName, ownerName string, include bool) (model.Calendar, model.Participant, error) {
+			gotFinalName = finalName
+			return model.Calendar{ID: "new", Name: finalName, OwnerID: newOwnerID}, model.Participant{ID: "p", Name: ownerName, UserID: &newOwnerID}, nil
+		},
+	}
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
+	_, _, err := s.DuplicateCalendar(context.Background(), "cal1", "u1", "Simon", "", true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotFinalName != "Tennis (copy)" {
+		t.Fatalf("finalName = %q, want %q", gotFinalName, "Tennis (copy)")
+	}
+}
+
+func TestDuplicateCalendar_OverrideNameHonoured(t *testing.T) {
+	var gotFinalName string
+	ms := &mockStore{
+		countCalendarsForOwner: func(_ context.Context, _ string) (int, error) { return 0, nil },
+		getCalendarOnly: func(_ context.Context, id string) (model.Calendar, error) {
+			return model.Calendar{ID: id, OwnerID: "u1", Name: "Original"}, nil
+		},
+		countCalendarParticipants: func(_ context.Context, _ string) (int, error) { return 0, nil },
+		duplicateCalendar: func(_ context.Context, _, _, finalName, _ string, _ bool) (model.Calendar, model.Participant, error) {
+			gotFinalName = finalName
+			return model.Calendar{ID: "n"}, model.Participant{}, nil
+		},
+	}
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
+	_, _, err := s.DuplicateCalendar(context.Background(), "cal1", "u1", "Simon", "Tennis May", true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotFinalName != "Tennis May" {
+		t.Fatalf("finalName = %q, want %q", gotFinalName, "Tennis May")
+	}
+}
+
+func TestDuplicateCalendar_LimitReached(t *testing.T) {
+	ms := &mockStore{
+		countCalendarsForOwner: func(_ context.Context, _ string) (int, error) { return 200, nil },
+	}
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
+	_, _, err := s.DuplicateCalendar(context.Background(), "cal1", "u1", "Simon", "", true)
+	if !errors.Is(err, store.ErrCalendarLimitReached) {
+		t.Fatalf("err = %v, want ErrCalendarLimitReached", err)
+	}
+}
+
+func TestDuplicateCalendar_CalendarFull(t *testing.T) {
+	ms := &mockStore{
+		countCalendarsForOwner: func(_ context.Context, _ string) (int, error) { return 0, nil },
+		getCalendarOnly: func(_ context.Context, id string) (model.Calendar, error) {
+			return model.Calendar{ID: id, OwnerID: "u1", Name: "x"}, nil
+		},
+		countCalendarParticipants: func(_ context.Context, _ string) (int, error) { return 100, nil },
+	}
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
+	_, _, err := s.DuplicateCalendar(context.Background(), "cal1", "u1", "Simon", "", true)
+	if !errors.Is(err, store.ErrCalendarFull) {
+		t.Fatalf("err = %v, want ErrCalendarFull", err)
+	}
+}
+
+func TestDuplicateCalendar_SourceNotFound(t *testing.T) {
+	ms := &mockStore{
+		countCalendarsForOwner: func(_ context.Context, _ string) (int, error) { return 0, nil },
+		getCalendarOnly: func(_ context.Context, _ string) (model.Calendar, error) {
+			return model.Calendar{}, store.ErrNotFound
+		},
+	}
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
+	_, _, err := s.DuplicateCalendar(context.Background(), "missing", "u1", "Simon", "", true)
+	if !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("err = %v, want ErrNotFound", err)
 	}
 }
 

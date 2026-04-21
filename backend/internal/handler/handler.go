@@ -17,6 +17,7 @@ var UserContextKey = contextKey{}
 // CalendarService defines the operations the handler needs from the service layer.
 type CalendarService interface {
 	CreateCalendar(ctx context.Context, name, ownerID, visibility string) (model.Calendar, error)
+	DuplicateCalendar(ctx context.Context, sourceID, newOwnerID, ownerParticipantName, overrideName string, includeParticipants bool) (model.Calendar, model.Participant, error)
 	GetCalendar(ctx context.Context, id string) (model.CalendarWithDetails, error)
 	GetCalendarView(ctx context.Context, calendarID string, viewer service.Viewer) (service.CalendarView, error)
 	GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error)

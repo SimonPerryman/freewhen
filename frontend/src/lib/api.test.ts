@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   createCalendar,
+  duplicateCalendar,
   getCalendar,
   addParticipant,
   setAvailability,
@@ -270,6 +271,39 @@ describe("renameParticipant", () => {
         expect(err.code).toBe("duplicate_name");
       }
     }
+  });
+});
+
+describe("duplicateCalendar", () => {
+  it("sends POST to /calendars/:id/duplicate with snake_cased body", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(
+        { id: "new123", name: "Tennis (copy)", created_at: "2026-04-21T00:00:00Z" },
+        201,
+      ),
+    );
+
+    const result = await duplicateCalendar("src1", {
+      name: "Tennis May",
+      includeParticipants: false,
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "http://localhost:8080/calendars/src1/duplicate",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ name: "Tennis May", include_participants: false }),
+      }),
+    );
+    expect(result.id).toBe("new123");
+  });
+
+  it("defaults to empty body when no options provided", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse({ id: "new", name: "x", created_at: "2026-04-21T00:00:00Z" }, 201),
+    );
+    await duplicateCalendar("src1");
+    expect(mockFetch.mock.calls[0][1]).toMatchObject({ body: "{}" });
   });
 });
 

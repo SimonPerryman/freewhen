@@ -73,6 +73,84 @@ func (h *Handler) CreateCalendar(w http.ResponseWriter, r *http.Request) {
 	}{Calendar: cal, Participant: &participant})
 }
 
+// DuplicateCalendar handles POST /calendars/{id}/duplicate. Owner-only.
+// Creates a new calendar derived from the source: same emoji, visibility,
+// and (by default) participants. Availability, finalised state, and
+// passphrase are intentionally dropped.
+func (h *Handler) DuplicateCalendar(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
+	user := UserFromContext(r)
+	if user == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized", "unauthorized")
+		return
+	}
+
+	id := r.PathValue("id")
+
+	// Missing body is OK — duplicate-with-defaults is the happy path.
+	req := struct {
+		Name                *string `json:"name"`
+		IncludeParticipants *bool   `json:"include_participants"`
+	}{}
+	if r.ContentLength != 0 {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
+			return
+		}
+	}
+
+	overrideName := ""
+	if req.Name != nil {
+		overrideName = *req.Name
+	}
+	if len(overrideName) > limits.MaxCalendarNameLength {
+		respondError(w, http.StatusBadRequest, "name_too_long", "calendar name is too long")
+		return
+	}
+
+	includeParticipants := true
+	if req.IncludeParticipants != nil {
+		includeParticipants = *req.IncludeParticipants
+	}
+
+	source, err := h.service.GetCalendarOnly(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
+			return
+		}
+		respondError(w, http.StatusInternalServerError, "internal_error", "failed to load calendar")
+		return
+	}
+	if source.OwnerID != user.ID {
+		respondError(w, http.StatusForbidden, "forbidden", "only the owner can duplicate this calendar")
+		return
+	}
+
+	cal, participant, err := h.service.DuplicateCalendar(r.Context(), id, user.ID, user.Name, overrideName, includeParticipants)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrCalendarLimitReached):
+			respondError(w, http.StatusConflict, "calendar_limit_reached", "you have reached the calendar limit")
+		case errors.Is(err, store.ErrCalendarFull):
+			respondError(w, http.StatusConflict, "calendar_full", "calendar is full")
+		case errors.Is(err, service.ErrInvalidName):
+			respondError(w, http.StatusBadRequest, "name_too_long", "calendar name is too long")
+		case errors.Is(err, store.ErrNotFound):
+			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
+		default:
+			respondError(w, http.StatusInternalServerError, "internal_error", "failed to duplicate calendar")
+		}
+		return
+	}
+
+	respondJSON(w, http.StatusCreated, struct {
+		model.Calendar
+		Participant *model.Participant `json:"participant,omitempty"`
+	}{Calendar: cal, Participant: &participant})
+}
+
 // AccessHeader is the HTTP header carrying a calendar access token issued by
 // POST /calendars/{id}/unlock.
 const AccessHeader = "X-Calendar-Access"

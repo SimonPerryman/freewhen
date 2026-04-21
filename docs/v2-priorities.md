@@ -35,7 +35,7 @@ See `future-ideas.md` for detailed descriptions of each feature.
 | ~~Default name from signed-in user~~ ✅ | — | **Shipped.** Prefills with signed-in name; anon users fall back to the last name they used on any calendar in this browser. See `plans/default-name-from-signed-in-user.md`. |
 | ~~Clear availability~~ ✅ | — | **Shipped.** Third toolbar button with undo toast. See `plans/clear-availability.md`. |
 | Date range suggestions | — | Highlight creator's preferred window. Might be a solution looking for a problem. |
-| Duplicate a calendar | Auth | "Same group, new event." Can't auto-invite anonymous users. |
+| ~~Duplicate a calendar~~ ✅ | Auth | **Shipped.** "Same group, new event." Owner-only duplicate copies name/emoji/visibility and (optionally) participants; drops availability/finalised/passphrase. See `plans/duplicate-a-calendar.md`. |
 | Calendar integrations | Auth | Import/export Google/Apple. High value, high complexity. |
 | "Who's missing?" | Auth | See who hasn't responded. Needs expected participant list or named invites. |
 | Expiry / auto-archive | Auth | Keeps "my calendars" clean. Only matters at scale. |

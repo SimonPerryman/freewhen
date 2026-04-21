@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   getCalendar,
   addParticipant,
@@ -32,6 +33,7 @@ import { useAuth } from "@/components/AuthProvider/AuthProvider";
 import { useToast } from "@/lib/toast";
 import CalendarGrid from "@/components/CalendarGrid/CalendarGrid";
 import DayDetailSheet from "@/components/DayDetailSheet/DayDetailSheet";
+import DuplicateCalendarSheet from "@/components/DuplicateCalendarSheet/DuplicateCalendarSheet";
 import FinalisedBanner from "@/components/FinalisedBanner/FinalisedBanner";
 import JoinForm from "@/components/JoinForm/JoinForm";
 import InvitePrompt from "@/components/InvitePrompt/InvitePrompt";
@@ -98,6 +100,8 @@ function writeLastName(name: string): void {
 export default function CalendarPageClient({ calendarId }: { calendarId: string }) {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const router = useRouter();
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [calendar, setCalendar] = useState<CalendarWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<LoadError | null>(null);
@@ -1079,6 +1083,15 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
               </button>
             ) : null}
           </div>
+          {isOwner ? (
+            <button
+              type="button"
+              className={styles.visibilityToggle}
+              onClick={() => setDuplicateOpen(true)}
+            >
+              Duplicate this calendar
+            </button>
+          ) : null}
           {isOwner && !finalisedDate ? (
             <button
               type="button"
@@ -1210,6 +1223,18 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           joined={!!currentParticipant}
           finalisedDate={finalisedDate}
         />
+
+        {duplicateOpen ? (
+          <DuplicateCalendarSheet
+            calendarId={calendarId}
+            sourceName={calendarName}
+            onClose={() => setDuplicateOpen(false)}
+            onDuplicated={(newId) => {
+              setDuplicateOpen(false);
+              router.push(`/calendars/${newId}`);
+            }}
+          />
+        ) : null}
 
         {openDayDate && currentParticipant ? (
           <DayDetailSheet

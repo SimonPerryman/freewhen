@@ -4,6 +4,7 @@ import type {
   CalendarWithDetails,
   CreateCalendarRequest,
   CreateCalendarResponse,
+  DuplicateCalendarRequest,
   MyCalendarsResponse,
   Participant,
   SetAvailabilityRequest,
@@ -117,6 +118,16 @@ async function request<T>(
 
 export async function createCalendar(req: CreateCalendarRequest): Promise<CreateCalendarResponse> {
   return request<CreateCalendarResponse>("/calendars", {
+    method: "POST",
+    body: JSON.stringify(toSnakeCaseKeys(req)),
+  });
+}
+
+export async function duplicateCalendar(
+  id: string,
+  req: DuplicateCalendarRequest = {},
+): Promise<CreateCalendarResponse> {
+  return request<CreateCalendarResponse>(`/calendars/${id}/duplicate`, {
     method: "POST",
     body: JSON.stringify(toSnakeCaseKeys(req)),
   });

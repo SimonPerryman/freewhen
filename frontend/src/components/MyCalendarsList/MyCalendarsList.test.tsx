@@ -3,6 +3,10 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import MyCalendarsList from "./MyCalendarsList";
 import type { MyCalendarListItem } from "@/lib/types";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
+}));
+
 function item(overrides: Partial<MyCalendarListItem> = {}): MyCalendarListItem {
   return {
     id: "cal1",

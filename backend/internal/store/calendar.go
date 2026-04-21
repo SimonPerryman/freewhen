@@ -317,6 +317,138 @@ func (s *Store) ListCalendarsForUser(ctx context.Context, userID string, limit i
 	return items, nil
 }
 
+// DuplicateCalendar creates a new calendar copied from sourceID.
+//
+// Copies name (or overrideName if non-empty), emoji, visibility. Does NOT
+// copy availability, finalised state, or passphrase. The owner is auto-joined
+// as a participant. When includeParticipants is true, every non-owner source
+// participant is recreated as a stub (same name, same user_id, new id).
+//
+// The whole operation runs in a single transaction so a failed participant
+// insert (e.g. hitting the per-calendar cap) rolls the new calendar back
+// rather than leaving a half-duplicated calendar behind.
+func (s *Store) DuplicateCalendar(
+	ctx context.Context,
+	sourceID, newOwnerID, overrideName, ownerParticipantName string,
+	includeParticipants bool,
+) (model.Calendar, model.Participant, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return model.Calendar{}, model.Participant{}, fmt.Errorf("begin tx: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// Load source within the tx.
+	var source model.Calendar
+	var emojiCol sql.NullString
+	var finalisedDate sql.NullString
+	var finalisedAt sql.NullTime
+	var passphrase sql.NullString
+	err = tx.QueryRowContext(ctx,
+		`SELECT id, name, emoji, owner_id, visibility, created_at, updated_at, finalised_date::text, finalised_at, passphrase, access_epoch
+		 FROM calendars WHERE id = $1`, sourceID,
+	).Scan(&source.ID, &source.Name, &emojiCol, &source.OwnerID, &source.Visibility, &source.CreatedAt, &source.UpdatedAt, &finalisedDate, &finalisedAt, &passphrase, &source.AccessEpoch)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.Calendar{}, model.Participant{}, ErrNotFound
+		}
+		return model.Calendar{}, model.Participant{}, fmt.Errorf("get source calendar: %w", err)
+	}
+	source.Emoji = emojiCol.String
+
+	// Service layer supplies the final name (including "(copy)" suffix and
+	// length clipping). Store trusts the caller.
+	newName := overrideName
+
+	// Insert new calendar with retry on ID collision.
+	var newCal model.Calendar
+	const maxRetries = 3
+	for i := 0; i < maxRetries; i++ {
+		id := generateID(8)
+		var emojiOut sql.NullString
+		err = tx.QueryRowContext(ctx,
+			`INSERT INTO calendars (id, name, emoji, owner_id, visibility) VALUES ($1, $2, $3, $4, $5)
+			 RETURNING id, name, emoji, owner_id, visibility, created_at, updated_at, access_epoch`,
+			id, newName, nullableString(source.Emoji), newOwnerID, source.Visibility,
+		).Scan(&newCal.ID, &newCal.Name, &emojiOut, &newCal.OwnerID, &newCal.Visibility, &newCal.CreatedAt, &newCal.UpdatedAt, &newCal.AccessEpoch)
+		if err == nil {
+			newCal.Emoji = emojiOut.String
+			break
+		}
+		if isUniqueViolation(err) && i < maxRetries-1 {
+			continue
+		}
+		return model.Calendar{}, model.Participant{}, fmt.Errorf("insert duplicate calendar: %w", err)
+	}
+
+	// Insert owner participant (first row → first colour in palette).
+	ownerParticipant, err := insertParticipantTx(ctx, tx, newCal.ID, ownerParticipantName, &newOwnerID, 0)
+	if err != nil {
+		return model.Calendar{}, model.Participant{}, fmt.Errorf("insert owner participant: %w", err)
+	}
+
+	if includeParticipants {
+		// Load source participants within the tx.
+		rows, err := tx.QueryContext(ctx,
+			`SELECT id, name, user_id FROM participants WHERE calendar_id = $1 ORDER BY id`, sourceID,
+		)
+		if err != nil {
+			return model.Calendar{}, model.Participant{}, fmt.Errorf("list source participants: %w", err)
+		}
+		type src struct {
+			name   string
+			userID *string
+		}
+		var sources []src
+		for rows.Next() {
+			var id, name string
+			var userID sql.NullString
+			if err := rows.Scan(&id, &name, &userID); err != nil {
+				_ = rows.Close()
+				return model.Calendar{}, model.Participant{}, fmt.Errorf("scan source participant: %w", err)
+			}
+			var uid *string
+			if userID.Valid {
+				u := userID.String
+				uid = &u
+			}
+			sources = append(sources, src{name: name, userID: uid})
+		}
+		if err := rows.Err(); err != nil {
+			_ = rows.Close()
+			return model.Calendar{}, model.Participant{}, fmt.Errorf("iterate source participants: %w", err)
+		}
+		_ = rows.Close()
+
+		idx := 1 // owner was index 0
+		for _, p := range sources {
+			// Skip the source owner row — the new owner is already inserted.
+			if p.userID != nil && *p.userID == newOwnerID {
+				continue
+			}
+			// Also skip if the name collides with the owner's new row.
+			if p.name == ownerParticipantName && p.userID == nil {
+				continue
+			}
+			if _, err := insertParticipantTx(ctx, tx, newCal.ID, p.name, p.userID, idx); err != nil {
+				return model.Calendar{}, model.Participant{}, fmt.Errorf("copy participant: %w", err)
+			}
+			idx++
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return model.Calendar{}, model.Participant{}, fmt.Errorf("commit tx: %w", err)
+	}
+	committed = true
+	return newCal, ownerParticipant, nil
+}
+
 func (s *Store) getParticipants(ctx context.Context, calendarID string) ([]model.Participant, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, calendar_id, name, colour, user_id FROM participants WHERE calendar_id = $1`, calendarID,
