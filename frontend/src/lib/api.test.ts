@@ -6,6 +6,7 @@ import {
   setAvailability,
   finaliseCalendar,
   unfinaliseCalendar,
+  renameParticipant,
   ApiError,
 } from "./api";
 
@@ -232,6 +233,41 @@ describe("error body code field", () => {
     } catch (err) {
       if (err instanceof ApiError) {
         expect(err.code).toBeNull();
+      }
+    }
+  });
+});
+
+describe("renameParticipant", () => {
+  it("sends PATCH with name and caller participant_id", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse({ id: "p1", calendar_id: "abc", name: "Alicia", colour: "#ff0000" }),
+    );
+
+    const result = await renameParticipant("abc", "p1", "Alicia", "p1");
+
+    expect(mockFetch).toHaveBeenCalledWith("http://localhost:8080/calendars/abc/participants/p1", {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Alicia", participant_id: "p1" }),
+    });
+    expect(result.name).toBe("Alicia");
+  });
+
+  it("surfaces duplicate_name as ApiError with code", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse({ error: "participant name already taken", code: "duplicate_name" }, 409),
+    );
+
+    try {
+      await renameParticipant("abc", "p1", "Alicia", "p1");
+      expect.fail("expected ApiError");
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      if (err instanceof ApiError) {
+        expect(err.status).toBe(409);
+        expect(err.code).toBe("duplicate_name");
       }
     }
   });

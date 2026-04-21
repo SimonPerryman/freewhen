@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/freewhen/backend/internal/limits"
+	"github.com/freewhen/backend/internal/service"
 	"github.com/freewhen/backend/internal/store"
 )
 
@@ -47,6 +49,10 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
+		if errors.Is(err, service.ErrInvalidName) {
+			respondError(w, http.StatusBadRequest, "invalid_request", "name is required")
+			return
+		}
 		if errors.Is(err, store.ErrDuplicateName) {
 			respondError(w, http.StatusConflict, "duplicate_name", "participant name already taken")
 			return
@@ -68,6 +74,65 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusCreated, p)
+}
+
+// RenameParticipant handles PATCH /calendars/{id}/participants/{participantId}.
+// Accepts a name and (optionally) the caller's own participant_id; see
+// service.RenameParticipant for the authorization rules.
+func (h *Handler) RenameParticipant(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
+	calendarID := r.PathValue("id")
+	participantID := r.PathValue("participantId")
+
+	if ok, _ := h.requireCalendarAccess(w, r, calendarID); !ok {
+		return
+	}
+
+	var req struct {
+		Name          string `json:"name"`
+		ParticipantID string `json:"participant_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
+		return
+	}
+
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		respondError(w, http.StatusBadRequest, "invalid_request", "name is required")
+		return
+	}
+	if len(name) > limits.MaxParticipantNameLength {
+		respondError(w, http.StatusBadRequest, "name_too_long", "participant name is too long")
+		return
+	}
+
+	var userID *string
+	if user := UserFromContext(r); user != nil {
+		userID = &user.ID
+	}
+
+	p, err := h.service.RenameParticipant(r.Context(), calendarID, participantID, userID, req.ParticipantID, name)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			respondError(w, http.StatusNotFound, "not_found", "participant not found")
+		case errors.Is(err, service.ErrForbidden):
+			respondError(w, http.StatusForbidden, "forbidden", "not allowed to rename this participant")
+		case errors.Is(err, service.ErrInvalidName):
+			respondError(w, http.StatusBadRequest, "invalid_request", "name is required")
+		case errors.Is(err, store.ErrDuplicateName):
+			respondError(w, http.StatusConflict, "duplicate_name", "participant name already taken")
+		case errors.Is(err, store.ErrCalendarFinalised):
+			respondError(w, http.StatusConflict, "already_finalised", "calendar is finalised")
+		default:
+			respondError(w, http.StatusInternalServerError, "internal_error", "failed to rename participant")
+		}
+		return
+	}
+
+	respondJSON(w, http.StatusOK, p)
 }
 
 func (h *Handler) ClaimParticipant(w http.ResponseWriter, r *http.Request) {

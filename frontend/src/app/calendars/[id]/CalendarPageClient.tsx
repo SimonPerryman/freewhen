@@ -10,6 +10,7 @@ import {
   unfinaliseCalendar,
   claimParticipant,
   removeParticipant,
+  renameParticipant,
   renameCalendar,
   updateCalendar,
   unlockCalendar,
@@ -779,6 +780,46 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     [calendarId, calendar, markLocalMutation],
   );
 
+  const handleRenameParticipant = useCallback(
+    async (target: Participant, newName: string) => {
+      const previous = calendar;
+      const callerPid = participantIdRef.current;
+      setCalendar((prev) =>
+        prev
+          ? {
+              ...prev,
+              participants: prev.participants.map((p) =>
+                p.id === target.id ? { ...p, name: newName } : p,
+              ),
+            }
+          : prev,
+      );
+      if (currentParticipant && currentParticipant.id === target.id) {
+        setCurrentParticipant({ ...currentParticipant, name: newName });
+        writeStorage(calendarId, {
+          participantId: currentParticipant.id,
+          name: newName,
+          colour: currentParticipant.colour,
+        });
+      }
+      markLocalMutation();
+      try {
+        await renameParticipant(calendarId, target.id, newName, callerPid);
+        analytics.capture("participant_renamed", {
+          calendar_id: calendarId,
+          self: callerPid === target.id,
+        });
+      } catch (err) {
+        setCalendar(previous);
+        if (currentParticipant && currentParticipant.id === target.id) {
+          setCurrentParticipant(currentParticipant);
+        }
+        throw err;
+      }
+    },
+    [calendarId, calendar, currentParticipant, markLocalMutation],
+  );
+
   const handleUnfinalise = useCallback(async () => {
     markLocalMutation();
     try {
@@ -1181,7 +1222,9 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
                 participants={calendar.participants}
                 currentParticipantId={currentParticipant?.id ?? null}
                 canRemove={isOwner}
+                canRenameOthers={isOwner}
                 onRemove={handleRemoveParticipant}
+                onRename={currentParticipant ? handleRenameParticipant : undefined}
               />
             </>
           ) : (
@@ -1195,7 +1238,9 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
                 participants={calendar.participants}
                 currentParticipantId={currentParticipant?.id ?? null}
                 canRemove={isOwner}
+                canRenameOthers={isOwner}
                 onRemove={handleRemoveParticipant}
+                onRename={currentParticipant ? handleRenameParticipant : undefined}
               />
             </>
           )

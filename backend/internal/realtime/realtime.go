@@ -18,6 +18,7 @@ const (
 	EventParticipantJoined   = "participant.joined"
 	EventParticipantRemoved  = "participant.removed"
 	EventParticipantClaimed  = "participant.claimed"
+	EventParticipantRenamed  = "participant.renamed"
 	EventCalendarUpdated     = "calendar.updated"
 	EventCalendarFinalised   = "calendar.finalised"
 	EventCalendarUnfinalised = "calendar.unfinalised"

@@ -203,6 +203,19 @@ export async function renameCalendar(calendarId: string, name: string): Promise<
   return updateCalendar(calendarId, { name });
 }
 
+export async function renameParticipant(
+  calendarId: string,
+  participantId: string,
+  name: string,
+  callerParticipantId: string | null,
+): Promise<Participant> {
+  return request<Participant>(`/calendars/${calendarId}/participants/${participantId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ name, participant_id: callerParticipantId ?? "" }),
+    calendarId,
+  });
+}
+
 export async function removeParticipant(calendarId: string, participantId: string): Promise<void> {
   await request(`/calendars/${calendarId}/participants/${participantId}`, {
     method: "DELETE",

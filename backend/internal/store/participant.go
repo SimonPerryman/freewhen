@@ -135,6 +135,34 @@ func (s *Store) ClaimParticipant(ctx context.Context, calendarID, participantID,
 	return p, nil
 }
 
+// UpdateParticipantName renames a participant scoped to a calendar. Returns
+// ErrNotFound if the participant does not exist on the calendar, and
+// ErrDuplicateName if another participant on the same calendar already has
+// the requested name.
+func (s *Store) UpdateParticipantName(ctx context.Context, calendarID, participantID, name string) (model.Participant, error) {
+	var p model.Participant
+	var scannedUserID sql.NullString
+	err := s.db.QueryRowContext(ctx,
+		`UPDATE participants SET name = $1
+		 WHERE id = $2 AND calendar_id = $3
+		 RETURNING id, calendar_id, name, colour, user_id`,
+		name, participantID, calendarID,
+	).Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &scannedUserID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.Participant{}, ErrNotFound
+		}
+		if isDuplicateName(err) {
+			return model.Participant{}, ErrDuplicateName
+		}
+		return model.Participant{}, fmt.Errorf("update participant name: %w", err)
+	}
+	if scannedUserID.Valid {
+		p.UserID = &scannedUserID.String
+	}
+	return p, nil
+}
+
 // DeleteParticipant removes a participant from a calendar. Availability rows
 // cascade via the FK. Returns ErrNotFound if no matching participant exists.
 func (s *Store) DeleteParticipant(ctx context.Context, calendarID, participantID string) error {

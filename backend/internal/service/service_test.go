@@ -23,6 +23,8 @@ type mockStore struct {
 	addParticipant             func(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
 	countCalendarParticipants  func(ctx context.Context, calendarID string) (int, error)
 	countCalendarsForOwner     func(ctx context.Context, ownerID string) (int, error)
+	getCalendarOnly            func(ctx context.Context, id string) (model.Calendar, error)
+	updateParticipantName      func(ctx context.Context, calendarID, participantID, name string) (model.Participant, error)
 }
 
 func (m *mockStore) CreateCalendar(_ context.Context, name, emoji, ownerID, visibility string) (model.Calendar, error) {
@@ -39,8 +41,11 @@ func (m *mockStore) GetCalendar(ctx context.Context, id string) (model.CalendarW
 	return m.getCalendar(ctx, id)
 }
 
-func (m *mockStore) GetCalendarOnly(_ context.Context, _ string) (model.Calendar, error) {
-	panic("unexpected call to GetCalendarOnly")
+func (m *mockStore) GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error) {
+	if m.getCalendarOnly == nil {
+		panic("unexpected call to GetCalendarOnly")
+	}
+	return m.getCalendarOnly(ctx, id)
 }
 
 func (m *mockStore) AddParticipant(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error) {
@@ -80,6 +85,13 @@ func (m *mockStore) UpdateCalendarVisibility(_ context.Context, _, _ string) (mo
 
 func (m *mockStore) DeleteParticipant(_ context.Context, _, _ string) error {
 	panic("unexpected call to DeleteParticipant")
+}
+
+func (m *mockStore) UpdateParticipantName(ctx context.Context, calendarID, participantID, name string) (model.Participant, error) {
+	if m.updateParticipantName == nil {
+		panic("unexpected call to UpdateParticipantName")
+	}
+	return m.updateParticipantName(ctx, calendarID, participantID, name)
 }
 
 func (m *mockStore) SetCalendarPassphrase(_ context.Context, _ string, _ *string) (model.Calendar, error) {
@@ -555,6 +567,115 @@ func TestCreateCalendar_UnderCap(t *testing.T) {
 	}
 	if cal.ID != "c1" {
 		t.Fatalf("id = %q, want c1", cal.ID)
+	}
+}
+
+func TestRenameParticipant_OwnerAllowed(t *testing.T) {
+	ownerID := "owner1"
+	ms := &mockStore{
+		getCalendarOnly: func(_ context.Context, _ string) (model.Calendar, error) {
+			return model.Calendar{ID: "c1", OwnerID: ownerID}, nil
+		},
+		updateParticipantName: func(_ context.Context, calendarID, pid, name string) (model.Participant, error) {
+			return model.Participant{ID: pid, CalendarID: calendarID, Name: name}, nil
+		},
+	}
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
+
+	p, err := s.RenameParticipant(context.Background(), "c1", "p1", &ownerID, "", "Alicia")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if p.Name != "Alicia" {
+		t.Fatalf("name = %q, want Alicia", p.Name)
+	}
+}
+
+func TestRenameParticipant_SelfViaParticipantID(t *testing.T) {
+	ms := &mockStore{
+		getCalendarOnly: func(_ context.Context, _ string) (model.Calendar, error) {
+			return model.Calendar{ID: "c1", OwnerID: "owner1"}, nil
+		},
+		updateParticipantName: func(_ context.Context, calendarID, pid, name string) (model.Participant, error) {
+			return model.Participant{ID: pid, CalendarID: calendarID, Name: name}, nil
+		},
+	}
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
+
+	_, err := s.RenameParticipant(context.Background(), "c1", "p1", nil, "p1", "Alicia")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRenameParticipant_SelfViaLinkedUser(t *testing.T) {
+	userID := "u1"
+	ms := &mockStore{
+		getCalendarOnly: func(_ context.Context, _ string) (model.Calendar, error) {
+			return model.Calendar{ID: "c1", OwnerID: "owner1"}, nil
+		},
+		getParticipant: func(_ context.Context, id string) (model.Participant, error) {
+			return model.Participant{ID: id, CalendarID: "c1", UserID: &userID}, nil
+		},
+		updateParticipantName: func(_ context.Context, calendarID, pid, name string) (model.Participant, error) {
+			return model.Participant{ID: pid, CalendarID: calendarID, Name: name}, nil
+		},
+	}
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
+
+	_, err := s.RenameParticipant(context.Background(), "c1", "p1", &userID, "", "Alicia")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRenameParticipant_StrangerForbidden(t *testing.T) {
+	callerID := "stranger"
+	targetUser := "someone-else"
+	ms := &mockStore{
+		getCalendarOnly: func(_ context.Context, _ string) (model.Calendar, error) {
+			return model.Calendar{ID: "c1", OwnerID: "owner1"}, nil
+		},
+		getParticipant: func(_ context.Context, id string) (model.Participant, error) {
+			return model.Participant{ID: id, CalendarID: "c1", UserID: &targetUser}, nil
+		},
+	}
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
+
+	_, err := s.RenameParticipant(context.Background(), "c1", "p1", &callerID, "", "Alicia")
+	if !errors.Is(err, ErrForbidden) {
+		t.Fatalf("err = %v, want ErrForbidden", err)
+	}
+}
+
+func TestRenameParticipant_FinalisedRejected(t *testing.T) {
+	ownerID := "owner1"
+	date := "2026-05-01"
+	ms := &mockStore{
+		getCalendarOnly: func(_ context.Context, _ string) (model.Calendar, error) {
+			return model.Calendar{ID: "c1", OwnerID: ownerID, FinalisedDate: &date}, nil
+		},
+	}
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
+
+	_, err := s.RenameParticipant(context.Background(), "c1", "p1", &ownerID, "", "Alicia")
+	if !errors.Is(err, store.ErrCalendarFinalised) {
+		t.Fatalf("err = %v, want ErrCalendarFinalised", err)
+	}
+}
+
+func TestRenameParticipant_EmptyNameRejected(t *testing.T) {
+	ownerID := "owner1"
+	ms := &mockStore{
+		getCalendarOnly: func(_ context.Context, _ string) (model.Calendar, error) {
+			return model.Calendar{ID: "c1", OwnerID: ownerID}, nil
+		},
+	}
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
+
+	_, err := s.RenameParticipant(context.Background(), "c1", "p1", &ownerID, "", "   ")
+	if !errors.Is(err, ErrInvalidName) {
+		t.Fatalf("err = %v, want ErrInvalidName", err)
 	}
 }
 

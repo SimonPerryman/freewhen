@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 
 	"github.com/freewhen/backend/internal/limits"
 	"github.com/freewhen/backend/internal/model"
@@ -19,6 +20,14 @@ const MyCalendarsPageSize = 100
 // ErrInvalidVisibility is returned when a caller passes an unrecognised
 // visibility value to a mutation endpoint.
 var ErrInvalidVisibility = errors.New("invalid visibility value")
+
+// ErrForbidden is returned when the caller is not permitted to perform the
+// requested mutation (e.g. trying to rename a participant that isn't theirs
+// on a calendar they don't own).
+var ErrForbidden = errors.New("forbidden")
+
+// ErrInvalidName is returned when a rename submission is empty or too long.
+var ErrInvalidName = errors.New("invalid participant name")
 
 // Publisher fans realtime events out to subscribers. Satisfied by
 // realtime.Hub; a no-op implementation is provided for tests and for
@@ -46,6 +55,7 @@ type Store interface {
 	UpdateCalendarVisibility(ctx context.Context, calendarID, visibility string) (model.Calendar, error)
 	SetCalendarPassphrase(ctx context.Context, calendarID string, passphrase *string) (model.Calendar, error)
 	DeleteParticipant(ctx context.Context, calendarID, participantID string) error
+	UpdateParticipantName(ctx context.Context, calendarID, participantID, name string) (model.Participant, error)
 	CountCalendarParticipants(ctx context.Context, calendarID string) (int, error)
 	CountCalendarsForOwner(ctx context.Context, ownerID string) (int, error)
 	ParticipantHasAvailability(ctx context.Context, participantID string) (bool, error)
@@ -173,6 +183,13 @@ func (s *Service) shouldReveal(ctx context.Context, details model.CalendarWithDe
 }
 
 func (s *Service) AddParticipant(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return model.Participant{}, ErrInvalidName
+	}
+	if len(name) > limits.MaxParticipantNameLength {
+		return model.Participant{}, ErrInvalidName
+	}
 	count, err := s.store.CountCalendarParticipants(ctx, calendarID)
 	if err != nil {
 		return model.Participant{}, err
@@ -264,6 +281,57 @@ func (s *Service) UpdateCalendarVisibility(ctx context.Context, calendarID, visi
 	}
 	s.pub.Publish(calendarID, realtime.EventCalendarUpdated)
 	return cal, nil
+}
+
+// RenameParticipant updates the name of a participant on a calendar.
+// Authorization: the caller is allowed if they are the calendar owner, if the
+// supplied callerParticipantID matches the target (the honor-system trust
+// boundary used by the anon-join availability write path), or if the caller
+// is signed in and the target participant is linked to the same user.
+func (s *Service) RenameParticipant(ctx context.Context, calendarID, targetParticipantID string, callerUserID *string, callerParticipantID, name string) (model.Participant, error) {
+	cal, err := s.store.GetCalendarOnly(ctx, calendarID)
+	if err != nil {
+		return model.Participant{}, err
+	}
+	if cal.FinalisedDate != nil {
+		return model.Participant{}, store.ErrCalendarFinalised
+	}
+
+	allowed := false
+	if callerUserID != nil && *callerUserID == cal.OwnerID {
+		allowed = true
+	}
+	if !allowed && callerParticipantID != "" && callerParticipantID == targetParticipantID {
+		allowed = true
+	}
+	if !allowed && callerUserID != nil {
+		target, err := s.store.GetParticipant(ctx, targetParticipantID)
+		if err != nil {
+			return model.Participant{}, err
+		}
+		if target.CalendarID != calendarID {
+			return model.Participant{}, store.ErrNotFound
+		}
+		if target.UserID != nil && *target.UserID == *callerUserID {
+			allowed = true
+		}
+	}
+	if !allowed {
+		return model.Participant{}, ErrForbidden
+	}
+
+	name = strings.TrimSpace(name)
+	if name == "" || len(name) > limits.MaxParticipantNameLength {
+		return model.Participant{}, ErrInvalidName
+	}
+
+	p, err := s.store.UpdateParticipantName(ctx, calendarID, targetParticipantID, name)
+	if err != nil {
+		return model.Participant{}, err
+	}
+	s.touch(ctx, calendarID)
+	s.pub.Publish(calendarID, realtime.EventParticipantRenamed)
+	return p, nil
 }
 
 func (s *Service) RemoveParticipant(ctx context.Context, calendarID, participantID string) error {

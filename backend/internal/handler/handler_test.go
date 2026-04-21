@@ -31,6 +31,7 @@ type mockService struct {
 	renameCalendar           func(ctx context.Context, calendarID, name string) (model.Calendar, error)
 	updateCalendarVisibility func(ctx context.Context, calendarID, visibility string) (model.Calendar, error)
 	removeParticipant        func(ctx context.Context, calendarID, participantID string) error
+	renameParticipant        func(ctx context.Context, calendarID, targetParticipantID string, callerUserID *string, callerParticipantID, name string) (model.Participant, error)
 	listUserCalendars        func(ctx context.Context, userID string) ([]store.CalendarListItem, bool, error)
 	unlockCalendar           func(ctx context.Context, calendarID, submitted, remoteAddr string) (string, error)
 	rotateCalendarPassphrase func(ctx context.Context, calendarID string) (string, error)
@@ -87,6 +88,13 @@ func (m *mockService) UpdateCalendarVisibility(ctx context.Context, calendarID, 
 
 func (m *mockService) RemoveParticipant(ctx context.Context, calendarID, participantID string) error {
 	return m.removeParticipant(ctx, calendarID, participantID)
+}
+
+func (m *mockService) RenameParticipant(ctx context.Context, calendarID, targetParticipantID string, callerUserID *string, callerParticipantID, name string) (model.Participant, error) {
+	if m.renameParticipant == nil {
+		return model.Participant{}, nil
+	}
+	return m.renameParticipant(ctx, calendarID, targetParticipantID, callerUserID, callerParticipantID, name)
 }
 
 func (m *mockService) ListUserCalendars(ctx context.Context, userID string) ([]store.CalendarListItem, bool, error) {

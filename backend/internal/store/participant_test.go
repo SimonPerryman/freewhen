@@ -370,6 +370,79 @@ func TestDeleteParticipantWrongCalendar(t *testing.T) {
 	}
 }
 
+func TestUpdateParticipantName(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
+
+	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID, "open")
+	if err != nil {
+		t.Fatalf("create calendar: %v", err)
+	}
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	if err != nil {
+		t.Fatalf("add participant: %v", err)
+	}
+
+	updated, err := s.UpdateParticipantName(ctx, cal.ID, p.ID, "Alicia")
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if updated.Name != "Alicia" {
+		t.Errorf("name = %q, want Alicia", updated.Name)
+	}
+	if updated.Colour != p.Colour {
+		t.Errorf("colour changed: was %q, now %q", p.Colour, updated.Colour)
+	}
+}
+
+func TestUpdateParticipantNameDuplicate(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
+
+	cal, err := s.CreateCalendar(ctx, "Test", "", owner.ID, "open")
+	if err != nil {
+		t.Fatalf("create calendar: %v", err)
+	}
+	if _, err := s.AddParticipant(ctx, cal.ID, "Alice", nil); err != nil {
+		t.Fatalf("add alice: %v", err)
+	}
+	bob, err := s.AddParticipant(ctx, cal.ID, "Bob", nil)
+	if err != nil {
+		t.Fatalf("add bob: %v", err)
+	}
+
+	_, err = s.UpdateParticipantName(ctx, cal.ID, bob.ID, "Alice")
+	if err != ErrDuplicateName {
+		t.Errorf("expected ErrDuplicateName, got %v", err)
+	}
+}
+
+func TestUpdateParticipantNameWrongCalendar(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
+
+	cal1, err := s.CreateCalendar(ctx, "Cal1", "", owner.ID, "open")
+	if err != nil {
+		t.Fatalf("create cal1: %v", err)
+	}
+	cal2, err := s.CreateCalendar(ctx, "Cal2", "", owner.ID, "open")
+	if err != nil {
+		t.Fatalf("create cal2: %v", err)
+	}
+	p, err := s.AddParticipant(ctx, cal1.ID, "Alice", nil)
+	if err != nil {
+		t.Fatalf("add participant: %v", err)
+	}
+
+	_, err = s.UpdateParticipantName(ctx, cal2.ID, p.ID, "Alicia")
+	if err != ErrNotFound {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+}
+
 func TestGetCalendarParticipantUserID(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
