@@ -28,6 +28,7 @@ export interface Availability {
   calendarId: string;
   date: string;
   note?: string;
+  preferred?: boolean;
 }
 
 export interface CalendarWithDetails {
@@ -71,6 +72,9 @@ export interface SetAvailabilityRequest {
   // existing notes ("don't touch" semantics). A key with an empty string clears
   // that date's note; a key with a non-empty value sets/replaces it.
   notes?: Record<string, string>;
+  // Full list of dates the participant prefers. Omitted to preserve existing
+  // votes; present (even empty) overwrites all votes for dates in `dates`.
+  preferred?: string[];
 }
 
 export interface User {

@@ -475,7 +475,7 @@ func (s *Store) getParticipants(ctx context.Context, calendarID string) ([]model
 
 func (s *Store) getAvailability(ctx context.Context, calendarID string) ([]model.Availability, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT participant_id, calendar_id, date::text, note FROM availability WHERE calendar_id = $1`, calendarID,
+		`SELECT participant_id, calendar_id, date::text, note, preferred FROM availability WHERE calendar_id = $1`, calendarID,
 	)
 	if err != nil {
 		return nil, err
@@ -486,7 +486,7 @@ func (s *Store) getAvailability(ctx context.Context, calendarID string) ([]model
 	for rows.Next() {
 		var a model.Availability
 		var note sql.NullString
-		if err := rows.Scan(&a.ParticipantID, &a.CalendarID, &a.Date, &note); err != nil {
+		if err := rows.Scan(&a.ParticipantID, &a.CalendarID, &a.Date, &note, &a.Preferred); err != nil {
 			return nil, err
 		}
 		if note.Valid {

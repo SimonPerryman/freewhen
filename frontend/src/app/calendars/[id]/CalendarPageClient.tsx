@@ -112,6 +112,9 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   // notesByDate holds the current participant's own notes keyed by ISO date.
   // Hydrated from the backend on load; updated optimistically by the day sheet.
   const [notesByDate, setNotesByDate] = useState<Map<string, string>>(new Map());
+  // votesByDate holds the current participant's own preferred-date set. Hydrated
+  // from the backend on load; mutated optimistically by the day sheet.
+  const [votesByDate, setVotesByDate] = useState<Set<string>>(new Set());
   const [openDayDate, setOpenDayDate] = useState<string | null>(null);
   const [saveError, setSaveError] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
@@ -124,6 +127,14 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   // `notes` entirely (backend's "don't touch" path). Keys here are applied
   // atomically with the next save then cleared.
   const pendingNotesRef = useRef<Record<string, string> | null>(null);
+  // Signals that a vote was edited since the last save. Flipped back to false
+  // once the write goes out. When false, the save omits `preferred` entirely so
+  // the server preserves existing votes.
+  const pendingPreferredRef = useRef(false);
+  const votesByDateRef = useRef<Set<string>>(votesByDate);
+  useEffect(() => {
+    votesByDateRef.current = votesByDate;
+  }, [votesByDate]);
   const participantIdRef = useRef<string | null>(null);
   const currentParticipantRef = useRef<Participant | null>(null);
   const suppressRefreshUntilRef = useRef(0);
@@ -282,12 +293,15 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           setSelectedDates(new Set(userDates));
 
           const seededNotes = new Map<string, string>();
+          const seededVotes = new Set<string>();
           for (const a of data.availability) {
-            if (a.participantId === resolved!.id && a.note && a.date >= today) {
-              seededNotes.set(a.date, a.note);
+            if (a.participantId === resolved!.id && a.date >= today) {
+              if (a.note) seededNotes.set(a.date, a.note);
+              if (a.preferred) seededVotes.add(a.date);
             }
           }
           setNotesByDate(seededNotes);
+          setVotesByDate(seededVotes);
         }
       } catch (err) {
         if (cancelled) return;
@@ -332,12 +346,15 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
         // suppressRefreshUntilRef guard above protects them.
         const today = getToday();
         const refreshed = new Map<string, string>();
+        const refreshedVotes = new Set<string>();
         for (const a of data.availability) {
-          if (a.participantId === currentId && a.note && a.date >= today) {
-            refreshed.set(a.date, a.note);
+          if (a.participantId === currentId && a.date >= today) {
+            if (a.note) refreshed.set(a.date, a.note);
+            if (a.preferred) refreshedVotes.add(a.date);
           }
         }
         setNotesByDate(refreshed);
+        setVotesByDate(refreshedVotes);
       }
     } catch {
       // Transient refresh failure; next event or the polling fallback retries.
@@ -355,11 +372,20 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     savingRef.current = true;
     setSaveError(false);
 
-    while (pendingDatesRef.current !== null || pendingNotesRef.current !== null) {
+    while (
+      pendingDatesRef.current !== null ||
+      pendingNotesRef.current !== null ||
+      pendingPreferredRef.current
+    ) {
       const dates = pendingDatesRef.current ?? Array.from(selectedDatesRef.current);
       const notes = pendingNotesRef.current;
+      const sendPreferred = pendingPreferredRef.current;
+      const preferred = sendPreferred
+        ? Array.from(votesByDateRef.current).filter((d) => selectedDatesRef.current.has(d))
+        : null;
       pendingDatesRef.current = null;
       pendingNotesRef.current = null;
+      pendingPreferredRef.current = false;
       const pid = participantIdRef.current;
       if (!pid) break;
 
@@ -368,6 +394,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           participantId: pid,
           dates,
           ...(notes !== null ? { notes } : {}),
+          ...(preferred !== null ? { preferred } : {}),
         });
         markLocalMutation();
         analytics.capture("availability_marked", { calendar_id: calendarId });
@@ -417,12 +444,19 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
 
       if (removed) {
         // Deselecting drops the row in the backend; mirror that in local state.
-        // Don't send a `notes` override — the row deletion removes the note.
+        // Don't send a `notes` / `preferred` override — the row deletion drops
+        // both server-side.
         setNotesByDate((prevMap) => {
           if (!prevMap.has(date)) return prevMap;
           const m = new Map(prevMap);
           m.delete(date);
           return m;
+        });
+        setVotesByDate((prevSet) => {
+          if (!prevSet.has(date)) return prevSet;
+          const s = new Set(prevSet);
+          s.delete(date);
+          return s;
         });
       }
 
@@ -495,6 +529,27 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     [queueNoteSave, calendarId],
   );
 
+  const handleToggleVote = useCallback(
+    (date: string, preferred: boolean) => {
+      setVotesByDate((prev) => {
+        const next = new Set(prev);
+        const before = next.has(date);
+        if (preferred) next.add(date);
+        else next.delete(date);
+        if (before === next.has(date)) return prev;
+        votesByDateRef.current = next;
+        return next;
+      });
+      pendingPreferredRef.current = true;
+      analytics.capture(preferred ? "vote_added" : "vote_removed", {
+        calendar_id: calendarId,
+      });
+      markLocalMutation();
+      if (!savingRef.current) flushSave();
+    },
+    [calendarId, flushSave, markLocalMutation],
+  );
+
   const handleRemoveAvailabilityForDay = useCallback(
     (date: string) => {
       handleToggle(date);
@@ -518,6 +573,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   const handleClearAvailability = useCallback(() => {
     const prevSelected = new Set(selectedDatesRef.current);
     const prevNotes = new Map(notesByDate);
+    const prevVotes = new Set(votesByDateRef.current);
     const cleared: string[] = [];
     let notesCleared = 0;
     const next = new Set<string>();
@@ -540,6 +596,15 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
         return m;
       });
     }
+    setVotesByDate((prev) => {
+      let changed = false;
+      const s = new Set(prev);
+      for (const d of cleared) {
+        if (s.delete(d)) changed = true;
+      }
+      if (changed) votesByDateRef.current = s;
+      return changed ? s : prev;
+    });
     queueSave(Array.from(next));
 
     analytics.capture("availability_cleared", {
@@ -552,6 +617,8 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
       selectedDatesRef.current = prevSelected;
       setSelectedDates(prevSelected);
       setNotesByDate(prevNotes);
+      setVotesByDate(prevVotes);
+      votesByDateRef.current = prevVotes;
       queueSave(Array.from(prevSelected));
       analytics.capture("availability_clear_undone", {
         calendar_id: calendarId,
@@ -594,6 +661,15 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
             if (m.delete(d)) changed = true;
           }
           return changed ? m : prevMap;
+        });
+        setVotesByDate((prev) => {
+          let changed = false;
+          const s = new Set(prev);
+          for (const d of dates) {
+            if (s.delete(d)) changed = true;
+          }
+          if (changed) votesByDateRef.current = s;
+          return changed ? s : prev;
         });
       }
 
@@ -948,6 +1024,49 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     return map;
   }, [calendar, currentParticipant, selectedDates]);
 
+  // Aggregate vote counts per date across all participants. Current user's
+  // votes come from local state (optimistic); other participants from the
+  // authoritative fetch.
+  const voteCountsByDate = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!calendar) return map;
+    for (const a of calendar.availability) {
+      if (currentParticipant && a.participantId === currentParticipant.id) continue;
+      if (!a.preferred) continue;
+      map.set(a.date, (map.get(a.date) ?? 0) + 1);
+    }
+    if (currentParticipant) {
+      for (const date of votesByDate) {
+        if (!selectedDates.has(date)) continue;
+        map.set(date, (map.get(date) ?? 0) + 1);
+      }
+    }
+    return map;
+  }, [calendar, currentParticipant, votesByDate, selectedDates]);
+
+  // Set of participant IDs who preferred a given date — drives the ★ next to
+  // each name in the day sheet.
+  const preferredByDate = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    if (!calendar) return map;
+    for (const a of calendar.availability) {
+      if (currentParticipant && a.participantId === currentParticipant.id) continue;
+      if (!a.preferred) continue;
+      const set = map.get(a.date) ?? new Set<string>();
+      set.add(a.participantId);
+      map.set(a.date, set);
+    }
+    if (currentParticipant) {
+      for (const date of votesByDate) {
+        if (!selectedDates.has(date)) continue;
+        const set = map.get(date) ?? new Set<string>();
+        set.add(currentParticipant.id);
+        map.set(date, set);
+      }
+    }
+    return map;
+  }, [calendar, currentParticipant, votesByDate, selectedDates]);
+
   // noteAuthorsByDate drives the cell's note-dot colour rule: when exactly
   // one participant has a note on a given date, the dot takes that
   // participant's colour; otherwise it's neutral.
@@ -1165,6 +1284,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
             onUnfinalise={handleUnfinalise}
             participants={calendar.participants}
             availability={calendar.availability}
+            voteCount={voteCountsByDate.get(finalisedDate) ?? 0}
           />
         ) : null}
 
@@ -1213,6 +1333,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           }
           freeByDate={freeByDate}
           noteAuthorsByDate={noteAuthorsByDate}
+          voteCountsByDate={voteCountsByDate}
           currentParticipantId={currentParticipant?.id ?? null}
           onToggle={handleToggle}
           onOpenDay={currentParticipant ? handleOpenDay : undefined}
@@ -1245,14 +1366,21 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
             currentNote={notesByDate.get(openDayDate) ?? ""}
             isSelected={selectedDates.has(openDayDate)}
             finalised={finalisedDate === openDayDate}
+            isPreferred={votesByDate.has(openDayDate)}
+            preferredParticipantIds={preferredByDate.get(openDayDate) ?? new Set()}
             onSaveNote={(text) => handleSaveNote(openDayDate, text)}
+            onToggleVote={(preferred) => handleToggleVote(openDayDate, preferred)}
             onRemoveAvailability={() => handleRemoveAvailabilityForDay(openDayDate)}
             onClose={handleCloseDay}
           />
         ) : null}
 
         {revealed && !finalisedDate ? (
-          <BestDay participants={calendar.participants} freeByDate={freeByDate} />
+          <BestDay
+            participants={calendar.participants}
+            freeByDate={freeByDate}
+            voteCountsByDate={voteCountsByDate}
+          />
         ) : null}
 
         {revealed ? (

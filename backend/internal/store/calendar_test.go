@@ -112,10 +112,10 @@ func TestGetCalendar(t *testing.T) {
 		t.Fatalf("add bob: %v", err)
 	}
 
-	if err := s.SetAvailability(ctx, alice.ID, []string{"2026-05-01", "2026-05-02"}, nil); err != nil {
+	if err := s.SetAvailability(ctx, alice.ID, []string{"2026-05-01", "2026-05-02"}, nil, nil); err != nil {
 		t.Fatalf("set alice availability: %v", err)
 	}
-	if err := s.SetAvailability(ctx, bob.ID, []string{"2026-05-02", "2026-05-03"}, nil); err != nil {
+	if err := s.SetAvailability(ctx, bob.ID, []string{"2026-05-02", "2026-05-03"}, nil, nil); err != nil {
 		t.Fatalf("set bob availability: %v", err)
 	}
 
@@ -381,7 +381,7 @@ func TestParticipantHasAvailability(t *testing.T) {
 		t.Fatal("expected no availability, got some")
 	}
 
-	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01"}, nil); err != nil {
+	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01"}, nil, nil); err != nil {
 		t.Fatalf("set availability: %v", err)
 	}
 	has, err = s.ParticipantHasAvailability(ctx, p.ID)

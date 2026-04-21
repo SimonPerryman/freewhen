@@ -223,4 +223,79 @@ describe("DayDetailSheet", () => {
     expect(textarea.value).not.toContain("\n");
     expect(textarea.value).toContain("line1 line2");
   });
+
+  describe("preferences", () => {
+    it("checkbox reflects isPreferred and toggle fires onToggleVote with inverted bool", async () => {
+      const user = userEvent.setup();
+      const onToggleVote = vi.fn();
+      const me = makeParticipant("me", "Me");
+      render(
+        <DayDetailSheet
+          date={date}
+          participants={[me]}
+          availability={[makeAvailability("me", date)]}
+          currentParticipantId="me"
+          currentNote=""
+          isSelected={true}
+          finalised={false}
+          isPreferred={false}
+          preferredParticipantIds={new Set()}
+          onSaveNote={() => {}}
+          onToggleVote={onToggleVote}
+          onRemoveAvailability={() => {}}
+          onClose={() => {}}
+        />,
+      );
+      const checkbox = screen.getByRole("checkbox", { name: /prefer this date/i });
+      expect(checkbox).not.toBeChecked();
+      await user.click(checkbox);
+      expect(onToggleVote).toHaveBeenCalledWith(true);
+    });
+
+    it("renders a star next to participants who preferred this date", () => {
+      const me = makeParticipant("me", "Me");
+      const sarah = makeParticipant("s", "Sarah");
+      render(
+        <DayDetailSheet
+          date={date}
+          participants={[me, sarah]}
+          availability={[makeAvailability("me", date), makeAvailability("s", date)]}
+          currentParticipantId="me"
+          currentNote=""
+          isSelected={true}
+          finalised={false}
+          isPreferred={false}
+          preferredParticipantIds={new Set(["s"])}
+          onSaveNote={() => {}}
+          onToggleVote={() => {}}
+          onRemoveAvailability={() => {}}
+          onClose={() => {}}
+        />,
+      );
+      expect(screen.getByLabelText("Sarah prefers this date")).toBeInTheDocument();
+    });
+
+    it("hides the prefer checkbox when finalised but still shows stars", () => {
+      const me = makeParticipant("me", "Me");
+      render(
+        <DayDetailSheet
+          date={date}
+          participants={[me]}
+          availability={[makeAvailability("me", date)]}
+          currentParticipantId="me"
+          currentNote=""
+          isSelected={true}
+          finalised={true}
+          isPreferred={true}
+          preferredParticipantIds={new Set(["me"])}
+          onSaveNote={() => {}}
+          onToggleVote={() => {}}
+          onRemoveAvailability={() => {}}
+          onClose={() => {}}
+        />,
+      );
+      expect(screen.queryByRole("checkbox", { name: /prefer this date/i })).toBeNull();
+      expect(screen.getByLabelText("Me prefers this date")).toBeInTheDocument();
+    });
+  });
 });

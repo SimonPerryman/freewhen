@@ -182,10 +182,12 @@ No auth, no accounts — just a shareable link.
 1. After joining, the calendar grid becomes interactive
 2. Click a date you haven't selected to mark yourself as free
 3. Click a date you've already marked free to open the **day sheet** — which shows who else is free, any notes they've left, and lets you:
+   - Tick **Prefer this date** to signal it's one of your top picks (optional)
    - Add or edit a short note on the day ("only after 6pm", up to 140 characters)
    - Tap **Remove my availability** to un-mark the day
 4. Past dates are greyed out and unclickable
 5. A small coloured dot in the top-right corner of a cell means at least one person has left a note on that day — their colour if it's a single author, neutral grey if multiple
+6. A neutral ★ badge in the bottom-right of a cell means at least one person has marked this date as preferred (with a count when >1)
 6. Changes save automatically in the background (batched/serialized)
 7. If a save fails, a "Save failed" banner appears with a Retry button
 
@@ -234,6 +236,7 @@ No auth, no accounts — just a shareable link.
    - "Days everyone is free" — dates where all participants are available
    - "Days most people are free" — top 5 dates ranked by count (e.g. "3/4 free")
 3. A **Participant list** shows everyone with their colour dot, marking you as "(you)"
+4. The **Best day** card surfaces the single obvious pick when there is one. When multiple dates tie on availability, the one with the most ★ preferences wins the tiebreaker and the subtitle reads ("— N prefer this"). If votes also tie, no best day is shown — the owner chooses by hand.
 
 ```
 ┌─────────────────────────────────────────────────────┐

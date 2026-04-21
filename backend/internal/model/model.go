@@ -46,6 +46,7 @@ type Availability struct {
 	CalendarID    string  `json:"calendar_id"`
 	Date          string  `json:"date"`
 	Note          *string `json:"note,omitempty"`
+	Preferred     bool    `json:"preferred,omitempty"`
 }
 
 type CalendarWithDetails struct {

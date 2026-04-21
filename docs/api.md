@@ -109,7 +109,8 @@ Get a calendar with all participants and their availability.
       "participant_id": "string",
       "calendar_id": "string",
       "date": "YYYY-MM-DD",
-      "note": "string (optional, up to 140 Unicode code points)"
+      "note": "string (optional, up to 140 Unicode code points)",
+      "preferred": true
     }
   ]
 }
@@ -117,7 +118,7 @@ Get a calendar with all participants and their availability.
 
 `finalised_date` and `finalised_at` are omitted when the calendar is open. When set, the calendar is read-only.
 
-`note` is omitted from availability rows that have no note attached.
+`note` is omitted from availability rows that have no note attached. `preferred` is omitted when `false` (clients should treat a missing field as `false`).
 
 **Errors:** 404 (calendar not found)
 
@@ -179,7 +180,8 @@ Replace a participant's available dates. Sending an empty `dates` array clears a
 {
   "participant_id": "string",
   "dates": ["YYYY-MM-DD"],
-  "notes": { "YYYY-MM-DD": "string (optional, ≤ 140 code points)" }
+  "notes": { "YYYY-MM-DD": "string (optional, ≤ 140 code points)" },
+  "preferred": ["YYYY-MM-DD"]
 }
 ```
 
@@ -193,6 +195,14 @@ Replace a participant's available dates. Sending an empty `dates` array clears a
 - A value containing `\r` or `\n` → 400 (notes are single-line).
 - An all-whitespace non-empty value → 400. (An empty string `""` is the explicit "clear" signal.)
 - A date removed from `dates` takes its note with it (row deletion cascades).
+
+`preferred` is the full set of dates the participant has voted for. It follows the same "absent = don't touch" rule as `notes`:
+
+- `preferred` **absent or `null`** → server preserves existing votes on all kept dates.
+- `preferred` **present (including `[]`)** → authoritative: every date in `dates` is set to `true` if listed in `preferred`, else `false`.
+- A date in `preferred` that isn't in `dates` → 400.
+- Duplicates in `preferred` are deduped server-side (not rejected).
+- A date removed from `dates` takes its vote with it.
 
 **Response 200**
 

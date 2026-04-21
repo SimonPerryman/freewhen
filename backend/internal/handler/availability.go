@@ -25,6 +25,7 @@ func (h *Handler) SetAvailability(w http.ResponseWriter, r *http.Request) {
 		ParticipantID string             `json:"participant_id"`
 		Dates         []string           `json:"dates"`
 		Notes         *map[string]string `json:"notes"`
+		Preferred     *[]string          `json:"preferred"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
@@ -85,7 +86,22 @@ func (h *Handler) SetAvailability(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err := h.service.SetAvailability(r.Context(), calendarID, req.ParticipantID, req.Dates, noteOverrides)
+	var preferredOverrides map[string]bool
+	if req.Preferred != nil {
+		preferredOverrides = make(map[string]bool, len(req.Dates))
+		for _, d := range req.Dates {
+			preferredOverrides[d] = false
+		}
+		for _, d := range *req.Preferred {
+			if _, ok := dateSet[d]; !ok {
+				respondError(w, http.StatusBadRequest, "preferred_unknown_date", "preferred date not in dates: "+d)
+				return
+			}
+			preferredOverrides[d] = true
+		}
+	}
+
+	err := h.service.SetAvailability(r.Context(), calendarID, req.ParticipantID, req.Dates, noteOverrides, preferredOverrides)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			respondError(w, http.StatusNotFound, "not_found", "participant not found")

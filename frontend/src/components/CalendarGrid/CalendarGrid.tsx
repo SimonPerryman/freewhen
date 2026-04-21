@@ -37,6 +37,9 @@ interface CalendarGridProps {
   // Drives the note dot colour rule: single author → that participant's colour;
   // multiple authors → neutral.
   noteAuthorsByDate?: Map<string, Set<string>>;
+  // voteCountsByDate[date] = number of participants who have marked this date
+  // as preferred. Renders a ★ badge in the cell's bottom-right.
+  voteCountsByDate?: Map<string, number>;
   currentParticipantId: string | null;
   onToggle: (date: string) => void;
   onOpenDay?: (date: string) => void;
@@ -94,6 +97,7 @@ export default function CalendarGrid({
   participants,
   freeByDate,
   noteAuthorsByDate,
+  voteCountsByDate,
   currentParticipantId,
   onToggle,
   onOpenDay,
@@ -390,6 +394,7 @@ export default function CalendarGrid({
 
           const noteAuthors = noteAuthorsByDate?.get(dateStr);
           const showNoteDot = !!noteAuthors && noteAuthors.size > 0;
+          const voteCount = voteCountsByDate?.get(dateStr) ?? 0;
           let noteDotColour: string | undefined;
           if (showNoteDot) {
             if (noteAuthors.size === 1) {
@@ -425,6 +430,24 @@ export default function CalendarGrid({
                       : undefined
                   }
                 />
+              ) : null}
+              {voteCount > 0 ? (
+                <span
+                  className={styles.voteBadge}
+                  data-testid="vote-badge"
+                  aria-label={
+                    voteCount === 1
+                      ? "1 person prefers this date"
+                      : `${voteCount} people prefer this date`
+                  }
+                >
+                  <span className={styles.voteBadgeStar} aria-hidden="true">
+                    ★
+                  </span>
+                  {voteCount > 1 ? (
+                    <span className={styles.voteBadgeCount}>{voteCount}</span>
+                  ) : null}
+                </span>
               ) : null}
               {sorted.length > 0 ? (
                 <div

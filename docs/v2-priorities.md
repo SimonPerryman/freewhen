@@ -39,7 +39,7 @@ See `future-ideas.md` for detailed descriptions of each feature.
 | Calendar integrations | Auth | Import/export Google/Apple. High value, high complexity. |
 | "Who's missing?" | Auth | See who hasn't responded. Needs expected participant list or named invites. |
 | Expiry / auto-archive | Auth | Keeps "my calendars" clean. Only matters at scale. |
-| Voting on preferred dates | — | "I'd prefer this date." Adds signal beyond availability. |
+| ~~Voting on preferred dates~~ ✅ | — | **Shipped.** Binary per-date vote attached to a participant's available dates; ★ badge on the cell, checkbox in the day sheet, and a tie-breaker in `BestDay`. See `plans/voting-on-preferred-dates.md`. |
 | Calendar colour themes | — | Let creator pick a vibe. Minor but personal. |
 | Week/day views | — | Mainly useful if time-of-day is added. |
 | "Sign in to see names" anonymity | Auth | Niche for friend groups. |

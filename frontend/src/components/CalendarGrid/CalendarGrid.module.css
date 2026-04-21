@@ -375,3 +375,26 @@
 .finalised .noteDot {
   box-shadow: 0 0 0 1px var(--accent);
 }
+
+.voteBadge {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+.voteBadgeStar {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.voteBadgeCount {
+  font-size: 9px;
+  font-weight: 600;
+}

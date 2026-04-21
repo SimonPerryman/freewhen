@@ -15,7 +15,13 @@ interface DayDetailSheetProps {
   currentNote: string;
   isSelected: boolean;
   finalised: boolean;
+  // Current participant's own vote for this date. Toggled via onToggleVote.
+  isPreferred?: boolean;
+  // Set of participant IDs (including current) that have voted for this date;
+  // drives the ★ indicator next to each name in the "who's free" list.
+  preferredParticipantIds?: Set<string>;
   onSaveNote: (text: string) => void;
+  onToggleVote?: (preferred: boolean) => void;
   onRemoveAvailability: () => void;
   onClose: () => void;
 }
@@ -59,7 +65,10 @@ export default function DayDetailSheet({
   currentNote,
   isSelected,
   finalised,
+  isPreferred = false,
+  preferredParticipantIds,
   onSaveNote,
+  onToggleVote,
   onRemoveAvailability,
   onClose,
 }: DayDetailSheetProps) {
@@ -244,6 +253,14 @@ export default function DayDetailSheet({
                     <span className={styles.whoName}>
                       {participant.name}
                       {isMe ? <span className={styles.meTag}>you</span> : null}
+                      {preferredParticipantIds?.has(participant.id) ? (
+                        <span
+                          className={styles.preferStar}
+                          aria-label={`${participant.name} prefers this date`}
+                        >
+                          ★
+                        </span>
+                      ) : null}
                     </span>
                     {note ? <span className={styles.whoNote}>{note}</span> : null}
                   </div>
@@ -252,6 +269,25 @@ export default function DayDetailSheet({
             </ul>
           ) : null}
         </section>
+
+        {editable && onToggleVote ? (
+          <section className={styles.section}>
+            <label className={styles.preferLabel}>
+              <input
+                type="checkbox"
+                className={styles.preferCheckbox}
+                checked={isPreferred}
+                onChange={(e) => onToggleVote(e.target.checked)}
+              />
+              <span className={styles.preferText}>
+                <span className={styles.preferTitle}>Prefer this date</span>
+                <span className={styles.preferHint}>
+                  Mark your top picks — helps the group pick a date everyone actually wants.
+                </span>
+              </span>
+            </label>
+          </section>
+        ) : null}
 
         {editable ? (
           <section className={styles.section}>

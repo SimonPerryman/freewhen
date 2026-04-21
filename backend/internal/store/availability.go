@@ -12,7 +12,12 @@ import (
 // map is applied as the new note (empty string → NULL); a key absent from the
 // map preserves the existing note for that date (if any). Pass nil to preserve
 // all existing notes ("don't touch" semantics).
-func (s *Store) SetAvailability(ctx context.Context, participantID string, dates []string, noteOverrides map[string]string) error {
+//
+// preferredOverrides works the same way for the boolean vote column: nil
+// preserves every row's existing `preferred` value; non-nil replaces it for
+// every date in `dates` using `overrides[date]` (defaulting to false for
+// absent keys).
+func (s *Store) SetAvailability(ctx context.Context, participantID string, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) error {
 	var calendarID string
 	var finalisedDate sql.NullString
 	err := s.db.QueryRowContext(ctx,
@@ -36,9 +41,9 @@ func (s *Store) SetAvailability(ctx context.Context, participantID string, dates
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	existingNotes, err := selectExistingNotes(ctx, tx, participantID)
+	existingNotes, existingPreferred, err := selectExistingAvailability(ctx, tx, participantID)
 	if err != nil {
-		return fmt.Errorf("read existing notes: %w", err)
+		return fmt.Errorf("read existing availability: %w", err)
 	}
 
 	if _, err := tx.ExecContext(ctx,
@@ -49,9 +54,10 @@ func (s *Store) SetAvailability(ctx context.Context, participantID string, dates
 
 	for _, date := range dates {
 		note := resolveNote(date, noteOverrides, existingNotes)
+		preferred := resolvePreferred(date, preferredOverrides, existingPreferred)
 		if _, err := tx.ExecContext(ctx,
-			`INSERT INTO availability (participant_id, calendar_id, date, note) VALUES ($1, $2, $3, $4)`,
-			participantID, calendarID, date, note,
+			`INSERT INTO availability (participant_id, calendar_id, date, note, preferred) VALUES ($1, $2, $3, $4, $5)`,
+			participantID, calendarID, date, note, preferred,
 		); err != nil {
 			return fmt.Errorf("insert availability for %s: %w", date, err)
 		}
@@ -63,27 +69,39 @@ func (s *Store) SetAvailability(ctx context.Context, participantID string, dates
 	return nil
 }
 
-func selectExistingNotes(ctx context.Context, tx *sql.Tx, participantID string) (map[string]string, error) {
+func selectExistingAvailability(ctx context.Context, tx *sql.Tx, participantID string) (map[string]string, map[string]bool, error) {
 	rows, err := tx.QueryContext(ctx,
-		`SELECT date::text, note FROM availability WHERE participant_id = $1`, participantID,
+		`SELECT date::text, note, preferred FROM availability WHERE participant_id = $1`, participantID,
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer func() { _ = rows.Close() }()
 
 	notes := map[string]string{}
+	preferred := map[string]bool{}
 	for rows.Next() {
 		var date string
 		var note sql.NullString
-		if err := rows.Scan(&date, &note); err != nil {
-			return nil, err
+		var pref bool
+		if err := rows.Scan(&date, &note, &pref); err != nil {
+			return nil, nil, err
 		}
 		if note.Valid {
 			notes[date] = note.String
 		}
+		if pref {
+			preferred[date] = true
+		}
 	}
-	return notes, rows.Err()
+	return notes, preferred, rows.Err()
+}
+
+func resolvePreferred(date string, overrides, existing map[string]bool) bool {
+	if overrides != nil {
+		return overrides[date]
+	}
+	return existing[date]
 }
 
 func resolveNote(date string, overrides, existing map[string]string) any {

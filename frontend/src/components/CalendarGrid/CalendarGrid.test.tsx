@@ -830,4 +830,91 @@ describe("CalendarGrid", () => {
     expect(onOpenDay).toHaveBeenCalledWith(futureDate);
     expect(onToggle).not.toHaveBeenCalled();
   });
+
+  describe("vote badge", () => {
+    it("does not render when count is 0", () => {
+      const ps = makeParticipants(1);
+      render(
+        <CalendarGrid
+          participants={ps}
+          freeByDate={new Map()}
+          voteCountsByDate={new Map()}
+          currentParticipantId={null}
+          onToggle={onToggle}
+          joined={false}
+        />,
+      );
+      expect(screen.queryAllByTestId("vote-badge")).toHaveLength(0);
+    });
+
+    it("renders a bare ★ when exactly one vote", () => {
+      const ps = makeParticipants(1);
+      const futureDate = futureDateStr(3);
+      render(
+        <CalendarGrid
+          participants={ps}
+          freeByDate={new Map([[futureDate, new Set([ps[0].id])]])}
+          voteCountsByDate={new Map([[futureDate, 1]])}
+          currentParticipantId={null}
+          onToggle={onToggle}
+          joined={false}
+        />,
+      );
+      const badges = screen.getAllByTestId("vote-badge");
+      expect(badges).toHaveLength(1);
+      expect(badges[0]).toHaveAttribute("aria-label", "1 person prefers this date");
+      expect(badges[0]).toHaveTextContent("★");
+    });
+
+    it("renders ★N when count > 1", () => {
+      const ps = makeParticipants(3);
+      const futureDate = futureDateStr(3);
+      render(
+        <CalendarGrid
+          participants={ps}
+          freeByDate={new Map([[futureDate, new Set([ps[0].id, ps[1].id])]])}
+          voteCountsByDate={new Map([[futureDate, 3]])}
+          currentParticipantId={null}
+          onToggle={onToggle}
+          joined={false}
+        />,
+      );
+      const badge = screen.getByTestId("vote-badge");
+      expect(badge).toHaveTextContent("3");
+      expect(badge).toHaveAttribute("aria-label", "3 people prefer this date");
+    });
+
+    it("does not render on past cells", () => {
+      const ps = makeParticipants(1);
+      const pastDate = pastDateStr(1);
+      render(
+        <CalendarGrid
+          participants={ps}
+          freeByDate={new Map()}
+          voteCountsByDate={new Map([[pastDate, 2]])}
+          currentParticipantId={null}
+          onToggle={onToggle}
+          joined={false}
+        />,
+      );
+      expect(screen.queryAllByTestId("vote-badge")).toHaveLength(0);
+    });
+
+    it("renders on finalised cells", () => {
+      const ps = makeParticipants(1);
+      const futureDate = futureDateStr(3);
+      render(
+        <CalendarGrid
+          participants={ps}
+          freeByDate={new Map([[futureDate, new Set([ps[0].id])]])}
+          voteCountsByDate={new Map([[futureDate, 1]])}
+          currentParticipantId={null}
+          onToggle={onToggle}
+          joined={true}
+          finalisedDate={futureDate}
+        />,
+      );
+      expect(screen.getAllByTestId("vote-badge")).toHaveLength(1);
+    });
+  });
 });

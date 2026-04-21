@@ -22,7 +22,7 @@ func TestSetAvailability(t *testing.T) {
 		t.Fatalf("add participant: %v", err)
 	}
 
-	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01", "2026-05-02"}, nil); err != nil {
+	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01", "2026-05-02"}, nil, nil); err != nil {
 		t.Fatalf("set availability: %v", err)
 	}
 
@@ -56,10 +56,10 @@ func TestSetAvailabilityReplacesExisting(t *testing.T) {
 		t.Fatalf("add participant: %v", err)
 	}
 
-	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01", "2026-05-02"}, nil); err != nil {
+	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01", "2026-05-02"}, nil, nil); err != nil {
 		t.Fatalf("set first: %v", err)
 	}
-	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-03"}, nil); err != nil {
+	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-03"}, nil, nil); err != nil {
 		t.Fatalf("set second: %v", err)
 	}
 
@@ -88,10 +88,10 @@ func TestSetAvailabilityClearAll(t *testing.T) {
 		t.Fatalf("add participant: %v", err)
 	}
 
-	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01", "2026-05-02"}, nil); err != nil {
+	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01", "2026-05-02"}, nil, nil); err != nil {
 		t.Fatalf("set first: %v", err)
 	}
-	if err := s.SetAvailability(ctx, p.ID, []string{}, nil); err != nil {
+	if err := s.SetAvailability(ctx, p.ID, []string{}, nil, nil); err != nil {
 		t.Fatalf("set empty: %v", err)
 	}
 
@@ -121,10 +121,10 @@ func TestSetAvailabilityMultipleParticipants(t *testing.T) {
 		t.Fatalf("add bob: %v", err)
 	}
 
-	if err := s.SetAvailability(ctx, alice.ID, []string{"2026-05-01", "2026-05-02"}, nil); err != nil {
+	if err := s.SetAvailability(ctx, alice.ID, []string{"2026-05-01", "2026-05-02"}, nil, nil); err != nil {
 		t.Fatalf("set alice: %v", err)
 	}
-	if err := s.SetAvailability(ctx, bob.ID, []string{"2026-05-02", "2026-05-03"}, nil); err != nil {
+	if err := s.SetAvailability(ctx, bob.ID, []string{"2026-05-02", "2026-05-03"}, nil, nil); err != nil {
 		t.Fatalf("set bob: %v", err)
 	}
 
@@ -161,7 +161,7 @@ func TestSetAvailabilityNoteRoundTrip(t *testing.T) {
 	}
 
 	notes := map[string]string{"2026-05-01": "only after 6pm"}
-	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01", "2026-05-02"}, notes); err != nil {
+	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01", "2026-05-02"}, notes, nil); err != nil {
 		t.Fatalf("set availability: %v", err)
 	}
 
@@ -195,11 +195,11 @@ func TestSetAvailabilityPreservesNotesWhenNilOverrides(t *testing.T) {
 		t.Fatalf("add participant: %v", err)
 	}
 
-	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01"}, map[string]string{"2026-05-01": "evening only"}); err != nil {
+	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01"}, map[string]string{"2026-05-01": "evening only"}, nil); err != nil {
 		t.Fatalf("set first: %v", err)
 	}
 	// Re-submit same date with nil overrides — note should survive.
-	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01", "2026-05-02"}, nil); err != nil {
+	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01", "2026-05-02"}, nil, nil); err != nil {
 		t.Fatalf("set second: %v", err)
 	}
 
@@ -229,10 +229,10 @@ func TestSetAvailabilityEmptyStringClearsNote(t *testing.T) {
 		t.Fatalf("add participant: %v", err)
 	}
 
-	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01"}, map[string]string{"2026-05-01": "x"}); err != nil {
+	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01"}, map[string]string{"2026-05-01": "x"}, nil); err != nil {
 		t.Fatalf("set first: %v", err)
 	}
-	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01"}, map[string]string{"2026-05-01": ""}); err != nil {
+	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01"}, map[string]string{"2026-05-01": ""}, nil); err != nil {
 		t.Fatalf("set second: %v", err)
 	}
 
@@ -258,15 +258,15 @@ func TestSetAvailabilityRemovingDateDropsNote(t *testing.T) {
 		t.Fatalf("add participant: %v", err)
 	}
 
-	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01"}, map[string]string{"2026-05-01": "x"}); err != nil {
+	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01"}, map[string]string{"2026-05-01": "x"}, nil); err != nil {
 		t.Fatalf("set first: %v", err)
 	}
 	// Deselect the date entirely — row goes away with its note.
-	if err := s.SetAvailability(ctx, p.ID, []string{}, nil); err != nil {
+	if err := s.SetAvailability(ctx, p.ID, []string{}, nil, nil); err != nil {
 		t.Fatalf("clear: %v", err)
 	}
 	// Reselect same date with nil overrides — note must not resurrect.
-	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01"}, nil); err != nil {
+	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01"}, nil, nil); err != nil {
 		t.Fatalf("re-add: %v", err)
 	}
 
@@ -296,11 +296,11 @@ func TestSetAvailabilityParticipantIsolation(t *testing.T) {
 		t.Fatalf("add bob: %v", err)
 	}
 
-	if err := s.SetAvailability(ctx, alice.ID, []string{"2026-05-01"}, map[string]string{"2026-05-01": "alice note"}); err != nil {
+	if err := s.SetAvailability(ctx, alice.ID, []string{"2026-05-01"}, map[string]string{"2026-05-01": "alice note"}, nil); err != nil {
 		t.Fatalf("set alice: %v", err)
 	}
 	// Bob submits availability with no notes — must not touch alice's note.
-	if err := s.SetAvailability(ctx, bob.ID, []string{"2026-05-01"}, nil); err != nil {
+	if err := s.SetAvailability(ctx, bob.ID, []string{"2026-05-01"}, nil, nil); err != nil {
 		t.Fatalf("set bob: %v", err)
 	}
 
@@ -314,5 +314,182 @@ func TestSetAvailabilityParticipantIsolation(t *testing.T) {
 				t.Errorf("alice's note got touched by bob's edit: %v", a.Note)
 			}
 		}
+	}
+}
+
+func findAvailability(rows []model.Availability, participantID, date string) *model.Availability {
+	for i := range rows {
+		if rows[i].ParticipantID == participantID && rows[i].Date == date {
+			return &rows[i]
+		}
+	}
+	return nil
+}
+
+func TestSetAvailabilityPreferredRoundTrip(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
+	if err != nil {
+		t.Fatalf("create calendar: %v", err)
+	}
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	if err != nil {
+		t.Fatalf("add participant: %v", err)
+	}
+
+	preferred := map[string]bool{"2026-05-02": true}
+	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01", "2026-05-02"}, nil, preferred); err != nil {
+		t.Fatalf("set availability: %v", err)
+	}
+
+	result, err := s.GetCalendar(ctx, cal.ID)
+	if err != nil {
+		t.Fatalf("get calendar: %v", err)
+	}
+	row1 := findAvailability(result.Availability, p.ID, "2026-05-01")
+	row2 := findAvailability(result.Availability, p.ID, "2026-05-02")
+	if row1 == nil || row2 == nil {
+		t.Fatalf("expected both availability rows")
+	}
+	if row1.Preferred {
+		t.Errorf("2026-05-01 should not be preferred")
+	}
+	if !row2.Preferred {
+		t.Errorf("2026-05-02 should be preferred")
+	}
+}
+
+func TestSetAvailabilityPreferredClearedWhenDateRemoved(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
+	if err != nil {
+		t.Fatalf("create calendar: %v", err)
+	}
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	if err != nil {
+		t.Fatalf("add participant: %v", err)
+	}
+
+	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01"}, nil, map[string]bool{"2026-05-01": true}); err != nil {
+		t.Fatalf("first set: %v", err)
+	}
+	if err := s.SetAvailability(ctx, p.ID, []string{}, nil, nil); err != nil {
+		t.Fatalf("clear: %v", err)
+	}
+	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01"}, nil, nil); err != nil {
+		t.Fatalf("reset: %v", err)
+	}
+
+	result, err := s.GetCalendar(ctx, cal.ID)
+	if err != nil {
+		t.Fatalf("get calendar: %v", err)
+	}
+	row := findAvailability(result.Availability, p.ID, "2026-05-01")
+	if row == nil {
+		t.Fatalf("expected row")
+	}
+	if row.Preferred {
+		t.Errorf("preferred should have cleared when date was dropped from selection")
+	}
+}
+
+func TestSetAvailabilityPreferredPreservedWhenOverridesNil(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
+	if err != nil {
+		t.Fatalf("create calendar: %v", err)
+	}
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	if err != nil {
+		t.Fatalf("add participant: %v", err)
+	}
+
+	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01"}, nil, map[string]bool{"2026-05-01": true}); err != nil {
+		t.Fatalf("first: %v", err)
+	}
+	// Availability-only edit: must not touch preferred.
+	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01", "2026-05-02"}, nil, nil); err != nil {
+		t.Fatalf("second: %v", err)
+	}
+
+	result, err := s.GetCalendar(ctx, cal.ID)
+	if err != nil {
+		t.Fatalf("get calendar: %v", err)
+	}
+	row := findAvailability(result.Availability, p.ID, "2026-05-01")
+	if row == nil || !row.Preferred {
+		t.Errorf("preferred should have been preserved for 2026-05-01")
+	}
+}
+
+func TestSetAvailabilityPreferredExplicitEmptyClears(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
+	if err != nil {
+		t.Fatalf("create calendar: %v", err)
+	}
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	if err != nil {
+		t.Fatalf("add participant: %v", err)
+	}
+
+	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01"}, nil, map[string]bool{"2026-05-01": true}); err != nil {
+		t.Fatalf("first: %v", err)
+	}
+	// Empty map (non-nil) → all dates become false.
+	if err := s.SetAvailability(ctx, p.ID, []string{"2026-05-01"}, nil, map[string]bool{}); err != nil {
+		t.Fatalf("second: %v", err)
+	}
+
+	result, err := s.GetCalendar(ctx, cal.ID)
+	if err != nil {
+		t.Fatalf("get calendar: %v", err)
+	}
+	row := findAvailability(result.Availability, p.ID, "2026-05-01")
+	if row == nil || row.Preferred {
+		t.Errorf("preferred should have cleared; got row=%+v", row)
+	}
+}
+
+func TestSetAvailabilityPreferredParticipantIsolation(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
+	if err != nil {
+		t.Fatalf("create calendar: %v", err)
+	}
+	alice, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	if err != nil {
+		t.Fatalf("add alice: %v", err)
+	}
+	bob, err := s.AddParticipant(ctx, cal.ID, "Bob", nil)
+	if err != nil {
+		t.Fatalf("add bob: %v", err)
+	}
+
+	if err := s.SetAvailability(ctx, alice.ID, []string{"2026-05-01"}, nil, map[string]bool{"2026-05-01": true}); err != nil {
+		t.Fatalf("set alice: %v", err)
+	}
+	// Bob writes with empty preferred map — must not touch alice's vote.
+	if err := s.SetAvailability(ctx, bob.ID, []string{"2026-05-01"}, nil, map[string]bool{}); err != nil {
+		t.Fatalf("set bob: %v", err)
+	}
+
+	result, err := s.GetCalendar(ctx, cal.ID)
+	if err != nil {
+		t.Fatalf("get calendar: %v", err)
+	}
+	row := findAvailability(result.Availability, alice.ID, "2026-05-01")
+	if row == nil || !row.Preferred {
+		t.Errorf("alice's vote was cleared by bob's write; row=%+v", row)
 	}
 }

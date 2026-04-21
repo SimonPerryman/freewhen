@@ -70,4 +70,59 @@ describe("BestDay", () => {
     const { container } = render(<BestDay participants={participants} freeByDate={freeByDate} />);
     expect(container.innerHTML).toBe("");
   });
+
+  it("tie-breaks on vote count when two dates tie on free-count", () => {
+    const participants = [makeParticipant("a"), makeParticipant("b"), makeParticipant("c")];
+    const freeByDate = new Map([
+      ["2026-06-10", new Set(["a", "b"])],
+      ["2026-06-11", new Set(["b", "c"])],
+    ]);
+    const voteCountsByDate = new Map([["2026-06-11", 2]]);
+
+    render(
+      <BestDay
+        participants={participants}
+        freeByDate={freeByDate}
+        voteCountsByDate={voteCountsByDate}
+      />,
+    );
+    expect(screen.getByText("Thursday 11 Jun")).toBeInTheDocument();
+    expect(screen.getByText("2 of 3 free — 2 prefer this")).toBeInTheDocument();
+  });
+
+  it("renders nothing when votes also tie", () => {
+    const participants = [makeParticipant("a"), makeParticipant("b"), makeParticipant("c")];
+    const freeByDate = new Map([
+      ["2026-06-10", new Set(["a", "b"])],
+      ["2026-06-11", new Set(["b", "c"])],
+    ]);
+    const voteCountsByDate = new Map([
+      ["2026-06-10", 1],
+      ["2026-06-11", 1],
+    ]);
+
+    const { container } = render(
+      <BestDay
+        participants={participants}
+        freeByDate={freeByDate}
+        voteCountsByDate={voteCountsByDate}
+      />,
+    );
+    expect(container.innerHTML).toBe("");
+  });
+
+  it("subtitle includes vote count when everyone is free and votes > 0", () => {
+    const participants = [makeParticipant("a"), makeParticipant("b")];
+    const freeByDate = new Map([["2026-06-15", new Set(["a", "b"])]]);
+    const voteCountsByDate = new Map([["2026-06-15", 2]]);
+
+    render(
+      <BestDay
+        participants={participants}
+        freeByDate={freeByDate}
+        voteCountsByDate={voteCountsByDate}
+      />,
+    );
+    expect(screen.getByText("Everyone's free — 2 prefer this")).toBeInTheDocument();
+  });
 });

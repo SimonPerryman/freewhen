@@ -25,7 +25,7 @@ type mockService struct {
 	getCalendarView          func(ctx context.Context, id string, viewer service.Viewer) (service.CalendarView, error)
 	getCalendarOnly          func(ctx context.Context, id string) (model.Calendar, error)
 	addParticipant           func(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
-	setAvailability          func(ctx context.Context, calendarID, participantID string, dates []string, noteOverrides map[string]string) error
+	setAvailability          func(ctx context.Context, calendarID, participantID string, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) error
 	finaliseCalendar         func(ctx context.Context, calendarID, date string) (model.Calendar, error)
 	unfinaliseCalendar       func(ctx context.Context, calendarID string) (model.Calendar, error)
 	claimParticipant         func(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error)
@@ -74,8 +74,8 @@ func (m *mockService) ClaimParticipant(ctx context.Context, calendarID, particip
 	return m.claimParticipant(ctx, calendarID, participantID, userID)
 }
 
-func (m *mockService) SetAvailability(ctx context.Context, calendarID, participantID string, dates []string, noteOverrides map[string]string) error {
-	return m.setAvailability(ctx, calendarID, participantID, dates, noteOverrides)
+func (m *mockService) SetAvailability(ctx context.Context, calendarID, participantID string, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) error {
+	return m.setAvailability(ctx, calendarID, participantID, dates, noteOverrides, preferredOverrides)
 }
 
 func (m *mockService) FinaliseCalendar(ctx context.Context, calendarID, date string) (model.Calendar, error) {
@@ -456,7 +456,7 @@ func TestAddParticipant_ServiceError(t *testing.T) {
 
 func TestSetAvailability_Valid(t *testing.T) {
 	h := New(&mockService{
-		setAvailability: func(_ context.Context, calendarID, participantID string, dates []string, _ map[string]string) error {
+		setAvailability: func(_ context.Context, calendarID, participantID string, dates []string, _ map[string]string, _ map[string]bool) error {
 			if calendarID != "cal1" || participantID != "p1" {
 				t.Fatalf("unexpected args: calendarID=%q participantID=%q", calendarID, participantID)
 			}
@@ -521,7 +521,7 @@ func TestSetAvailability_InvalidDateFormat(t *testing.T) {
 
 func TestSetAvailability_NotFound(t *testing.T) {
 	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string) error {
+		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
 			return store.ErrNotFound
 		},
 	})
@@ -539,7 +539,7 @@ func TestSetAvailability_NotFound(t *testing.T) {
 
 func TestSetAvailability_ServiceError(t *testing.T) {
 	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string) error {
+		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
 			return fmt.Errorf("db down")
 		},
 	})
@@ -557,7 +557,7 @@ func TestSetAvailability_ServiceError(t *testing.T) {
 
 func TestSetAvailability_Finalised(t *testing.T) {
 	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string) error {
+		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
 			return store.ErrCalendarFinalised
 		},
 	})
@@ -576,7 +576,7 @@ func TestSetAvailability_NotesAbsentPassesNilToService(t *testing.T) {
 	var got map[string]string
 	sawCall := false
 	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, noteOverrides map[string]string) error {
+		setAvailability: func(_ context.Context, _, _ string, _ []string, noteOverrides map[string]string, _ map[string]bool) error {
 			sawCall = true
 			got = noteOverrides
 			return nil
@@ -603,7 +603,7 @@ func TestSetAvailability_NotesAbsentPassesNilToService(t *testing.T) {
 func TestSetAvailability_NotesPresentPassesMap(t *testing.T) {
 	var got map[string]string
 	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, noteOverrides map[string]string) error {
+		setAvailability: func(_ context.Context, _, _ string, _ []string, noteOverrides map[string]string, _ map[string]bool) error {
 			got = noteOverrides
 			return nil
 		},
@@ -633,7 +633,7 @@ func TestSetAvailability_NotesPresentPassesMap(t *testing.T) {
 func TestSetAvailability_EmptyNoteClears(t *testing.T) {
 	var got map[string]string
 	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, noteOverrides map[string]string) error {
+		setAvailability: func(_ context.Context, _, _ string, _ []string, noteOverrides map[string]string, _ map[string]bool) error {
 			got = noteOverrides
 			return nil
 		},
@@ -660,7 +660,7 @@ func TestSetAvailability_EmptyNoteClears(t *testing.T) {
 
 func TestSetAvailability_NoteUnknownDateRejected(t *testing.T) {
 	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string) error {
+		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
 			t.Fatal("service should not be called on validation error")
 			return nil
 		},
@@ -681,6 +681,147 @@ func TestSetAvailability_NoteUnknownDateRejected(t *testing.T) {
 	}
 }
 
+func TestSetAvailability_PreferredAbsentPassesNilToService(t *testing.T) {
+	var got map[string]bool
+	var seen bool
+	h := New(&mockService{
+		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, preferred map[string]bool) error {
+			got = preferred
+			seen = true
+			return nil
+		},
+	})
+
+	body := map[string]any{
+		"participant_id": "p1",
+		"dates":          []string{"2026-05-01"},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.SetAvailability(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if !seen {
+		t.Fatal("service not called")
+	}
+	if got != nil {
+		t.Fatalf("preferred = %v, want nil (don't-touch)", got)
+	}
+}
+
+func TestSetAvailability_PreferredPresentBuildsFullMap(t *testing.T) {
+	var got map[string]bool
+	h := New(&mockService{
+		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, preferred map[string]bool) error {
+			got = preferred
+			return nil
+		},
+	})
+
+	body := map[string]any{
+		"participant_id": "p1",
+		"dates":          []string{"2026-05-01", "2026-05-02", "2026-05-03"},
+		"preferred":      []string{"2026-05-02"},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.SetAvailability(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if got == nil {
+		t.Fatal("preferred map was nil")
+	}
+	if got["2026-05-01"] || !got["2026-05-02"] || got["2026-05-03"] {
+		t.Fatalf("preferred map = %v, want only 2026-05-02 true", got)
+	}
+}
+
+func TestSetAvailability_PreferredEmptyClears(t *testing.T) {
+	var got map[string]bool
+	h := New(&mockService{
+		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, preferred map[string]bool) error {
+			got = preferred
+			return nil
+		},
+	})
+
+	body := map[string]any{
+		"participant_id": "p1",
+		"dates":          []string{"2026-05-01"},
+		"preferred":      []string{},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.SetAvailability(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if got == nil {
+		t.Fatal("expected non-nil empty map (explicit clear), got nil")
+	}
+	if got["2026-05-01"] {
+		t.Fatalf("preferred[2026-05-01] = true, want false")
+	}
+}
+
+func TestSetAvailability_PreferredUnknownDateRejected(t *testing.T) {
+	h := New(&mockService{
+		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
+			t.Fatal("service should not be called on validation error")
+			return nil
+		},
+	})
+
+	body := map[string]any{
+		"participant_id": "p1",
+		"dates":          []string{"2026-05-01"},
+		"preferred":      []string{"2026-05-02"},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.SetAvailability(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestSetAvailability_PreferredDuplicatesDeduped(t *testing.T) {
+	var got map[string]bool
+	h := New(&mockService{
+		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, preferred map[string]bool) error {
+			got = preferred
+			return nil
+		},
+	})
+
+	body := map[string]any{
+		"participant_id": "p1",
+		"dates":          []string{"2026-05-01"},
+		"preferred":      []string{"2026-05-01", "2026-05-01"},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
+	req.SetPathValue("id", "cal1")
+	rec := httptest.NewRecorder()
+	h.SetAvailability(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if !got["2026-05-01"] {
+		t.Fatalf("preferred[2026-05-01] = false, want true")
+	}
+}
+
 func TestSetAvailability_NoteOversize(t *testing.T) {
 	// 141 emoji code points. Each 🎉 is one code point but takes 4 bytes UTF-8.
 	// Tests that we count code points, not bytes — the DB check does the same.
@@ -690,7 +831,7 @@ func TestSetAvailability_NoteOversize(t *testing.T) {
 		"notes":          map[string]string{"2026-05-01": strings.Repeat("🎉", 141)},
 	}
 	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string) error {
+		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
 			t.Fatal("service should not be called on oversize note")
 			return nil
 		},
@@ -708,7 +849,7 @@ func TestSetAvailability_NoteOversize(t *testing.T) {
 func TestSetAvailability_NoteAtBoundaryAccepted(t *testing.T) {
 	called := false
 	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string) error {
+		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
 			called = true
 			return nil
 		},
@@ -733,7 +874,7 @@ func TestSetAvailability_NoteAtBoundaryAccepted(t *testing.T) {
 
 func TestSetAvailability_NoteWhitespaceRejected(t *testing.T) {
 	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string) error {
+		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
 			t.Fatal("service should not be called on whitespace-only note")
 			return nil
 		},
@@ -755,7 +896,7 @@ func TestSetAvailability_NoteWhitespaceRejected(t *testing.T) {
 
 func TestSetAvailability_NoteNewlineRejected(t *testing.T) {
 	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string) error {
+		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
 			t.Fatal("service should not be called on newline note")
 			return nil
 		},

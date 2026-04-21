@@ -301,3 +301,44 @@
   background: color-mix(in srgb, var(--error) 8%, transparent);
   border-color: var(--error);
 }
+
+.preferLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.preferCheckbox {
+  margin-top: 2px;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.preferText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.preferTitle {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.preferHint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.preferStar {
+  margin-left: 4px;
+  font-size: 12px;
+  color: var(--accent);
+}

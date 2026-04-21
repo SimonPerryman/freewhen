@@ -15,6 +15,9 @@ interface FinalisedBannerProps {
   // up, so we put them next to the confirmed date.
   participants?: Participant[];
   availability?: Availability[];
+  // Number of participants who preferred the finalised date. Zero omits the
+  // line entirely; the sheet surfaces per-person stars.
+  voteCount?: number;
 }
 
 const fullDateFormatter = new Intl.DateTimeFormat("en-GB", {
@@ -35,6 +38,7 @@ export default function FinalisedBanner({
   onUnfinalise,
   participants,
   availability,
+  voteCount = 0,
 }: FinalisedBannerProps) {
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -69,6 +73,11 @@ export default function FinalisedBanner({
         <div className={styles.details}>
           <p className={styles.label}>Confirmed</p>
           <p className={styles.date}>{formatFullDate(date)}</p>
+          {voteCount > 0 ? (
+            <p className={styles.voteLine}>
+              {voteCount === 1 ? "1 person preferred this date" : `${voteCount} preferred this date`}
+            </p>
+          ) : null}
           {notes.length > 0 ? (
             <ul className={styles.noteList} aria-label="Notes for this date">
               {notes.map(({ participant, note }) => (
