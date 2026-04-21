@@ -43,6 +43,7 @@ import SummaryView from "@/components/SummaryView/SummaryView";
 import BestDay from "@/components/BestDay/BestDay";
 import LiveStatusDot from "@/components/LiveStatusDot/LiveStatusDot";
 import ThemePicker from "@/components/ThemePicker/ThemePicker";
+import WhosMissingPanel from "@/components/WhosMissingPanel/WhosMissingPanel";
 import { resolveTheme } from "@/lib/themes";
 import styles from "./page.module.css";
 
@@ -1296,6 +1297,12 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
                 </button>
               )}
             </div>
+          ) : null}
+          {isOwner && !finalisedDate ? (
+            <WhosMissingPanel
+              calendarId={calendar.calendar.id}
+              participants={calendar.participants}
+            />
           ) : null}
           <LiveStatusDot status={streamStatus} />
         </div>

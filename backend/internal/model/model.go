@@ -67,6 +67,14 @@ type User struct {
 	CreatedAt  time.Time `json:"-"`
 }
 
+type Invite struct {
+	ID                   string    `json:"id"`
+	CalendarID           string    `json:"calendar_id"`
+	Name                 string    `json:"name"`
+	MatchedParticipantID *string   `json:"matched_participant_id"`
+	CreatedAt            time.Time `json:"created_at"`
+}
+
 type Session struct {
 	Token     string
 	UserID    string

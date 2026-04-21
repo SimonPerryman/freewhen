@@ -37,7 +37,7 @@ See `future-ideas.md` for detailed descriptions of each feature.
 | Date range suggestions | — | Highlight creator's preferred window. Might be a solution looking for a problem. |
 | ~~Duplicate a calendar~~ ✅ | Auth | **Shipped.** "Same group, new event." Owner-only duplicate copies name/emoji/visibility and (optionally) participants; drops availability/finalised/passphrase. See `plans/duplicate-a-calendar.md`. |
 | Calendar integrations | Auth | Import/export Google/Apple. High value, high complexity. |
-| "Who's missing?" | Auth | See who hasn't responded. Needs expected participant list or named invites. |
+| ~~"Who's missing?"~~ ✅ | Auth | **Shipped.** Owner-only invite list + "Not joined" / "Joined but not responded" panel on the calendar page. Auto-matches invites to participants by normalised name with a manual-link escape hatch. See `plans/whos-missing.md`. |
 | Expiry / auto-archive | Auth | Keeps "my calendars" clean. Only matters at scale. |
 | ~~Voting on preferred dates~~ ✅ | — | **Shipped.** Binary per-date vote attached to a participant's available dates; ★ badge on the cell, checkbox in the day sheet, and a tie-breaker in `BestDay`. See `plans/voting-on-preferred-dates.md`. |
 | ~~Calendar colour themes~~ ✅ | — | **Shipped.** Owner picks a slug from a curated set; the calendar page scopes `--accent`/`--accent-subtle` overrides via `data-theme`. See `plans/calendar-colour-themes.md`. |

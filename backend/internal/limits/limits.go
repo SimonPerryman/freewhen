@@ -12,6 +12,10 @@ const (
 	MaxUserNameLength          = 50
 	MaxDatesPerSubmission      = 366
 	MaxParticipantsPerCalendar = 100
+	// MaxInvitesPerCalendar caps the owner's "Who's missing?" invite list. Kept
+	// in lockstep with MaxParticipantsPerCalendar so invites and participants
+	// move together if either is tuned.
+	MaxInvitesPerCalendar = MaxParticipantsPerCalendar
 	MaxCalendarsPerUser        = 200
 	// MaxNoteLength is the per-date note ceiling in Unicode code points. The DB
 	// enforces the same rule via a check constraint on availability.note.

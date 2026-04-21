@@ -105,6 +105,46 @@ export interface MyCalendarListItem {
   myRole: MyCalendarRole;
 }
 
+export interface Invite {
+  id: string;
+  calendarId: string;
+  name: string;
+  matchedParticipantId: string | null;
+  createdAt: string;
+}
+
+export interface NotJoinedEntry {
+  inviteId: string;
+  name: string;
+}
+
+export interface JoinedNotRespondedEntry {
+  participantId: string;
+  name: string;
+}
+
+export interface MissingView {
+  invites: Invite[];
+  notJoined: NotJoinedEntry[];
+  joinedNotResponded: JoinedNotRespondedEntry[];
+}
+
+export interface SkippedName {
+  name: string;
+  reason: string;
+}
+
+export interface InvalidName {
+  name: string;
+  reason: string;
+}
+
+export interface AddInvitesResult {
+  added: Invite[];
+  skipped: SkippedName[];
+  invalid: InvalidName[];
+}
+
 export interface MyCalendarsResponse {
   calendars: MyCalendarListItem[];
   hasMore: boolean;

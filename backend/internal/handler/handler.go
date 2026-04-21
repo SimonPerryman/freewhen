@@ -36,6 +36,12 @@ type CalendarService interface {
 	RotateCalendarPassphrase(ctx context.Context, calendarID string) (string, error)
 	ClearCalendarPassphrase(ctx context.Context, calendarID string) error
 	AuthorizeAccess(ctx context.Context, cal model.Calendar, viewer service.Viewer, tokenHeader string) error
+	GetMissingView(ctx context.Context, calendarID string) (service.MissingView, error)
+	AddInvites(ctx context.Context, calendarID string, rawNames []string) (service.AddInvitesResult, error)
+	RenameInvite(ctx context.Context, inviteID, name string) (model.Invite, error)
+	DeleteInvite(ctx context.Context, inviteID string) error
+	ManualMatchInvite(ctx context.Context, calendarID, inviteID string, participantID *string) (model.Invite, error)
+	GetInvite(ctx context.Context, inviteID string) (model.Invite, error)
 }
 
 type Handler struct {

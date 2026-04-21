@@ -31,7 +31,7 @@ func setupTestStore(t *testing.T) *Store {
 	}
 
 	// Clean tables before each test (order matters for FK constraints)
-	for _, table := range []string{"availability", "participants", "sessions", "magic_link_tokens", "calendars", "users"} {
+	for _, table := range []string{"availability", "calendar_invites", "participants", "sessions", "magic_link_tokens", "calendars", "users"} {
 		if _, err := db.Exec("DELETE FROM " + table); err != nil {
 			t.Fatalf("clean %s: %v", table, err)
 		}

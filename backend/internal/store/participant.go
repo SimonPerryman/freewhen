@@ -75,6 +75,9 @@ func (s *Store) AddParticipant(ctx context.Context, calendarID, name string, use
 		if scannedUserID.Valid {
 			p.UserID = &scannedUserID.String
 		}
+		// Best-effort auto-match against the owner's invite list. A failure here
+		// shouldn't fail the join — the owner can manually relink.
+		_ = s.MatchInviteByName(ctx, calendarID, p.ID, p.Name)
 		return p, nil
 	}
 	return model.Participant{}, fmt.Errorf("failed to generate unique participant ID after %d attempts", maxRetries)
@@ -160,6 +163,9 @@ func (s *Store) UpdateParticipantName(ctx context.Context, calendarID, participa
 	if scannedUserID.Valid {
 		p.UserID = &scannedUserID.String
 	}
+	// Rename may bring the participant's name in line with an unmatched invite.
+	// Re-run auto-match best-effort.
+	_ = s.MatchInviteByName(ctx, calendarID, p.ID, p.Name)
 	return p, nil
 }
 

@@ -1,10 +1,13 @@
 import type {
+  AddInvitesResult,
   AddParticipantRequest,
   Calendar,
   CalendarWithDetails,
   CreateCalendarRequest,
   CreateCalendarResponse,
   DuplicateCalendarRequest,
+  Invite,
+  MissingView,
   MyCalendarsResponse,
   Participant,
   SetAvailabilityRequest,
@@ -270,6 +273,47 @@ export async function sendMagicLink(email: string, returnUrl: string = "/"): Pro
 
 export function getGoogleLoginUrl(returnUrl: string = "/"): string {
   return `${BASE_URL}/auth/google?return_url=${encodeURIComponent(returnUrl)}`;
+}
+
+// --- "Who's missing?" invite list (owner-only) ---
+
+export async function getMissing(calendarId: string): Promise<MissingView> {
+  return request<MissingView>(`/calendars/${calendarId}/missing`);
+}
+
+export async function addInvites(calendarId: string, names: string[]): Promise<AddInvitesResult> {
+  return request<AddInvitesResult>(`/calendars/${calendarId}/invites`, {
+    method: "POST",
+    body: JSON.stringify({ names }),
+  });
+}
+
+export async function renameInvite(
+  calendarId: string,
+  inviteId: string,
+  name: string,
+): Promise<Invite> {
+  return request<Invite>(`/calendars/${calendarId}/invites/${inviteId}`, {
+    method: "PUT",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function deleteInvite(calendarId: string, inviteId: string): Promise<void> {
+  await request(`/calendars/${calendarId}/invites/${inviteId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function matchInvite(
+  calendarId: string,
+  inviteId: string,
+  participantId: string | null,
+): Promise<Invite> {
+  return request<Invite>(`/calendars/${calendarId}/invites/${inviteId}/match`, {
+    method: "POST",
+    body: JSON.stringify({ participant_id: participantId }),
+  });
 }
 
 export function getMagicLinkCallbackUrl(token: string): string {

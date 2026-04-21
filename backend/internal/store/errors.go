@@ -10,4 +10,7 @@ var (
 	ErrUserAlreadyJoined    = errors.New("user already has a participant in this calendar")
 	ErrCalendarFull         = errors.New("calendar is full")
 	ErrCalendarLimitReached = errors.New("owner has reached the calendar limit")
+	ErrInviteLimitReached   = errors.New("calendar invite list is full")
+	ErrInviteNameTaken      = errors.New("invite name already exists on this calendar")
+	ErrInviteNotFound       = errors.New("invite not found")
 )

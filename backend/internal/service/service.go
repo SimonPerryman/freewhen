@@ -67,6 +67,13 @@ type Store interface {
 	ParticipantHasAvailability(ctx context.Context, participantID string) (bool, error)
 	TouchCalendar(ctx context.Context, calendarID string) error
 	ListCalendarsForUser(ctx context.Context, userID string, limit int) ([]store.CalendarListItem, error)
+	ListInvites(ctx context.Context, calendarID string) ([]model.Invite, error)
+	GetInvite(ctx context.Context, inviteID string) (model.Invite, error)
+	AddInvites(ctx context.Context, calendarID string, names []string) (store.AddInvitesResult, error)
+	UpdateInviteName(ctx context.Context, inviteID, name string) (model.Invite, error)
+	DeleteInvite(ctx context.Context, inviteID string) error
+	SetInviteMatch(ctx context.Context, inviteID string, participantID *string) (model.Invite, error)
+	ParticipantsWithNoAvailability(ctx context.Context, calendarID string) ([]model.Participant, error)
 }
 
 type Service struct {

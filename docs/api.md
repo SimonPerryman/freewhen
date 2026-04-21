@@ -30,6 +30,11 @@ Session-based auth with HTTP-only cookies. Creator must sign in to create a cale
 | PUT | `/calendars/{id}/availability` | — | Update availability |
 | POST | `/calendars/{id}/finalise` | Owner | Lock the calendar to a chosen date |
 | DELETE | `/calendars/{id}/finalise` | Owner | Clear the locked date, reopen the calendar |
+| GET | `/calendars/{id}/missing` | Owner | Returns invite list + "Not joined" / "Joined but not responded" buckets |
+| POST | `/calendars/{id}/invites` | Owner | Add one or many invites (body: `{"names": ["Alice", "Bob"]}`) |
+| PUT | `/calendars/{id}/invites/{inviteId}` | Owner | Rename an invite |
+| DELETE | `/calendars/{id}/invites/{inviteId}` | Owner | Remove an invite |
+| POST | `/calendars/{id}/invites/{inviteId}/match` | Owner | Manually link/unlink an invite to a participant |
 
 ## Admin
 

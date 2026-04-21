@@ -96,6 +96,13 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /calendars/{id}/passphrase", s.requireAuth(s.handler.SetPassphrase))
 	s.mux.HandleFunc("DELETE /calendars/{id}/passphrase", s.requireAuth(s.handler.ClearPassphrase))
 
+	// "Who's missing?" invite list — owner-only.
+	s.mux.HandleFunc("GET /calendars/{id}/missing", s.requireAuth(s.handler.ListMissing))
+	s.mux.HandleFunc("POST /calendars/{id}/invites", s.requireAuth(s.handler.AddInvites))
+	s.mux.HandleFunc("PUT /calendars/{id}/invites/{inviteId}", s.requireAuth(s.handler.RenameInvite))
+	s.mux.HandleFunc("DELETE /calendars/{id}/invites/{inviteId}", s.requireAuth(s.handler.DeleteInvite))
+	s.mux.HandleFunc("POST /calendars/{id}/invites/{inviteId}/match", s.requireAuth(s.handler.ManualMatchInvite))
+
 	// Server-sent events stream for live updates.
 	s.mux.HandleFunc("GET /calendars/{id}/events", s.optionalAuth(s.events.Stream))
 }

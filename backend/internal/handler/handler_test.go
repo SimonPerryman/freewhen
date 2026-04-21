@@ -145,6 +145,30 @@ func (m *mockService) AuthorizeAccess(ctx context.Context, cal model.Calendar, v
 	return m.authorizeAccess(ctx, cal, viewer, tokenHeader)
 }
 
+func (m *mockService) GetMissingView(_ context.Context, _ string) (service.MissingView, error) {
+	return service.MissingView{}, nil
+}
+
+func (m *mockService) AddInvites(_ context.Context, _ string, _ []string) (service.AddInvitesResult, error) {
+	return service.AddInvitesResult{}, nil
+}
+
+func (m *mockService) RenameInvite(_ context.Context, _, _ string) (model.Invite, error) {
+	return model.Invite{}, nil
+}
+
+func (m *mockService) DeleteInvite(_ context.Context, _ string) error {
+	return nil
+}
+
+func (m *mockService) ManualMatchInvite(_ context.Context, _, _ string, _ *string) (model.Invite, error) {
+	return model.Invite{}, nil
+}
+
+func (m *mockService) GetInvite(_ context.Context, _ string) (model.Invite, error) {
+	return model.Invite{}, nil
+}
+
 func jsonBody(t *testing.T, v any) *bytes.Reader {
 	t.Helper()
 	b, err := json.Marshal(v)

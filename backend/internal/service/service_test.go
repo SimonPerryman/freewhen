@@ -27,6 +27,13 @@ type mockStore struct {
 	countCalendarsForOwner     func(ctx context.Context, ownerID string) (int, error)
 	getCalendarOnly            func(ctx context.Context, id string) (model.Calendar, error)
 	updateParticipantName      func(ctx context.Context, calendarID, participantID, name string) (model.Participant, error)
+	listInvites                func() ([]model.Invite, error)
+	getInvite                  func(id string) (model.Invite, error)
+	addInvites                 func(names []string) (store.AddInvitesResult, error)
+	updateInviteName           func(id, name string) (model.Invite, error)
+	deleteInvite               func() error
+	setInviteMatch             func(id string, pid *string) (model.Invite, error)
+	participantsWithNoAvailability func() ([]model.Participant, error)
 }
 
 func (m *mockStore) CreateCalendar(_ context.Context, name, emoji, theme, ownerID, visibility string) (model.Calendar, error) {
@@ -147,6 +154,55 @@ func (m *mockStore) ListCalendarsForUser(ctx context.Context, userID string, lim
 		panic("unexpected call to ListCalendarsForUser")
 	}
 	return m.listCalendarsForUser(ctx, userID, limit)
+}
+
+func (m *mockStore) ListInvites(_ context.Context, _ string) ([]model.Invite, error) {
+	if m.listInvites == nil {
+		return []model.Invite{}, nil
+	}
+	return m.listInvites()
+}
+
+func (m *mockStore) GetInvite(_ context.Context, id string) (model.Invite, error) {
+	if m.getInvite == nil {
+		return model.Invite{ID: id}, nil
+	}
+	return m.getInvite(id)
+}
+
+func (m *mockStore) AddInvites(_ context.Context, _ string, names []string) (store.AddInvitesResult, error) {
+	if m.addInvites == nil {
+		return store.AddInvitesResult{}, nil
+	}
+	return m.addInvites(names)
+}
+
+func (m *mockStore) UpdateInviteName(_ context.Context, id, name string) (model.Invite, error) {
+	if m.updateInviteName == nil {
+		return model.Invite{ID: id, Name: name}, nil
+	}
+	return m.updateInviteName(id, name)
+}
+
+func (m *mockStore) DeleteInvite(_ context.Context, _ string) error {
+	if m.deleteInvite == nil {
+		return nil
+	}
+	return m.deleteInvite()
+}
+
+func (m *mockStore) SetInviteMatch(_ context.Context, id string, pid *string) (model.Invite, error) {
+	if m.setInviteMatch == nil {
+		return model.Invite{ID: id, MatchedParticipantID: pid}, nil
+	}
+	return m.setInviteMatch(id, pid)
+}
+
+func (m *mockStore) ParticipantsWithNoAvailability(_ context.Context, _ string) ([]model.Participant, error) {
+	if m.participantsWithNoAvailability == nil {
+		return []model.Participant{}, nil
+	}
+	return m.participantsWithNoAvailability()
 }
 
 func TestSetAvailability_ParticipantBelongsToCalendar(t *testing.T) {
