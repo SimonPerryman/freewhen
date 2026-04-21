@@ -214,6 +214,28 @@ Replace a participant's available dates. Sending an empty `dates` array clears a
 
 ---
 
+### PATCH /calendars/{id}
+
+Update presentation fields on a calendar. Owner only. All fields are optional;
+at least one must be supplied.
+
+**Request**
+
+```json
+{"name": "Tennis Fridays", "visibility": "submit_to_view", "theme": "ocean"}
+```
+
+- `name` — new display name.
+- `visibility` — one of `open`, `submit_to_view`.
+- `theme` — a slug from the curated set (`peach`, `ocean`, `forest`, `plum`,
+  `lemon`, `graphite`). Unknown slugs return 400.
+
+**Response 200** — the updated calendar.
+
+**Errors:** 400 (invalid JSON, no fields supplied, invalid visibility, invalid theme, name too long) | 401 (not authenticated) | 403 (not owner) | 404 (calendar not found)
+
+---
+
 ### POST /calendars/{id}/finalise
 
 Lock the calendar to a single date. Only the owner may call this. Once set, availability writes and joins are rejected with 409 until the calendar is unfinalised. Re-calling this endpoint replaces the previously finalised date.

@@ -4,6 +4,7 @@ export interface Calendar {
   id: string;
   name: string;
   emoji?: string;
+  theme?: string;
   ownerId: string;
   visibility: Visibility;
   createdAt: string;
@@ -59,6 +60,7 @@ export interface DuplicateCalendarRequest {
 export interface UpdateCalendarRequest {
   name?: string;
   visibility?: Visibility;
+  theme?: string;
 }
 
 export interface AddParticipantRequest {

@@ -15,6 +15,7 @@ type Calendar struct {
 	ID            string     `json:"id"`
 	Name          string     `json:"name"`
 	Emoji         string     `json:"emoji,omitempty"`
+	Theme         string     `json:"theme,omitempty"`
 	OwnerID       string     `json:"owner_id"`
 	Visibility    string     `json:"visibility"`
 	CreatedAt     time.Time  `json:"created_at"`

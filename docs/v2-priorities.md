@@ -40,7 +40,7 @@ See `future-ideas.md` for detailed descriptions of each feature.
 | "Who's missing?" | Auth | See who hasn't responded. Needs expected participant list or named invites. |
 | Expiry / auto-archive | Auth | Keeps "my calendars" clean. Only matters at scale. |
 | ~~Voting on preferred dates~~ ✅ | — | **Shipped.** Binary per-date vote attached to a participant's available dates; ★ badge on the cell, checkbox in the day sheet, and a tie-breaker in `BestDay`. See `plans/voting-on-preferred-dates.md`. |
-| Calendar colour themes | — | Let creator pick a vibe. Minor but personal. |
+| ~~Calendar colour themes~~ ✅ | — | **Shipped.** Owner picks a slug from a curated set; the calendar page scopes `--accent`/`--accent-subtle` overrides via `data-theme`. See `plans/calendar-colour-themes.md`. |
 | Week/day views | — | Mainly useful if time-of-day is added. |
 | "Sign in to see names" anonymity | Auth | Niche for friend groups. |
 | Recurring calendars | Auth? | Ongoing group planning. Different product shape. |

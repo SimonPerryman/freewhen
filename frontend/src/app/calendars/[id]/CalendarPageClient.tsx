@@ -42,6 +42,8 @@ import ShareButton from "@/components/ShareButton/ShareButton";
 import SummaryView from "@/components/SummaryView/SummaryView";
 import BestDay from "@/components/BestDay/BestDay";
 import LiveStatusDot from "@/components/LiveStatusDot/LiveStatusDot";
+import ThemePicker from "@/components/ThemePicker/ThemePicker";
+import { resolveTheme } from "@/lib/themes";
 import styles from "./page.module.css";
 
 const LOCAL_MUTATION_SUPPRESS_MS = 500;
@@ -760,6 +762,25 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     }
   }, [calendarId, calendar, markLocalMutation]);
 
+  const handleThemeChange = useCallback(
+    async (slug: string) => {
+      const previous = calendar;
+      if (!previous) return;
+      setCalendar((prev) =>
+        prev ? { ...prev, calendar: { ...prev.calendar, theme: slug } } : prev,
+      );
+      markLocalMutation();
+      try {
+        await updateCalendar(calendarId, { theme: slug });
+        analytics.capture("calendar_theme_set", { calendar_id: calendarId, theme: slug });
+      } catch {
+        setCalendar(previous);
+        showToast({ message: "Couldn't change theme. Try again." });
+      }
+    },
+    [calendar, calendarId, markLocalMutation, showToast],
+  );
+
   const handleVisibilityToggle = useCallback(async () => {
     if (!calendar) return;
     const current = calendar.calendar.visibility;
@@ -1159,7 +1180,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   const isFull = calendar.participants.length >= MAX_PARTICIPANTS_PER_CALENDAR;
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} data-theme={resolveTheme(calendar.calendar.theme)}>
       <div className={styles.container}>
         <div className={styles.header}>
           <div className={styles.titleRow}>
@@ -1222,6 +1243,9 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
                 ? "Hiding others until they respond — tap to show everyone"
                 : "Hide others' availability until they respond"}
             </button>
+          ) : null}
+          {isOwner && !finalisedDate ? (
+            <ThemePicker currentTheme={calendar.calendar.theme} onChange={handleThemeChange} />
           ) : null}
           {isOwner && !finalisedDate ? (
             <div className={styles.passphraseBlock}>
