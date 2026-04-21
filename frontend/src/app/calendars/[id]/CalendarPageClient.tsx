@@ -1014,7 +1014,6 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
         } else {
           setJoinError("Something went wrong");
         }
-        throw err; // let JoinForm know submission failed
       }
     },
     [calendarId, markLocalMutation],
