@@ -3,6 +3,7 @@ import { DM_Sans, Bricolage_Grotesque } from "next/font/google";
 import AnalyticsProvider from "@/components/AnalyticsProvider/AnalyticsProvider";
 import AuthProvider from "@/components/AuthProvider/AuthProvider";
 import Header from "@/components/Header/Header";
+import { ToastProvider } from "@/lib/toast";
 import "./globals.css";
 
 const body = DM_Sans({
@@ -61,8 +62,10 @@ export default function RootLayout({
       <body>
         <AnalyticsProvider>
           <AuthProvider>
-            <Header />
-            {children}
+            <ToastProvider>
+              <Header />
+              {children}
+            </ToastProvider>
           </AuthProvider>
         </AnalyticsProvider>
       </body>

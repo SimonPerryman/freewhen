@@ -63,6 +63,8 @@ interface MockedCalendarGridProps {
   onToggle: (date: string) => void;
   onOpenDay?: (date: string) => void;
   onRangeToggle?: (dates: string[], target: boolean) => void;
+  onClear?: () => void;
+  canClear?: boolean;
   selectedDates?: Set<string>;
   noteAuthorsByDate?: Map<string, Set<string>>;
 }
@@ -115,6 +117,18 @@ vi.mock("@/components/InvitePrompt/InvitePrompt", () => ({
 }));
 
 let mockUser: { id: string; email: string; name: string } | null = null;
+
+let capturedShowToast: ReturnType<typeof vi.fn> | null = null;
+let capturedDismiss: ReturnType<typeof vi.fn> | null = null;
+
+vi.mock("@/lib/toast", () => ({
+  ToastProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useToast: () => {
+    if (!capturedShowToast) capturedShowToast = vi.fn();
+    if (!capturedDismiss) capturedDismiss = vi.fn();
+    return { showToast: capturedShowToast, dismiss: capturedDismiss };
+  },
+}));
 
 vi.mock("@/components/AuthProvider/AuthProvider", () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -209,6 +223,8 @@ describe("CalendarPageClient", () => {
     capturedGridProps = null;
     capturedSheetProps = null;
     mockUser = null;
+    capturedShowToast = null;
+    capturedDismiss = null;
     localStorageMock.getItem.mockReturnValue(null);
   });
 
@@ -753,6 +769,108 @@ describe("CalendarPageClient", () => {
     // The notes map contains ONLY the edited key; the backend's partial-override
     // rule preserves the untouched 2030-06-02.
     expect(body.notes).toEqual({ "2030-06-01": "only after 6pm" });
+  });
+
+  it("clear availability: removes future dates + notes, fires one PUT with remaining set, shows toast", async () => {
+    const participant = makeParticipant();
+    const today = new Date();
+    const future = (daysAhead: number) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() + daysAhead);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    };
+    const past = (daysBack: number) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() - daysBack);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    };
+
+    const f1 = future(2);
+    const f2 = future(5);
+    const p1 = past(2);
+
+    const calendarData = makeCalendarData({
+      participants: [participant],
+      availability: [
+        { participantId: participant.id, calendarId: CALENDAR_ID, date: f1, note: "noted" },
+        { participantId: participant.id, calendarId: CALENDAR_ID, date: f2 },
+        { participantId: participant.id, calendarId: CALENDAR_ID, date: p1 },
+      ],
+    });
+
+    localStorageMock.getItem.mockReturnValue(
+      JSON.stringify({ participantId: participant.id, name: participant.name }),
+    );
+    mockGetCalendar.mockResolvedValue(calendarData);
+    mockSetAvailability.mockResolvedValue(undefined);
+
+    render(
+      <AuthProvider>
+        <CalendarPageClient calendarId={CALENDAR_ID} />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(capturedGridProps?.onClear).toBeDefined();
+    });
+    expect(capturedGridProps?.canClear).toBe(true);
+
+    capturedGridProps!.onClear!();
+
+    await waitFor(() => {
+      expect(mockSetAvailability).toHaveBeenCalledTimes(1);
+    });
+    const [, body] = mockSetAvailability.mock.calls[0];
+    expect(body.dates).not.toContain(f1);
+    expect(body.dates).not.toContain(f2);
+
+    expect(capturedShowToast).toHaveBeenCalledTimes(1);
+    const toastArg = capturedShowToast!.mock.calls[0][0] as {
+      message: string;
+      action?: { label: string; onClick: () => void };
+    };
+    expect(toastArg.message).toMatch(/Cleared 2 dates/);
+    expect(toastArg.action?.label).toBe("Undo");
+
+    // Undo: should restore both the selection and notes in a second PUT.
+    mockSetAvailability.mockClear();
+    toastArg.action!.onClick();
+
+    await waitFor(() => {
+      expect(mockSetAvailability).toHaveBeenCalledTimes(1);
+    });
+    const [, restored] = mockSetAvailability.mock.calls[0];
+    expect(restored.dates).toEqual(expect.arrayContaining([f1, f2]));
+  });
+
+  it("clear availability: canClear is false when no future dates selected", async () => {
+    const participant = makeParticipant();
+    const calendarData = makeCalendarData({
+      participants: [participant],
+      availability: [],
+    });
+
+    localStorageMock.getItem.mockReturnValue(
+      JSON.stringify({ participantId: participant.id, name: participant.name }),
+    );
+    mockGetCalendar.mockResolvedValue(calendarData);
+
+    render(
+      <AuthProvider>
+        <CalendarPageClient calendarId={CALENDAR_ID} />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(capturedGridProps?.onClear).toBeDefined();
+    });
+    expect(capturedGridProps?.canClear).toBe(false);
   });
 
   it("deselecting a date that had a note: PUT omits notes (row delete drops the note)", async () => {

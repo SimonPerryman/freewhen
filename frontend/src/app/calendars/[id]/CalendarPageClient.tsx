@@ -24,6 +24,7 @@ import { useCalendarEvents } from "@/lib/useCalendarEvents";
 import { MAX_CALENDAR_NAME_LENGTH, MAX_PARTICIPANTS_PER_CALENDAR } from "@/lib/limits";
 import type { CalendarWithDetails, Participant } from "@/lib/types";
 import { useAuth } from "@/components/AuthProvider/AuthProvider";
+import { useToast } from "@/lib/toast";
 import CalendarGrid from "@/components/CalendarGrid/CalendarGrid";
 import DayDetailSheet from "@/components/DayDetailSheet/DayDetailSheet";
 import FinalisedBanner from "@/components/FinalisedBanner/FinalisedBanner";
@@ -72,6 +73,7 @@ function writeStorage(calendarId: string, data: StoredParticipant): void {
 
 export default function CalendarPageClient({ calendarId }: { calendarId: string }) {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [calendar, setCalendar] = useState<CalendarWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<LoadError | null>(null);
@@ -461,6 +463,77 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     },
     [handleToggle],
   );
+
+  // A date is clearable if it's today or later and not individually finalised.
+  // (Finalisation hides the toolbar entirely, but the per-cell check is cheap
+  // insurance against future multi-finalisation.)
+  const isClearable = useCallback(
+    (date: string): boolean => {
+      if (date < getToday()) return false;
+      if (calendar?.calendar.finalisedDate === date) return false;
+      return true;
+    },
+    [calendar],
+  );
+
+  const handleClearAvailability = useCallback(() => {
+    const prevSelected = new Set(selectedDatesRef.current);
+    const prevNotes = new Map(notesByDate);
+    const cleared: string[] = [];
+    let notesCleared = 0;
+    const next = new Set<string>();
+    for (const d of prevSelected) {
+      if (isClearable(d)) {
+        cleared.push(d);
+        if (prevNotes.has(d)) notesCleared += 1;
+      } else {
+        next.add(d);
+      }
+    }
+    if (cleared.length === 0) return;
+
+    selectedDatesRef.current = next;
+    setSelectedDates(next);
+    if (notesCleared > 0) {
+      setNotesByDate((prev) => {
+        const m = new Map(prev);
+        for (const d of cleared) m.delete(d);
+        return m;
+      });
+    }
+    queueSave(Array.from(next));
+
+    analytics.capture("availability_cleared", {
+      calendar_id: calendarId,
+      count: cleared.length,
+      notes_cleared: notesCleared,
+    });
+
+    const undo = () => {
+      selectedDatesRef.current = prevSelected;
+      setSelectedDates(prevSelected);
+      setNotesByDate(prevNotes);
+      queueSave(Array.from(prevSelected));
+      analytics.capture("availability_clear_undone", {
+        calendar_id: calendarId,
+        count: cleared.length,
+      });
+    };
+
+    const plural = cleared.length === 1 ? "date" : "dates";
+    showToast({
+      message: `Cleared ${cleared.length} ${plural}.`,
+      action: { label: "Undo", onClick: undo },
+    });
+  }, [notesByDate, isClearable, queueSave, calendarId, showToast]);
+
+  const canClear = useMemo(() => {
+    if (selectedDates.size === 0) return false;
+    for (const d of selectedDates) {
+      if (isClearable(d)) return true;
+    }
+    return false;
+  }, [selectedDates, isClearable]);
 
   const handleRangeToggle = useCallback(
     (dates: string[], target: boolean) => {
@@ -1055,6 +1128,8 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           onToggle={handleToggle}
           onOpenDay={currentParticipant ? handleOpenDay : undefined}
           onRangeToggle={handleRangeToggle}
+          onClear={currentParticipant ? handleClearAvailability : undefined}
+          canClear={canClear}
           selectedDates={selectedDates}
           joined={!!currentParticipant}
           finalisedDate={finalisedDate}

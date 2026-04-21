@@ -22,6 +22,7 @@ vi.mock("@/lib/api", async () => {
 });
 
 import AuthProvider from "@/components/AuthProvider/AuthProvider";
+import { ToastProvider } from "@/lib/toast";
 import CalendarPageClient from "./CalendarPageClient";
 
 const mockCalendar = {
@@ -43,7 +44,9 @@ beforeEach(() => {
 function renderPage() {
   render(
     <AuthProvider>
-      <CalendarPageClient calendarId="cal-1" />
+      <ToastProvider>
+        <CalendarPageClient calendarId="cal-1" />
+      </ToastProvider>
     </AuthProvider>,
   );
 }

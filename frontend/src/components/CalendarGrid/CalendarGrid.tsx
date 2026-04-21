@@ -41,6 +41,8 @@ interface CalendarGridProps {
   onToggle: (date: string) => void;
   onOpenDay?: (date: string) => void;
   onRangeToggle?: (dates: string[], target: boolean) => void;
+  onClear?: () => void;
+  canClear?: boolean;
   selectedDates?: Set<string>;
   joined: boolean;
   finalisedDate?: string | null;
@@ -96,6 +98,8 @@ export default function CalendarGrid({
   onToggle,
   onOpenDay,
   onRangeToggle,
+  onClear,
+  canClear = false,
   selectedDates,
   joined,
   finalisedDate = null,
@@ -266,6 +270,17 @@ export default function CalendarGrid({
           >
             Weekdays
           </button>
+          {onClear ? (
+            <button
+              type="button"
+              className={`${styles.toolbarButton} ${styles.toolbarButtonSecondary}`}
+              onClick={onClear}
+              disabled={!canClear}
+              aria-disabled={!canClear}
+            >
+              Clear
+            </button>
+          ) : null}
         </div>
       ) : null}
 

@@ -193,6 +193,7 @@ No auth, no accounts — just a shareable link.
 
 - **Weekends** — toggles all Sat/Sun cells in the visible 5-week window. If any are unselected, all become selected; otherwise all are deselected.
 - **Weekdays** — same rule, applied to Mon–Fri.
+- **Clear** — wipes every future date you've marked, across the whole calendar (not just the visible window). Past dates are preserved. A toast appears with an **Undo** action for six seconds.
 
 ```
 ┌─────────────────────────────────────────────────────┐

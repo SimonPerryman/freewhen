@@ -47,6 +47,7 @@ Group availability coordination tool. Go backend + Next.js frontend + Postgres.
 - Log wrapper in `src/lib/log.ts` — use `log.info`/`log.warn`/`log.error` instead of `console.*`
 - Error boundary in `src/app/error.tsx`, not-found page in `src/app/not-found.tsx`
 - Lint with oxlint, format with oxfmt
+- Feedback for reversible actions: use the Toast primitive (`useToast()` from `@/lib/toast`, `<ToastProvider>` mounted in `src/app/layout.tsx`) with an `Undo` action. Don't reach for `window.confirm` on mobile — it breaks the PWA aesthetic and is the wrong shape for an undoable operation.
 
 ## Database
 

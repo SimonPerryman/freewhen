@@ -717,6 +717,78 @@ describe("CalendarGrid", () => {
     expect((initial as HTMLElement).style.color).toBe(expectedRgb);
   });
 
+  it("renders a Clear button in the toolbar when onClear is provided", () => {
+    const ps = makeParticipants(1);
+    render(
+      <CalendarGrid
+        participants={ps}
+        freeByDate={new Map()}
+        currentParticipantId={ps[0].id}
+        onToggle={onToggle}
+        onRangeToggle={vi.fn()}
+        onClear={vi.fn()}
+        canClear={true}
+        joined={true}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /^clear$/i })).toBeEnabled();
+  });
+
+  it("Clear button is disabled when canClear is false", () => {
+    const ps = makeParticipants(1);
+    render(
+      <CalendarGrid
+        participants={ps}
+        freeByDate={new Map()}
+        currentParticipantId={ps[0].id}
+        onToggle={onToggle}
+        onRangeToggle={vi.fn()}
+        onClear={vi.fn()}
+        canClear={false}
+        joined={true}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /^clear$/i })).toBeDisabled();
+  });
+
+  it("clicking Clear calls onClear", async () => {
+    const onClear = vi.fn();
+    const user = userEvent.setup();
+    const ps = makeParticipants(1);
+    render(
+      <CalendarGrid
+        participants={ps}
+        freeByDate={new Map()}
+        currentParticipantId={ps[0].id}
+        onToggle={onToggle}
+        onRangeToggle={vi.fn()}
+        onClear={onClear}
+        canClear={true}
+        joined={true}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /^clear$/i }));
+    expect(onClear).toHaveBeenCalledTimes(1);
+  });
+
+  it("Clear button uses the secondary visual style (margin-left: auto grouping)", () => {
+    const ps = makeParticipants(1);
+    render(
+      <CalendarGrid
+        participants={ps}
+        freeByDate={new Map()}
+        currentParticipantId={ps[0].id}
+        onToggle={onToggle}
+        onRangeToggle={vi.fn()}
+        onClear={vi.fn()}
+        canClear={true}
+        joined={true}
+      />,
+    );
+    const clearBtn = screen.getByRole("button", { name: /^clear$/i });
+    expect(clearBtn.className).toMatch(/toolbarButtonSecondary/);
+  });
+
   it("tap on a cell the current user has marked free opens the day sheet", async () => {
     const ps = makeParticipants(1);
     const futureDate = futureDateStr(3);

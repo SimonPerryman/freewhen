@@ -32,6 +32,24 @@
   box-shadow: var(--shadow-md);
 }
 
+.toolbarButtonSecondary {
+  margin-left: auto;
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--text-secondary);
+  box-shadow: none;
+}
+
+.toolbarButtonSecondary:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.toolbarButtonSecondary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .nav {
   display: flex;
   align-items: center;
