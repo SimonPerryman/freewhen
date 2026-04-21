@@ -17,9 +17,9 @@ func (s *Store) CreateCalendar(ctx context.Context, name, emoji, ownerID, visibi
 		var cal model.Calendar
 		var emojiCol sql.NullString
 		err := s.db.QueryRowContext(ctx,
-			`INSERT INTO calendars (id, name, emoji, owner_id, visibility) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, emoji, owner_id, visibility, created_at, updated_at`,
+			`INSERT INTO calendars (id, name, emoji, owner_id, visibility) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, emoji, owner_id, visibility, created_at, updated_at, access_epoch`,
 			id, name, nullableString(emoji), ownerID, visibility,
-		).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.Visibility, &cal.CreatedAt, &cal.UpdatedAt)
+		).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.Visibility, &cal.CreatedAt, &cal.UpdatedAt, &cal.AccessEpoch)
 		if err != nil {
 			if isUniqueViolation(err) {
 				continue
@@ -105,10 +105,11 @@ func (s *Store) getCalendarRow(ctx context.Context, id string) (model.Calendar, 
 	var emojiCol sql.NullString
 	var finalisedDate sql.NullString
 	var finalisedAt sql.NullTime
+	var passphrase sql.NullString
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, name, emoji, owner_id, visibility, created_at, updated_at, finalised_date::text, finalised_at
+		`SELECT id, name, emoji, owner_id, visibility, created_at, updated_at, finalised_date::text, finalised_at, passphrase, access_epoch
 		 FROM calendars WHERE id = $1`, id,
-	).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.Visibility, &cal.CreatedAt, &cal.UpdatedAt, &finalisedDate, &finalisedAt)
+	).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.Visibility, &cal.CreatedAt, &cal.UpdatedAt, &finalisedDate, &finalisedAt, &passphrase, &cal.AccessEpoch)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Calendar{}, ErrNotFound
@@ -124,7 +125,38 @@ func (s *Store) getCalendarRow(ctx context.Context, id string) (model.Calendar, 
 		t := finalisedAt.Time
 		cal.FinalisedAt = &t
 	}
+	if passphrase.Valid {
+		cal.Passphrase = passphrase.String
+	}
 	return cal, nil
+}
+
+// SetCalendarPassphrase sets or clears the passphrase column and bumps
+// access_epoch by 1 in the same UPDATE. Pass nil to clear. The epoch bump
+// applies even when clearing so any outstanding tokens are revoked
+// immediately. Returns ErrNotFound if the calendar does not exist.
+func (s *Store) SetCalendarPassphrase(ctx context.Context, calendarID string, passphrase *string) (model.Calendar, error) {
+	var passArg any
+	if passphrase == nil {
+		passArg = nil
+	} else {
+		passArg = *passphrase
+	}
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE calendars SET passphrase = $1, access_epoch = access_epoch + 1, updated_at = now() WHERE id = $2`,
+		passArg, calendarID,
+	)
+	if err != nil {
+		return model.Calendar{}, fmt.Errorf("set calendar passphrase: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return model.Calendar{}, fmt.Errorf("rows affected: %w", err)
+	}
+	if rows == 0 {
+		return model.Calendar{}, ErrNotFound
+	}
+	return s.getCalendarRow(ctx, calendarID)
 }
 
 // UpdateCalendarName renames a calendar. Returns ErrNotFound if the calendar does not exist.

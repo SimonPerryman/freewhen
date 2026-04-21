@@ -12,8 +12,13 @@ import {
   removeParticipant,
   renameCalendar,
   updateCalendar,
+  unlockCalendar,
+  rotateCalendarPassphrase,
+  clearCalendarPassphrase,
   ApiError,
 } from "@/lib/api";
+import { clearCalendarAccessToken } from "@/lib/calendarAccess";
+import PassphraseGate from "@/components/PassphraseGate/PassphraseGate";
 import analytics from "@/lib/analytics";
 import { useCalendarEvents } from "@/lib/useCalendarEvents";
 import { MAX_CALENDAR_NAME_LENGTH, MAX_PARTICIPANTS_PER_CALENDAR } from "@/lib/limits";
@@ -70,6 +75,8 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   const [calendar, setCalendar] = useState<CalendarWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<LoadError | null>(null);
+  const [requiresPassphrase, setRequiresPassphrase] = useState(false);
+  const [magicLinkError, setMagicLinkError] = useState<string | null>(null);
   const [currentParticipant, setCurrentParticipant] = useState<Participant | null>(null);
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
   // notesByDate holds the current participant's own notes keyed by ISO date.
@@ -120,9 +127,42 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
 
     async function load() {
       try {
+        // Handle `?unlock=<passphrase>` magic-link before the first API call
+        // so subsequent requests carry the access token.
+        if (typeof window !== "undefined") {
+          const url = new URL(window.location.href);
+          const unlock = url.searchParams.get("unlock");
+          if (unlock) {
+            // Strip the param immediately so it doesn't persist in history.
+            url.searchParams.delete("unlock");
+            window.history.replaceState({}, "", url.toString());
+            try {
+              await unlockCalendar(calendarId, unlock);
+              analytics.capture("calendar_unlock_attempted", {
+                calendar_id: calendarId,
+                via: "magic_link",
+                success: true,
+              });
+            } catch {
+              analytics.capture("calendar_unlock_attempted", {
+                calendar_id: calendarId,
+                via: "magic_link",
+                success: false,
+              });
+              if (!cancelled) setMagicLinkError("That link is no longer valid.");
+            }
+          }
+        }
+
         const stored = readStorage(calendarId);
         const data = await getCalendar(calendarId, stored?.participantId);
         if (cancelled) return;
+
+        if (data.requiresPassphrase) {
+          setRequiresPassphrase(true);
+          return;
+        }
+        setRequiresPassphrase(false);
         setCalendar(data);
         analytics.capture("calendar_opened", {
           calendar_id: calendarId,
@@ -235,6 +275,12 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     try {
       const pid = participantIdRef.current ?? undefined;
       const data = await getCalendar(calendarId, pid);
+      if (data.requiresPassphrase) {
+        clearCalendarAccessToken(calendarId);
+        setCalendar(null);
+        setRequiresPassphrase(true);
+        return;
+      }
       setCalendar(data);
       const currentId = participantIdRef.current;
       if (currentId) {
@@ -546,6 +592,94 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     }
   }, [calendar, calendarId, markLocalMutation]);
 
+  const handleEnablePassphrase = useCallback(async () => {
+    if (!calendar) return;
+    markLocalMutation();
+    try {
+      const passphrase = await rotateCalendarPassphrase(calendarId);
+      setCalendar((prev) =>
+        prev
+          ? {
+              ...prev,
+              calendar: { ...prev.calendar, hasPassphrase: true, passphrase },
+            }
+          : prev,
+      );
+      analytics.capture("calendar_passphrase_set", {
+        calendar_id: calendarId,
+        action: "enabled",
+      });
+    } catch {
+      // Leave state unchanged; the owner can retry.
+    }
+  }, [calendar, calendarId, markLocalMutation]);
+
+  const handleRegeneratePassphrase = useCallback(async () => {
+    if (!calendar) return;
+    if (
+      !confirm(
+        "Regenerating will invalidate the old passphrase — anyone already using the old link will need the new one. Continue?",
+      )
+    ) {
+      return;
+    }
+    markLocalMutation();
+    try {
+      const passphrase = await rotateCalendarPassphrase(calendarId);
+      setCalendar((prev) =>
+        prev
+          ? {
+              ...prev,
+              calendar: { ...prev.calendar, hasPassphrase: true, passphrase },
+            }
+          : prev,
+      );
+      analytics.capture("calendar_passphrase_set", {
+        calendar_id: calendarId,
+        action: "rotated",
+      });
+    } catch {
+      // noop
+    }
+  }, [calendar, calendarId, markLocalMutation]);
+
+  const handleDisablePassphrase = useCallback(async () => {
+    if (!calendar) return;
+    if (!confirm("Remove the passphrase? The calendar will be openable without it.")) return;
+    markLocalMutation();
+    try {
+      await clearCalendarPassphrase(calendarId);
+      setCalendar((prev) =>
+        prev
+          ? {
+              ...prev,
+              calendar: { ...prev.calendar, hasPassphrase: false, passphrase: undefined },
+            }
+          : prev,
+      );
+      analytics.capture("calendar_passphrase_set", {
+        calendar_id: calendarId,
+        action: "cleared",
+      });
+    } catch {
+      // noop
+    }
+  }, [calendar, calendarId, markLocalMutation]);
+
+  const handleCopyPassphraseLink = useCallback(async () => {
+    if (!calendar?.calendar.passphrase) return;
+    const url = `${window.location.origin}/calendars/${calendarId}?unlock=${encodeURIComponent(
+      calendar.calendar.passphrase,
+    )}`;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // Clipboard API may be unavailable; fall back to a prompt so the owner
+      // can still grab the URL by hand.
+      window.prompt("Copy this link:", url);
+    }
+  }, [calendar, calendarId]);
+
   const handleRemoveParticipant = useCallback(
     async (target: Participant) => {
       if (!confirm(`Remove ${target.name}?`)) return;
@@ -695,6 +829,24 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     );
   }
 
+  if (requiresPassphrase) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.container}>
+          <PassphraseGate
+            calendarId={calendarId}
+            initialError={magicLinkError}
+            onUnlocked={() => {
+              setMagicLinkError(null);
+              setRequiresPassphrase(false);
+              retryLoad();
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
   if (error || !calendar) {
     const kind: LoadError = error ?? "not-found";
     const heading = kind === "not-found" ? "Calendar not found" : "Couldn't load this calendar";
@@ -789,6 +941,56 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
                 ? "Hiding others until they respond — tap to show everyone"
                 : "Hide others' availability until they respond"}
             </button>
+          ) : null}
+          {isOwner && !finalisedDate ? (
+            <div className={styles.passphraseBlock}>
+              {calendar.calendar.hasPassphrase ? (
+                <>
+                  <p className={styles.passphraseLabel}>
+                    Passphrase:{" "}
+                    <code className={styles.passphraseValue}>
+                      {calendar.calendar.passphrase ?? "••••••••"}
+                    </code>
+                  </p>
+                  <div className={styles.passphraseActions}>
+                    <button
+                      type="button"
+                      className={styles.passphraseButton}
+                      onClick={handleCopyPassphraseLink}
+                      disabled={!calendar.calendar.passphrase}
+                    >
+                      Copy link with passphrase
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.passphraseButton}
+                      onClick={handleRegeneratePassphrase}
+                    >
+                      Regenerate
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.passphraseButton}
+                      onClick={handleDisablePassphrase}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <p className={styles.passphraseHint}>
+                    Anyone with the link can view the calendar. Regenerating invalidates old links
+                    immediately.
+                  </p>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className={styles.visibilityToggle}
+                  onClick={handleEnablePassphrase}
+                >
+                  Require a passphrase to open this calendar
+                </button>
+              )}
+            </div>
           ) : null}
           <LiveStatusDot status={streamStatus} />
         </div>

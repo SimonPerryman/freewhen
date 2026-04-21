@@ -10,6 +10,13 @@ import type {
   UpdateCalendarRequest,
   User,
 } from "./types";
+import {
+  clearCalendarAccessToken,
+  getCalendarAccessToken,
+  setCalendarAccessToken,
+} from "./calendarAccess";
+
+const ACCESS_HEADER = "X-Calendar-Access";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
@@ -60,17 +67,33 @@ function toCamelCaseKeys<T>(obj: unknown): T {
   return convertKeys<T>(obj, toCamelCase);
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+async function request<T>(
+  path: string,
+  options: RequestInit & { calendarId?: string } = {},
+): Promise<T> {
+  const { calendarId, ...rest } = options;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(rest.headers as Record<string, string> | undefined),
+  };
+  if (calendarId) {
+    const token = getCalendarAccessToken(calendarId);
+    if (token) headers[ACCESS_HEADER] = token;
+  }
+
   const response = await fetch(`${BASE_URL}${path}`, {
-    ...options,
+    ...rest,
     credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
+    // A 401 on a calendar-scoped request means the stored token is no longer
+    // valid (revoked via passphrase rotation, expired, or never existed).
+    // Drop it so the caller re-renders the gate.
+    if (response.status === 401 && calendarId) {
+      clearCalendarAccessToken(calendarId);
+    }
     let message = `Request failed (${response.status})`;
     let code: string | null = null;
     try {
@@ -81,12 +104,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       // Non-JSON error body (e.g. Go's default 405 "Method Not Allowed").
       // Keep the status-based fallback message.
     }
-    throw new ApiError(
-      response.status,
-      message,
-      response.headers.get("X-Request-ID"),
-      code,
-    );
+    throw new ApiError(response.status, message, response.headers.get("X-Request-ID"), code);
   }
 
   if (response.status === 204) {
@@ -106,7 +124,34 @@ export async function createCalendar(req: CreateCalendarRequest): Promise<Create
 
 export async function getCalendar(id: string, as?: string): Promise<CalendarWithDetails> {
   const query = as ? `?as=${encodeURIComponent(as)}` : "";
-  return request<CalendarWithDetails>(`/calendars/${id}${query}`);
+  return request<CalendarWithDetails>(`/calendars/${id}${query}`, { calendarId: id });
+}
+
+// unlockCalendar submits the passphrase (shared or `?unlock=` magic-link
+// value) and, on success, stores the returned access token so every
+// subsequent calendar-scoped request carries it.
+export async function unlockCalendar(calendarId: string, passphrase: string): Promise<void> {
+  const { token } = await request<{ token: string }>(`/calendars/${calendarId}/unlock`, {
+    method: "POST",
+    body: JSON.stringify({ passphrase }),
+  });
+  setCalendarAccessToken(calendarId, token);
+}
+
+// rotateCalendarPassphrase generates (or regenerates) the calendar's
+// passphrase. Owner only. Returns the new plaintext so the caller can
+// display it and offer "copy link with passphrase".
+export async function rotateCalendarPassphrase(calendarId: string): Promise<string> {
+  const { passphrase } = await request<{ passphrase: string }>(
+    `/calendars/${calendarId}/passphrase`,
+    { method: "POST" },
+  );
+  return passphrase;
+}
+
+// clearCalendarPassphrase disables the gate. Owner only.
+export async function clearCalendarPassphrase(calendarId: string): Promise<void> {
+  await request(`/calendars/${calendarId}/passphrase`, { method: "DELETE" });
 }
 
 export async function addParticipant(
@@ -116,6 +161,7 @@ export async function addParticipant(
   return request<Participant>(`/calendars/${calendarId}/participants`, {
     method: "POST",
     body: JSON.stringify(toSnakeCaseKeys(req)),
+    calendarId,
   });
 }
 
@@ -126,6 +172,7 @@ export async function setAvailability(
   await request(`/calendars/${calendarId}/availability`, {
     method: "PUT",
     body: JSON.stringify(toSnakeCaseKeys(req)),
+    calendarId,
   });
 }
 

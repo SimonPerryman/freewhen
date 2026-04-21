@@ -44,6 +44,7 @@ type Store interface {
 	ClaimParticipant(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error)
 	UpdateCalendarName(ctx context.Context, calendarID, name string) (model.Calendar, error)
 	UpdateCalendarVisibility(ctx context.Context, calendarID, visibility string) (model.Calendar, error)
+	SetCalendarPassphrase(ctx context.Context, calendarID string, passphrase *string) (model.Calendar, error)
 	DeleteParticipant(ctx context.Context, calendarID, participantID string) error
 	CountCalendarParticipants(ctx context.Context, calendarID string) (int, error)
 	CountCalendarsForOwner(ctx context.Context, ownerID string) (int, error)
@@ -53,15 +54,22 @@ type Store interface {
 }
 
 type Service struct {
-	store Store
-	pub   Publisher
+	store         Store
+	pub           Publisher
+	accessCfg     AccessConfig
+	unlockLimiter *unlockRateLimiter
 }
 
-func New(s Store, pub Publisher) *Service {
+func New(s Store, pub Publisher, cfg AccessConfig) *Service {
 	if pub == nil {
 		pub = noopPublisher{}
 	}
-	return &Service{store: s, pub: pub}
+	return &Service{
+		store:         s,
+		pub:           pub,
+		accessCfg:     cfg,
+		unlockLimiter: newUnlockRateLimiter(),
+	}
 }
 
 func (s *Service) CreateCalendar(ctx context.Context, name, ownerID, visibility string) (model.Calendar, error) {

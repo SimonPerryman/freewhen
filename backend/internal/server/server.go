@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/freewhen/backend/internal/config"
 	"github.com/freewhen/backend/internal/email"
@@ -30,7 +31,10 @@ type Server struct {
 func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 	st := store.New(db)
 	hub := realtime.NewHub(logger)
-	svc := service.New(st, hub)
+	svc := service.New(st, hub, service.AccessConfig{
+		Secret: cfg.CalendarAccessSecret,
+		TTL:    30 * 24 * time.Hour,
+	})
 	h := handler.New(svc)
 	eh := handler.NewEvents(hub, svc, logger)
 
@@ -83,9 +87,12 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /calendars/{id}/participants", s.optionalAuth(s.handler.AddParticipant))
 	s.mux.HandleFunc("POST /calendars/{id}/participants/{participantId}/claim", s.requireAuth(s.handler.ClaimParticipant))
 	s.mux.HandleFunc("DELETE /calendars/{id}/participants/{participantId}", s.requireAuth(s.handler.RemoveParticipant))
-	s.mux.HandleFunc("PUT /calendars/{id}/availability", s.handler.SetAvailability)
+	s.mux.HandleFunc("PUT /calendars/{id}/availability", s.optionalAuth(s.handler.SetAvailability))
 	s.mux.HandleFunc("POST /calendars/{id}/finalise", s.requireAuth(s.handler.FinaliseCalendar))
 	s.mux.HandleFunc("DELETE /calendars/{id}/finalise", s.requireAuth(s.handler.UnfinaliseCalendar))
+	s.mux.HandleFunc("POST /calendars/{id}/unlock", s.optionalAuth(s.handler.Unlock))
+	s.mux.HandleFunc("POST /calendars/{id}/passphrase", s.requireAuth(s.handler.SetPassphrase))
+	s.mux.HandleFunc("DELETE /calendars/{id}/passphrase", s.requireAuth(s.handler.ClearPassphrase))
 
 	// Server-sent events stream for live updates.
 	s.mux.HandleFunc("GET /calendars/{id}/events", s.optionalAuth(s.events.Stream))

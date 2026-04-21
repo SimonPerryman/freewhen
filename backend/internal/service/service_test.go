@@ -82,6 +82,10 @@ func (m *mockStore) DeleteParticipant(_ context.Context, _, _ string) error {
 	panic("unexpected call to DeleteParticipant")
 }
 
+func (m *mockStore) SetCalendarPassphrase(_ context.Context, _ string, _ *string) (model.Calendar, error) {
+	panic("unexpected call to SetCalendarPassphrase")
+}
+
 func (m *mockStore) CountCalendarParticipants(ctx context.Context, calendarID string) (int, error) {
 	if m.countCalendarParticipants == nil {
 		return 0, nil
@@ -135,7 +139,7 @@ func TestSetAvailability_ParticipantBelongsToCalendar(t *testing.T) {
 		},
 	}
 
-	s := New(ms, nil)
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 	err := s.SetAvailability(context.Background(), "cal1", "p1", []string{"2026-05-01"}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -152,7 +156,7 @@ func TestSetAvailability_ParticipantNotFound(t *testing.T) {
 		},
 	}
 
-	s := New(ms, nil)
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 	err := s.SetAvailability(context.Background(), "cal1", "missing", []string{"2026-05-01"}, nil)
 	if err != store.ErrNotFound {
 		t.Fatalf("err = %v, want ErrNotFound", err)
@@ -166,7 +170,7 @@ func TestSetAvailability_ParticipantWrongCalendar(t *testing.T) {
 		},
 	}
 
-	s := New(ms, nil)
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 	err := s.SetAvailability(context.Background(), "cal1", "p1", []string{"2026-05-01"}, nil)
 	if err != store.ErrNotFound {
 		t.Fatalf("err = %v, want ErrNotFound", err)
@@ -197,7 +201,7 @@ func TestCreateCalendar_PassesEmojiToStore(t *testing.T) {
 		},
 	}
 
-	s := New(ms, nil)
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 	cal, err := s.CreateCalendar(context.Background(), "x", "owner1", model.VisibilityOpen)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -223,7 +227,7 @@ func TestSetAvailability_StoreError(t *testing.T) {
 		},
 	}
 
-	s := New(ms, nil)
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 	err := s.SetAvailability(context.Background(), "cal1", "p1", []string{"2026-05-01"}, nil)
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -244,7 +248,7 @@ func TestGetCalendarView_OpenAlwaysRevealed(t *testing.T) {
 			return details, nil
 		},
 	}
-	s := New(ms, nil)
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
 	view, err := s.GetCalendarView(context.Background(), "c1", Viewer{})
 	if err != nil {
@@ -270,7 +274,7 @@ func TestGetCalendarView_SubmitToView_OwnerRevealed(t *testing.T) {
 			return details, nil
 		},
 	}
-	s := New(ms, nil)
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
 	ownerID := "owner"
 	view, err := s.GetCalendarView(context.Background(), "c1", Viewer{UserID: &ownerID})
@@ -297,7 +301,7 @@ func TestGetCalendarView_SubmitToView_UnsubmittedAnonymousHidden(t *testing.T) {
 			return pid == "p1", nil
 		},
 	}
-	s := New(ms, nil)
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
 	pid := "p2"
 	view, err := s.GetCalendarView(context.Background(), "c1", Viewer{ParticipantID: &pid})
@@ -330,7 +334,7 @@ func TestGetCalendarView_SubmitToView_SubmittedParticipantRevealed(t *testing.T)
 			return true, nil
 		},
 	}
-	s := New(ms, nil)
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
 	pid := "p1"
 	view, err := s.GetCalendarView(context.Background(), "c1", Viewer{ParticipantID: &pid})
@@ -358,7 +362,7 @@ func TestGetCalendarView_SubmitToView_SubmittedLinkedUserRevealed(t *testing.T) 
 			return true, nil
 		},
 	}
-	s := New(ms, nil)
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
 	view, err := s.GetCalendarView(context.Background(), "c1", Viewer{UserID: &userID})
 	if err != nil {
@@ -384,7 +388,7 @@ func TestListUserCalendars_UnderCap(t *testing.T) {
 			return items, nil
 		},
 	}
-	s := New(ms, nil)
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
 	items, hasMore, err := s.ListUserCalendars(context.Background(), "u1")
 	if err != nil {
@@ -404,7 +408,7 @@ func TestListUserCalendars_AtCapNoOverflow(t *testing.T) {
 			return make([]store.CalendarListItem, MyCalendarsPageSize), nil
 		},
 	}
-	s := New(ms, nil)
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
 	items, hasMore, err := s.ListUserCalendars(context.Background(), "u1")
 	if err != nil {
@@ -424,7 +428,7 @@ func TestListUserCalendars_OverCapTrims(t *testing.T) {
 			return make([]store.CalendarListItem, MyCalendarsPageSize+1), nil
 		},
 	}
-	s := New(ms, nil)
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
 	items, hasMore, err := s.ListUserCalendars(context.Background(), "u1")
 	if err != nil {
@@ -452,7 +456,7 @@ func TestAddParticipant_TouchesCalendar(t *testing.T) {
 		return model.Participant{ID: "p1", CalendarID: calendarID}, nil
 	}
 
-	s := New(ms, nil)
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 	if _, err := s.AddParticipant(context.Background(), "cal1", "Alice", nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -476,7 +480,7 @@ func TestSetAvailability_TouchesCalendar(t *testing.T) {
 			return nil
 		},
 	}
-	s := New(ms, nil)
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
 	if err := s.SetAvailability(context.Background(), "cal1", "p1", []string{"2026-05-01"}, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -492,7 +496,7 @@ func TestAddParticipant_CapReached(t *testing.T) {
 			return 100, nil
 		},
 	}
-	s := New(ms, nil)
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
 	_, err := s.AddParticipant(context.Background(), "cal1", "Alice", nil)
 	if !errors.Is(err, store.ErrCalendarFull) {
@@ -509,7 +513,7 @@ func TestAddParticipant_UnderCap(t *testing.T) {
 			return model.Participant{ID: "p1", CalendarID: calendarID}, nil
 		},
 	}
-	s := New(ms, nil)
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
 	p, err := s.AddParticipant(context.Background(), "cal1", "Alice", nil)
 	if err != nil {
@@ -526,7 +530,7 @@ func TestCreateCalendar_CapReached(t *testing.T) {
 			return 200, nil
 		},
 	}
-	s := New(ms, nil)
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
 	_, err := s.CreateCalendar(context.Background(), "Trip", "owner1", model.VisibilityOpen)
 	if !errors.Is(err, store.ErrCalendarLimitReached) {
@@ -543,7 +547,7 @@ func TestCreateCalendar_UnderCap(t *testing.T) {
 			return model.Calendar{ID: "c1", Name: "Trip"}, nil
 		},
 	}
-	s := New(ms, nil)
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
 	cal, err := s.CreateCalendar(context.Background(), "Trip", "owner1", model.VisibilityOpen)
 	if err != nil {
@@ -555,7 +559,7 @@ func TestCreateCalendar_UnderCap(t *testing.T) {
 }
 
 func TestUpdateCalendarVisibility_InvalidValue(t *testing.T) {
-	s := New(&mockStore{}, nil)
+	s := New(&mockStore{}, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 	_, err := s.UpdateCalendarVisibility(context.Background(), "c1", "bogus")
 	if !errors.Is(err, ErrInvalidVisibility) {
 		t.Fatalf("err = %v, want ErrInvalidVisibility", err)
@@ -585,7 +589,7 @@ func TestPublisher_SetAvailability_PublishesOnSuccess(t *testing.T) {
 		setAvailability: func(_ context.Context, _ string, _ []string, _ map[string]string) error { return nil },
 	}
 	rp := &recordingPublisher{}
-	s := New(ms, rp)
+	s := New(ms, rp, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
 	if err := s.SetAvailability(context.Background(), "cal1", "p1", []string{"2026-05-01"}, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -607,7 +611,7 @@ func TestPublisher_SetAvailability_NoPublishOnStoreError(t *testing.T) {
 		},
 	}
 	rp := &recordingPublisher{}
-	s := New(ms, rp)
+	s := New(ms, rp, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
 	if err := s.SetAvailability(context.Background(), "cal1", "p1", []string{"2026-05-01"}, nil); err == nil {
 		t.Fatal("expected error, got nil")

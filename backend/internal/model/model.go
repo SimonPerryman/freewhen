@@ -21,7 +21,17 @@ type Calendar struct {
 	UpdatedAt     time.Time  `json:"updated_at"`
 	FinalisedDate *string    `json:"finalised_date,omitempty"`
 	FinalisedAt   *time.Time `json:"finalised_at,omitempty"`
+	// Passphrase is the server-generated plaintext gating this calendar. Empty
+	// when no passphrase is set. Never serialised here directly — handlers must
+	// only expose it to the calendar owner (see handler/calendar.go).
+	Passphrase string `json:"-"`
+	// AccessEpoch is bumped on every passphrase change. Baked into issued access
+	// tokens; stale-epoch tokens are rejected.
+	AccessEpoch int `json:"-"`
 }
+
+// HasPassphrase reports whether the calendar is gated by a passphrase.
+func (c Calendar) HasPassphrase() bool { return c.Passphrase != "" }
 
 type Participant struct {
 	ID         string  `json:"id"`

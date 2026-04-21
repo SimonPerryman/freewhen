@@ -29,6 +29,10 @@ type CalendarService interface {
 	UpdateCalendarVisibility(ctx context.Context, calendarID, visibility string) (model.Calendar, error)
 	RemoveParticipant(ctx context.Context, calendarID, participantID string) error
 	ListUserCalendars(ctx context.Context, userID string) ([]store.CalendarListItem, bool, error)
+	UnlockCalendar(ctx context.Context, calendarID, submitted, remoteAddr string) (string, error)
+	RotateCalendarPassphrase(ctx context.Context, calendarID string) (string, error)
+	ClearCalendarPassphrase(ctx context.Context, calendarID string) error
+	AuthorizeAccess(ctx context.Context, cal model.Calendar, viewer service.Viewer, tokenHeader string) error
 }
 
 type Handler struct {

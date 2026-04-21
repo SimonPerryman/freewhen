@@ -21,6 +21,9 @@ type Config struct {
 	CookieDomain       string
 	ResendAPIKey       string
 	MagicLinkFromEmail string
+	// CalendarAccessSecret is the HMAC key used to sign per-calendar access
+	// tokens (password-protected calendars). Must be at least 32 bytes.
+	CalendarAccessSecret string
 }
 
 func Load() (*Config, error) {
@@ -51,6 +54,11 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("SECURE_COOKIES: %w", err)
 	}
 
+	accessSecret := os.Getenv("CALENDAR_ACCESS_SECRET")
+	if len(accessSecret) < 32 {
+		return nil, fmt.Errorf("CALENDAR_ACCESS_SECRET environment variable must be at least 32 bytes")
+	}
+
 	return &Config{
 		DatabaseURL:        dbURL,
 		Port:               port,
@@ -62,8 +70,9 @@ func Load() (*Config, error) {
 		GoogleRedirectURL:  os.Getenv("GOOGLE_REDIRECT_URL"),
 		FrontendURL:        os.Getenv("FRONTEND_URL"),
 		CookieDomain:       os.Getenv("COOKIE_DOMAIN"),
-		ResendAPIKey:       os.Getenv("RESEND_API_KEY"),
-		MagicLinkFromEmail: os.Getenv("MAGIC_LINK_FROM_EMAIL"),
+		ResendAPIKey:         os.Getenv("RESEND_API_KEY"),
+		MagicLinkFromEmail:   os.Getenv("MAGIC_LINK_FROM_EMAIL"),
+		CalendarAccessSecret: accessSecret,
 	}, nil
 }
 

@@ -246,3 +246,62 @@
     padding: 24px;
   }
 }
+
+.passphraseBlock {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.passphraseLabel {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.passphraseValue {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14px;
+  color: var(--text-primary);
+  padding: 2px 6px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+}
+
+.passphraseActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.passphraseButton {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.passphraseButton:hover:not(:disabled) {
+  background: var(--card-bg);
+}
+
+.passphraseButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.passphraseHint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}

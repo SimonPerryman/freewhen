@@ -73,16 +73,68 @@ func (h *Handler) CreateCalendar(w http.ResponseWriter, r *http.Request) {
 	}{Calendar: cal, Participant: &participant})
 }
 
+// AccessHeader is the HTTP header carrying a calendar access token issued by
+// POST /calendars/{id}/unlock.
+const AccessHeader = "X-Calendar-Access"
+
+// calendarResponseDTO wraps CalendarWithDetails so we can inject
+// passphrase-specific fields that don't belong on the shared model. The
+// embedded Calendar is replaced with a DTO that adds has_passphrase /
+// passphrase (owner only).
+type calendarResponseDTO struct {
+	Calendar         calendarDTO          `json:"calendar"`
+	Participants     []model.Participant  `json:"participants"`
+	Availability     []model.Availability `json:"availability"`
+	ParticipantCount int                  `json:"participantCount"`
+}
+
+type calendarDTO struct {
+	model.Calendar
+	HasPassphrase bool   `json:"has_passphrase"`
+	Passphrase    string `json:"passphrase,omitempty"`
+}
+
+func toCalendarDTO(cal model.Calendar, includePassphrase bool) calendarDTO {
+	out := calendarDTO{Calendar: cal, HasPassphrase: cal.HasPassphrase()}
+	if includePassphrase {
+		out.Passphrase = cal.Passphrase
+	}
+	return out
+}
+
 func (h *Handler) GetCalendar(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
 	viewer := service.Viewer{}
-	if u := UserFromContext(r); u != nil {
-		uid := u.ID
+	user := UserFromContext(r)
+	if user != nil {
+		uid := user.ID
 		viewer.UserID = &uid
 	}
 	if as := strings.TrimSpace(r.URL.Query().Get("as")); as != "" {
 		viewer.ParticipantID = &as
+	}
+
+	cal, err := h.service.GetCalendarOnly(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
+			return
+		}
+		respondError(w, http.StatusInternalServerError, "internal_error", "failed to get calendar")
+		return
+	}
+
+	if err := h.service.AuthorizeAccess(r.Context(), cal, viewer, r.Header.Get(AccessHeader)); err != nil {
+		if errors.Is(err, service.ErrPassphraseRequired) {
+			respondJSON(w, http.StatusOK, map[string]any{
+				"calendar":            map[string]any{"id": cal.ID, "has_passphrase": true},
+				"requires_passphrase": true,
+			})
+			return
+		}
+		respondError(w, http.StatusInternalServerError, "internal_error", "failed to authorize access")
+		return
 	}
 
 	view, err := h.service.GetCalendarView(r.Context(), id, viewer)
@@ -95,7 +147,14 @@ func (h *Handler) GetCalendar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusOK, view.Details)
+	isOwner := user != nil && user.ID == cal.OwnerID
+	resp := calendarResponseDTO{
+		Calendar:         toCalendarDTO(view.Details.Calendar, isOwner),
+		Participants:     view.Details.Participants,
+		Availability:     view.Details.Availability,
+		ParticipantCount: view.Details.ParticipantCount,
+	}
+	respondJSON(w, http.StatusOK, resp)
 }
 
 func (h *Handler) FinaliseCalendar(w http.ResponseWriter, r *http.Request) {

@@ -14,6 +14,10 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 
 	calendarID := r.PathValue("id")
 
+	if ok, _ := h.requireCalendarAccess(w, r, calendarID); !ok {
+		return
+	}
+
 	var req struct {
 		Name string `json:"name"`
 	}

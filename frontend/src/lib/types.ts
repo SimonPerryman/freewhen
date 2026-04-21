@@ -10,6 +10,9 @@ export interface Calendar {
   updatedAt: string;
   finalisedDate?: string;
   finalisedAt?: string;
+  hasPassphrase?: boolean;
+  // Present only when the authenticated owner fetches their own calendar.
+  passphrase?: string;
 }
 
 export interface Participant {
@@ -32,6 +35,10 @@ export interface CalendarWithDetails {
   participants: Participant[];
   availability: Availability[];
   participantCount: number;
+  // Present (and true) when the calendar is gated and the caller has not yet
+  // provided a valid access token. When set, `participants` / `availability`
+  // are empty and `calendar` is a stub containing only id + hasPassphrase.
+  requiresPassphrase?: boolean;
 }
 
 export interface CreateCalendarResponse extends Calendar {

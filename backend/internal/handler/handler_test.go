@@ -32,6 +32,10 @@ type mockService struct {
 	updateCalendarVisibility func(ctx context.Context, calendarID, visibility string) (model.Calendar, error)
 	removeParticipant        func(ctx context.Context, calendarID, participantID string) error
 	listUserCalendars        func(ctx context.Context, userID string) ([]store.CalendarListItem, bool, error)
+	unlockCalendar           func(ctx context.Context, calendarID, submitted, remoteAddr string) (string, error)
+	rotateCalendarPassphrase func(ctx context.Context, calendarID string) (string, error)
+	clearCalendarPassphrase  func(ctx context.Context, calendarID string) error
+	authorizeAccess          func(ctx context.Context, cal model.Calendar, viewer service.Viewer, tokenHeader string) error
 }
 
 func (m *mockService) CreateCalendar(ctx context.Context, name, ownerID, visibility string) (model.Calendar, error) {
@@ -47,6 +51,9 @@ func (m *mockService) GetCalendarView(ctx context.Context, id string, viewer ser
 }
 
 func (m *mockService) GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error) {
+	if m.getCalendarOnly == nil {
+		return model.Calendar{ID: id}, nil
+	}
 	return m.getCalendarOnly(ctx, id)
 }
 
@@ -84,6 +91,34 @@ func (m *mockService) RemoveParticipant(ctx context.Context, calendarID, partici
 
 func (m *mockService) ListUserCalendars(ctx context.Context, userID string) ([]store.CalendarListItem, bool, error) {
 	return m.listUserCalendars(ctx, userID)
+}
+
+func (m *mockService) UnlockCalendar(ctx context.Context, calendarID, submitted, remoteAddr string) (string, error) {
+	if m.unlockCalendar == nil {
+		return "", nil
+	}
+	return m.unlockCalendar(ctx, calendarID, submitted, remoteAddr)
+}
+
+func (m *mockService) RotateCalendarPassphrase(ctx context.Context, calendarID string) (string, error) {
+	if m.rotateCalendarPassphrase == nil {
+		return "", nil
+	}
+	return m.rotateCalendarPassphrase(ctx, calendarID)
+}
+
+func (m *mockService) ClearCalendarPassphrase(ctx context.Context, calendarID string) error {
+	if m.clearCalendarPassphrase == nil {
+		return nil
+	}
+	return m.clearCalendarPassphrase(ctx, calendarID)
+}
+
+func (m *mockService) AuthorizeAccess(ctx context.Context, cal model.Calendar, viewer service.Viewer, tokenHeader string) error {
+	if m.authorizeAccess == nil {
+		return nil
+	}
+	return m.authorizeAccess(ctx, cal, viewer, tokenHeader)
 }
 
 func jsonBody(t *testing.T, v any) *bytes.Reader {

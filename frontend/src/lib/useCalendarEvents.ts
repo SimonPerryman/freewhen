@@ -8,6 +8,7 @@ import {
   type StreamFactory,
 } from "./realtimeStream";
 import analytics from "./analytics";
+import { getCalendarAccessToken } from "./calendarAccess";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
@@ -74,7 +75,13 @@ export function useCalendarEvents(
       pollingTimer = setInterval(() => onRefreshRef.current(), POLLING_INTERVAL_MS);
     };
 
-    const query = participantId ? `?as=${encodeURIComponent(participantId)}` : "";
+    const params = new URLSearchParams();
+    if (participantId) params.set("as", participantId);
+    // EventSource can't set custom headers — pass the calendar access token
+    // as a query param so gated calendars can still stream live updates.
+    const accessToken = getCalendarAccessToken(calendarId);
+    if (accessToken) params.set("access", accessToken);
+    const query = params.toString() ? `?${params.toString()}` : "";
     const url = `${BASE_URL}/calendars/${calendarId}/events${query}`;
 
     try {

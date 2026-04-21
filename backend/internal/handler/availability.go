@@ -17,6 +17,10 @@ func (h *Handler) SetAvailability(w http.ResponseWriter, r *http.Request) {
 
 	calendarID := r.PathValue("id")
 
+	if ok, _ := h.requireCalendarAccess(w, r, calendarID); !ok {
+		return
+	}
+
 	var req struct {
 		ParticipantID string             `json:"participant_id"`
 		Dates         []string           `json:"dates"`

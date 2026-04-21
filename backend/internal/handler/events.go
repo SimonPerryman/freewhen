@@ -6,9 +6,11 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/freewhen/backend/internal/realtime"
+	"github.com/freewhen/backend/internal/service"
 	"github.com/freewhen/backend/internal/store"
 )
 
@@ -60,12 +62,37 @@ func (h *EventsHandler) Stream(w http.ResponseWriter, r *http.Request) {
 
 	// Cheap 404 check — the stream should not open if the calendar does not
 	// exist. We use the non-viewed fetch so visibility rules don't interfere.
-	if _, err := h.svc.GetCalendarOnly(r.Context(), id); err != nil {
+	cal, err := h.svc.GetCalendarOnly(r.Context(), id)
+	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
 		respondError(w, http.StatusInternalServerError, "internal_error", "failed to load calendar")
+		return
+	}
+
+	viewer := service.Viewer{}
+	if u := UserFromContext(r); u != nil {
+		uid := u.ID
+		viewer.UserID = &uid
+	}
+	if as := strings.TrimSpace(r.URL.Query().Get("as")); as != "" {
+		viewer.ParticipantID = &as
+	}
+	// EventSource can't set custom headers; accept the token via query param
+	// for SSE only. The token is not a secret that unlocks the passphrase —
+	// it's a scoped access artefact the client already holds.
+	tokenHeader := r.Header.Get(AccessHeader)
+	if tokenHeader == "" {
+		tokenHeader = r.URL.Query().Get("access")
+	}
+	if err := h.svc.AuthorizeAccess(r.Context(), cal, viewer, tokenHeader); err != nil {
+		if errors.Is(err, service.ErrPassphraseRequired) {
+			respondError(w, http.StatusUnauthorized, "passphrase_required", "passphrase required")
+			return
+		}
+		respondError(w, http.StatusInternalServerError, "internal_error", "failed to authorize access")
 		return
 	}
 
