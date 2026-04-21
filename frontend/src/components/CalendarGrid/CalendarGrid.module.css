@@ -278,6 +278,22 @@
   flex: 1;
 }
 
+.slotGrid > * {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.slotInitial {
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+  font-family: inherit;
+}
+
 @keyframes toggle {
   0% {
     transform: scale(1);

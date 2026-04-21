@@ -2,7 +2,13 @@
 
 import { useState, useMemo, useCallback, useRef } from "react";
 import type { Participant } from "@/lib/types";
-import { layoutSlots, sortParticipants, classifyDay } from "@/lib/overlap";
+import {
+  layoutSlots,
+  sortParticipants,
+  classifyDay,
+  participantInitial,
+  textOnColour,
+} from "@/lib/overlap";
 import analytics from "@/lib/analytics";
 import styles from "./CalendarGrid.module.css";
 
@@ -416,13 +422,24 @@ export default function CalendarGrid({
                 >
                   {sorted.map((p) => {
                     const isFree = freeIds.has(p.id);
+                    const initial = participantInitial(p.name);
                     return (
                       <span
                         key={p.id}
                         className={isFree ? styles.slotFree : styles.slotFaint}
                         style={{ backgroundColor: p.colour }}
                         data-testid={`slot-${p.id}`}
-                      />
+                      >
+                        {initial ? (
+                          <span
+                            className={styles.slotInitial}
+                            style={{ color: textOnColour(p.colour) }}
+                            aria-hidden="true"
+                          >
+                            {initial}
+                          </span>
+                        ) : null}
+                      </span>
                     );
                   })}
                   {/* Empty trailing slots */}

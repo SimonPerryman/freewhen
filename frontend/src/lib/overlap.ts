@@ -35,6 +35,25 @@ export function sortParticipants(participants: Participant[]): Participant[] {
   });
 }
 
+export function participantInitial(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return "";
+  const [first] = new Intl.Segmenter().segment(trimmed);
+  return (first?.segment ?? "").toUpperCase();
+}
+
+export function textOnColour(hex: string): "#fff" | "#000" {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return "#000";
+  const n = parseInt(m[1], 16);
+  const r = ((n >> 16) & 0xff) / 255;
+  const g = ((n >> 8) & 0xff) / 255;
+  const b = (n & 0xff) / 255;
+  const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  const L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  return L > 0.5 ? "#000" : "#fff";
+}
+
 export function classifyDay(
   participants: Participant[],
   freeParticipantIds: Set<string>,

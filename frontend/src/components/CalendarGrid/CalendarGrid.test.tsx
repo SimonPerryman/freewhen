@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import CalendarGrid from "./CalendarGrid";
-import { COLOUR_PALETTE } from "@/lib/overlap";
+import { COLOUR_PALETTE, textOnColour } from "@/lib/overlap";
 import type { Participant } from "@/lib/types";
 
 function futureDateStr(daysAhead: number): string {
@@ -639,6 +639,82 @@ describe("CalendarGrid", () => {
     await user.click(cell);
     expect(onToggle).toHaveBeenCalledWith(futureDate);
     expect(onOpenDay).not.toHaveBeenCalled();
+  });
+
+  it("renders each participant's initial inside their slot (n=3)", () => {
+    const names = ["Alex", "Bo", "Cam"];
+    const ps = names.map((n, i) => makeParticipant(`p${i}`, i, n));
+    const futureDate = futureDateStr(3);
+    const freeByDate = new Map([[futureDate, new Set([ps[0].id, ps[2].id])]]);
+
+    render(
+      <CalendarGrid
+        participants={ps}
+        freeByDate={freeByDate}
+        currentParticipantId={ps[0].id}
+        onToggle={onToggle}
+        joined={true}
+      />,
+    );
+
+    // Pick any rendered cell's slot for each participant and assert the initial is inside.
+    for (const [i, expected] of [
+      [0, "A"],
+      [1, "B"],
+      [2, "C"],
+    ] as const) {
+      const slot = screen.getAllByTestId(`slot-${ps[i].id}`)[0];
+      expect(within(slot).getByText(expected)).toBeTruthy();
+    }
+  });
+
+  it("renders initials for n=1 and n=9 layouts", () => {
+    for (const n of [1, 9] as const) {
+      const names = ["Alex", "Bo", "Cam", "Dee", "Ed", "Fi", "Gus", "Hal", "Ivy"].slice(0, n);
+      const ps = names.map((nm, i) => makeParticipant(`p${i}-${n}`, i, nm));
+      const freeByDate = new Map([[futureDateStr(3), new Set([ps[0].id])]]);
+
+      const { unmount } = render(
+        <CalendarGrid
+          participants={ps}
+          freeByDate={freeByDate}
+          currentParticipantId={ps[0].id}
+          onToggle={onToggle}
+          joined={true}
+        />,
+      );
+
+      for (let i = 0; i < n; i++) {
+        const expected = names[i][0];
+        const slot = screen.getAllByTestId(`slot-${ps[i].id}`)[0];
+        expect(within(slot).getByText(expected)).toBeTruthy();
+      }
+      unmount();
+    }
+  });
+
+  it("initial glyph is aria-hidden and coloured for contrast against slot colour", () => {
+    const ps = [makeParticipant("a", 0, "Alex")]; // COLOUR_PALETTE[0] = #E63946 (dark)
+    const freeByDate = new Map([[futureDateStr(3), new Set([ps[0].id])]]);
+
+    render(
+      <CalendarGrid
+        participants={ps}
+        freeByDate={freeByDate}
+        currentParticipantId={ps[0].id}
+        onToggle={onToggle}
+        joined={true}
+      />,
+    );
+
+    const slot = screen.getAllByTestId(`slot-${ps[0].id}`)[0];
+    const initial = within(slot).getByText("A");
+    expect(initial.getAttribute("aria-hidden")).toBe("true");
+    // Colour comes from textOnColour(p.colour). jsdom normalises #fff → rgb(255, 255, 255),
+    // so compare through the computed CSSStyleDeclaration rather than the raw string.
+    const expectedRgb =
+      textOnColour(ps[0].colour) === "#fff" ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)";
+    expect((initial as HTMLElement).style.color).toBe(expectedRgb);
   });
 
   it("tap on a cell the current user has marked free opens the day sheet", async () => {

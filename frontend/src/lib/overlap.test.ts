@@ -4,6 +4,8 @@ import {
   slotPosition,
   classifyDay,
   sortParticipants,
+  participantInitial,
+  textOnColour,
   COLOUR_PALETTE,
 } from "./overlap";
 import type { Participant } from "./types";
@@ -80,6 +82,64 @@ describe("classifyDay", () => {
 
   it("returns everyoneFree=false with zero participants", () => {
     expect(classifyDay([], new Set())).toEqual({ everyoneFree: false });
+  });
+});
+
+describe("participantInitial", () => {
+  it("returns uppercase first letter for ASCII name", () => {
+    expect(participantInitial("alex")).toBe("A");
+  });
+
+  it("uses first word's first letter for multi-word names", () => {
+    expect(participantInitial("Alex Reed")).toBe("A");
+  });
+
+  it("returns empty string for empty input", () => {
+    expect(participantInitial("")).toBe("");
+  });
+
+  it("returns empty string for whitespace-only input", () => {
+    expect(participantInitial("   ")).toBe("");
+  });
+
+  it("trims leading whitespace", () => {
+    expect(participantInitial("  bo")).toBe("B");
+  });
+
+  it("handles leading single-codepoint emoji", () => {
+    expect(participantInitial("🎉 party")).toBe("🎉");
+  });
+
+  it("handles compound ZWJ emoji as a single grapheme", () => {
+    // Family ZWJ sequence — must not split into just 👨
+    const family = "👨‍👩‍👧 household";
+    expect(participantInitial(family)).toBe("👨‍👩‍👧");
+  });
+});
+
+describe("textOnColour", () => {
+  it("locks in palette pairings (WCAG luminance, 0.5 threshold)", () => {
+    // Computed against the WCAG formula — changes to the palette or threshold
+    // should surface here so the design choice is explicit.
+    expect(textOnColour("#E63946")).toBe("#fff"); // red
+    expect(textOnColour("#457B9D")).toBe("#fff"); // blue
+    expect(textOnColour("#2A9D8F")).toBe("#fff"); // teal
+    expect(textOnColour("#E9C46A")).toBe("#000"); // yellow — the only "light" palette entry
+    expect(textOnColour("#F4A261")).toBe("#fff"); // orange (L≈0.46, below 0.5)
+    expect(textOnColour("#264653")).toBe("#fff"); // dark slate
+    expect(textOnColour("#A855F7")).toBe("#fff"); // purple
+    expect(textOnColour("#06B6D4")).toBe("#fff"); // cyan
+    expect(textOnColour("#EC4899")).toBe("#fff"); // pink
+    expect(textOnColour("#84CC16")).toBe("#fff"); // lime (L≈0.48, below 0.5)
+  });
+
+  it("handles mid-grey #808080", () => {
+    // sRGB mid-grey luminance ≈ 0.216 → white text
+    expect(textOnColour("#808080")).toBe("#fff");
+  });
+
+  it("falls back to black for malformed input", () => {
+    expect(textOnColour("not-a-colour")).toBe("#000");
   });
 });
 
