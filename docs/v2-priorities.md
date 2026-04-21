@@ -20,7 +20,7 @@ See `future-ideas.md` for detailed descriptions of each feature.
 | ~~"Submit to view" privacy~~ ✅ | — | **Shipped.** See `plans/submit-to-view-privacy.md`. |
 | ~~Live updates~~ ✅ | — | **Shipped** via Server-Sent Events. See `plans/live-updates.md`. |
 | ~~"My calendars" list~~ ✅ | Auth | **Shipped.** See `plans/my-calendars.md`. |
-| Notifications/reminders | Auth | "3 people responded, waiting on 2 more." Only works for signed-in users. |
+| Notifications/reminders ⏸ | Auth | **Paused** — plan drafted in `plans/notifications.md`. Deferred in favour of lighter Tier 3 QoL wins; revisit when a clear week is available. |
 | ~~Share with pre-filled message~~ ✅ | — | **Shipped.** See `plans/share-prefilled-message.md`. |
 | ~~Comments/notes on dates~~ ✅ | — | **Shipped.** Tap a selected cell to open a day sheet with a 140-char note editor. See `plans/comments-on-dates.md`. |
 | ~~Private links / password protection~~ ✅ | — | **Shipped.** Shared password before calendar loads. See `plans/password-protected-calendars.md`. |
