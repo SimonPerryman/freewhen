@@ -227,17 +227,15 @@ at least one must be supplied.
 **Request**
 
 ```json
-{"name": "Tennis Fridays", "visibility": "submit_to_view", "theme": "ocean"}
+{"name": "Tennis Fridays", "visibility": "submit_to_view"}
 ```
 
 - `name` — new display name.
 - `visibility` — one of `open`, `submit_to_view`.
-- `theme` — a slug from the curated set (`peach`, `ocean`, `forest`, `plum`,
-  `lemon`, `graphite`). Unknown slugs return 400.
 
 **Response 200** — the updated calendar.
 
-**Errors:** 400 (invalid JSON, no fields supplied, invalid visibility, invalid theme, name too long) | 401 (not authenticated) | 403 (not owner) | 404 (calendar not found)
+**Errors:** 400 (invalid JSON, no fields supplied, invalid visibility, name too long) | 401 (not authenticated) | 403 (not owner) | 404 (calendar not found)
 
 ---
 

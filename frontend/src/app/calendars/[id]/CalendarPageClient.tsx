@@ -45,7 +45,6 @@ import LiveStatusDot from "@/components/LiveStatusDot/LiveStatusDot";
 import CalendarSettingsSheet from "@/components/CalendarSettingsSheet/CalendarSettingsSheet";
 import ConfirmDialog from "@/components/ConfirmDialog/ConfirmDialog";
 import WhosMissingPanel from "@/components/WhosMissingPanel/WhosMissingPanel";
-import { resolveTheme } from "@/lib/themes";
 import styles from "./page.module.css";
 
 const LOCAL_MUTATION_SUPPRESS_MS = 500;
@@ -768,25 +767,6 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     }
   }, [calendarId, calendar, markLocalMutation]);
 
-  const handleThemeChange = useCallback(
-    async (slug: string) => {
-      const previous = calendar;
-      if (!previous) return;
-      setCalendar((prev) =>
-        prev ? { ...prev, calendar: { ...prev.calendar, theme: slug } } : prev,
-      );
-      markLocalMutation();
-      try {
-        await updateCalendar(calendarId, { theme: slug });
-        analytics.capture("calendar_theme_set", { calendar_id: calendarId, theme: slug });
-      } catch {
-        setCalendar(previous);
-        showToast({ message: "Couldn't change theme. Try again." });
-      }
-    },
-    [calendar, calendarId, markLocalMutation, showToast],
-  );
-
   const handleVisibilityToggle = useCallback(async () => {
     if (!calendar) return;
     const current = calendar.calendar.visibility;
@@ -1184,7 +1164,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   const isFull = calendar.participants.length >= MAX_PARTICIPANTS_PER_CALENDAR;
 
   return (
-    <div className={styles.page} data-theme={resolveTheme(calendar.calendar.theme)}>
+    <div className={styles.page}>
       <div className={styles.container}>
         <div className={styles.header}>
           <div className={styles.titleRow}>
@@ -1473,11 +1453,9 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
 
         {settingsOpen ? (
           <CalendarSettingsSheet
-            theme={calendar.calendar.theme}
             visibility={calendar.calendar.visibility}
             hasPassphrase={calendar.calendar.hasPassphrase ?? false}
             passphrase={calendar.calendar.passphrase ?? null}
-            onThemeChange={handleThemeChange}
             onVisibilityToggle={handleVisibilityToggle}
             onEnablePassphrase={handleEnablePassphrase}
             onRegeneratePassphrase={handleRegeneratePassphrase}

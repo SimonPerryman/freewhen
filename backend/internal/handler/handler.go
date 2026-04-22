@@ -28,7 +28,6 @@ type CalendarService interface {
 	ClaimParticipant(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error)
 	RenameCalendar(ctx context.Context, calendarID, name string) (model.Calendar, error)
 	UpdateCalendarVisibility(ctx context.Context, calendarID, visibility string) (model.Calendar, error)
-	UpdateCalendarTheme(ctx context.Context, calendarID, theme string) (model.Calendar, error)
 	RemoveParticipant(ctx context.Context, calendarID, participantID string) error
 	RenameParticipant(ctx context.Context, calendarID, targetParticipantID string, callerUserID *string, callerParticipantID, name string) (model.Participant, error)
 	ListUserCalendars(ctx context.Context, userID string) ([]store.CalendarListItem, bool, error)

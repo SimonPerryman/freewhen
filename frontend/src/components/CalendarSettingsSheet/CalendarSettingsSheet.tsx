@@ -1,15 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
-import ThemePicker from "@/components/ThemePicker/ThemePicker";
 import styles from "./CalendarSettingsSheet.module.css";
 
 interface Props {
-  theme: string | null | undefined;
   visibility: "open" | "submit_to_view";
   hasPassphrase: boolean;
   passphrase?: string | null;
-  onThemeChange: (slug: string) => Promise<void> | void;
   onVisibilityToggle: () => void;
   onEnablePassphrase: () => void;
   onRegeneratePassphrase: () => void;
@@ -19,11 +16,9 @@ interface Props {
 }
 
 export default function CalendarSettingsSheet({
-  theme,
   visibility,
   hasPassphrase,
   passphrase,
-  onThemeChange,
   onVisibilityToggle,
   onEnablePassphrase,
   onRegeneratePassphrase,
@@ -63,10 +58,6 @@ export default function CalendarSettingsSheet({
             ×
           </button>
         </div>
-
-        <section className={styles.section}>
-          <ThemePicker currentTheme={theme} onChange={onThemeChange} />
-        </section>
 
         <section className={styles.section}>
           <p className={styles.sectionLabel}>Visibility</p>

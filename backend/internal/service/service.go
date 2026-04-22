@@ -21,10 +21,6 @@ const MyCalendarsPageSize = 100
 // visibility value to a mutation endpoint.
 var ErrInvalidVisibility = errors.New("invalid visibility value")
 
-// ErrInvalidTheme is returned when a caller passes a theme slug that isn't in
-// the curated allow-list.
-var ErrInvalidTheme = errors.New("invalid theme value")
-
 // ErrForbidden is returned when the caller is not permitted to perform the
 // requested mutation (e.g. trying to rename a participant that isn't theirs
 // on a calendar they don't own).
@@ -46,7 +42,7 @@ func (noopPublisher) Publish(string, string) {}
 
 // Store defines the data operations the service needs.
 type Store interface {
-	CreateCalendar(ctx context.Context, name, emoji, theme, ownerID, visibility string) (model.Calendar, error)
+	CreateCalendar(ctx context.Context, name, emoji, ownerID, visibility string) (model.Calendar, error)
 	DuplicateCalendar(ctx context.Context, sourceID, newOwnerID, finalName, ownerParticipantName string, includeParticipants bool) (model.Calendar, model.Participant, error)
 	GetCalendar(ctx context.Context, id string) (model.CalendarWithDetails, error)
 	GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error)
@@ -58,7 +54,6 @@ type Store interface {
 	ClaimParticipant(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error)
 	UpdateCalendarName(ctx context.Context, calendarID, name string) (model.Calendar, error)
 	UpdateCalendarVisibility(ctx context.Context, calendarID, visibility string) (model.Calendar, error)
-	UpdateCalendarTheme(ctx context.Context, calendarID, theme string) (model.Calendar, error)
 	SetCalendarPassphrase(ctx context.Context, calendarID string, passphrase *string) (model.Calendar, error)
 	DeleteParticipant(ctx context.Context, calendarID, participantID string) error
 	UpdateParticipantName(ctx context.Context, calendarID, participantID, name string) (model.Participant, error)
@@ -106,7 +101,7 @@ func (s *Service) CreateCalendar(ctx context.Context, name, ownerID, visibility 
 	if count >= limits.MaxCalendarsPerUser {
 		return model.Calendar{}, store.ErrCalendarLimitReached
 	}
-	return s.store.CreateCalendar(ctx, name, pickRandomEmoji(), pickRandomTheme(), ownerID, visibility)
+	return s.store.CreateCalendar(ctx, name, pickRandomEmoji(), ownerID, visibility)
 }
 
 // DuplicateCalendar creates a new calendar derived from sourceID. The caller
@@ -340,18 +335,6 @@ func (s *Service) UnfinaliseCalendar(ctx context.Context, calendarID string) (mo
 
 func (s *Service) RenameCalendar(ctx context.Context, calendarID, name string) (model.Calendar, error) {
 	cal, err := s.store.UpdateCalendarName(ctx, calendarID, name)
-	if err != nil {
-		return model.Calendar{}, err
-	}
-	s.pub.Publish(calendarID, realtime.EventCalendarUpdated)
-	return cal, nil
-}
-
-func (s *Service) UpdateCalendarTheme(ctx context.Context, calendarID, theme string) (model.Calendar, error) {
-	if !IsValidTheme(theme) {
-		return model.Calendar{}, ErrInvalidTheme
-	}
-	cal, err := s.store.UpdateCalendarTheme(ctx, calendarID, theme)
 	if err != nil {
 		return model.Calendar{}, err
 	}

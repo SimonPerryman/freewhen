@@ -13,7 +13,7 @@ func TestSetAvailability(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", "", createTestUser(t, s, "Owner").ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestSetAvailabilityReplacesExisting(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", "", createTestUser(t, s, "Owner").ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestSetAvailabilityClearAll(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", "", createTestUser(t, s, "Owner").ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestSetAvailabilityMultipleParticipants(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", "", createTestUser(t, s, "Owner").ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestSetAvailabilityNoteRoundTrip(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", "", createTestUser(t, s, "Owner").ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -186,7 +186,7 @@ func TestSetAvailabilityPreservesNotesWhenNilOverrides(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", "", createTestUser(t, s, "Owner").ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -220,7 +220,7 @@ func TestSetAvailabilityEmptyStringClearsNote(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", "", createTestUser(t, s, "Owner").ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -249,7 +249,7 @@ func TestSetAvailabilityRemovingDateDropsNote(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", "", createTestUser(t, s, "Owner").ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -283,7 +283,7 @@ func TestSetAvailabilityParticipantIsolation(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", "", createTestUser(t, s, "Owner").ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -330,7 +330,7 @@ func TestSetAvailabilityPreferredRoundTrip(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", "", createTestUser(t, s, "Owner").ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -365,7 +365,7 @@ func TestSetAvailabilityPreferredClearedWhenDateRemoved(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", "", createTestUser(t, s, "Owner").ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -401,7 +401,7 @@ func TestSetAvailabilityPreferredPreservedWhenOverridesNil(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", "", createTestUser(t, s, "Owner").ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -432,7 +432,7 @@ func TestSetAvailabilityPreferredExplicitEmptyClears(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", "", createTestUser(t, s, "Owner").ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -463,7 +463,7 @@ func TestSetAvailabilityPreferredParticipantIsolation(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	cal, err := s.CreateCalendar(ctx, "Test", "", "", createTestUser(t, s, "Owner").ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Test", "", createTestUser(t, s, "Owner").ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}

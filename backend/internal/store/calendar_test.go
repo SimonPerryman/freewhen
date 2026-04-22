@@ -14,7 +14,7 @@ func TestCreateCalendar(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "Weekend Trip", "✨", "", owner.ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Weekend Trip", "✨", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -43,7 +43,7 @@ func TestCreateCalendarNoEmoji(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "No Icon", "", "", owner.ID, "open")
+	cal, err := s.CreateCalendar(ctx, "No Icon", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestCreateCalendarEmojiRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "Round Trip", "🪩", "", owner.ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Round Trip", "🪩", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -79,74 +79,12 @@ func TestCreateCalendarEmojiRoundTrip(t *testing.T) {
 	}
 }
 
-func TestCreateCalendarThemeRoundTrip(t *testing.T) {
-	s := setupTestStore(t)
-	ctx := context.Background()
-	owner := createTestUser(t, s, "Owner")
-
-	cal, err := s.CreateCalendar(ctx, "Themed", "", "ocean", owner.ID, "open")
-	if err != nil {
-		t.Fatalf("create calendar: %v", err)
-	}
-	if cal.Theme != "ocean" {
-		t.Errorf("expected theme %q on insert, got %q", "ocean", cal.Theme)
-	}
-
-	got, err := s.GetCalendar(ctx, cal.ID)
-	if err != nil {
-		t.Fatalf("get calendar: %v", err)
-	}
-	if got.Calendar.Theme != "ocean" {
-		t.Errorf("expected theme %q on read, got %q", "ocean", got.Calendar.Theme)
-	}
-}
-
-func TestCreateCalendarNoTheme(t *testing.T) {
-	s := setupTestStore(t)
-	ctx := context.Background()
-	owner := createTestUser(t, s, "Owner")
-
-	cal, err := s.CreateCalendar(ctx, "No Theme", "", "", owner.ID, "open")
-	if err != nil {
-		t.Fatalf("create calendar: %v", err)
-	}
-	if cal.Theme != "" {
-		t.Errorf("expected empty theme, got %q", cal.Theme)
-	}
-
-	got, err := s.GetCalendar(ctx, cal.ID)
-	if err != nil {
-		t.Fatalf("get calendar: %v", err)
-	}
-	if got.Calendar.Theme != "" {
-		t.Errorf("expected empty theme on read, got %q", got.Calendar.Theme)
-	}
-}
-
-func TestUpdateCalendarTheme(t *testing.T) {
-	s := setupTestStore(t)
-	ctx := context.Background()
-	owner := createTestUser(t, s, "Owner")
-
-	cal, err := s.CreateCalendar(ctx, "Theme Edit", "", "peach", owner.ID, "open")
-	if err != nil {
-		t.Fatalf("create calendar: %v", err)
-	}
-	updated, err := s.UpdateCalendarTheme(ctx, cal.ID, "forest")
-	if err != nil {
-		t.Fatalf("update theme: %v", err)
-	}
-	if updated.Theme != "forest" {
-		t.Errorf("theme = %q, want forest", updated.Theme)
-	}
-}
-
 func TestCreateCalendarDefaultName(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "", "", "", owner.ID, "open")
+	cal, err := s.CreateCalendar(ctx, "", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -160,7 +98,7 @@ func TestGetCalendar(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "Test", "🦊", "", owner.ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Test", "🦊", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -211,7 +149,7 @@ func TestUpdateCalendarName(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "Old Name", "🌿", "", owner.ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Old Name", "🌿", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -251,7 +189,7 @@ func TestGetCalendarEmpty(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "Empty", "🌿", "", owner.ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Empty", "🌿", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -273,7 +211,7 @@ func TestUpdateCalendarVisibility(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "Visibility", "", "", owner.ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Visibility", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -303,7 +241,7 @@ func TestTouchCalendar_BumpsUpdatedAt(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "Touch", "", "", owner.ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Touch", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -337,7 +275,7 @@ func TestListCalendarsForUser(t *testing.T) {
 	owner := createTestUser(t, s, "Owner")
 	joiner := createTestUser(t, s, "Joiner")
 
-	calA, err := s.CreateCalendar(ctx, "Alpha", "", "", owner.ID, "open")
+	calA, err := s.CreateCalendar(ctx, "Alpha", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create alpha: %v", err)
 	}
@@ -345,7 +283,7 @@ func TestListCalendarsForUser(t *testing.T) {
 		t.Fatalf("owner joins alpha: %v", err)
 	}
 
-	calB, err := s.CreateCalendar(ctx, "Beta", "", "", owner.ID, "open")
+	calB, err := s.CreateCalendar(ctx, "Beta", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create beta: %v", err)
 	}
@@ -403,7 +341,7 @@ func TestListCalendarsForUser_RespectsLimit(t *testing.T) {
 	owner := createTestUser(t, s, "Owner")
 
 	for i := 0; i < 5; i++ {
-		cal, err := s.CreateCalendar(ctx, "Cal", "", "", owner.ID, "open")
+		cal, err := s.CreateCalendar(ctx, "Cal", "", owner.ID, "open")
 		if err != nil {
 			t.Fatalf("create: %v", err)
 		}
@@ -426,7 +364,7 @@ func TestParticipantHasAvailability(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	cal, err := s.CreateCalendar(ctx, "Avail", "", "", owner.ID, "submit_to_view")
+	cal, err := s.CreateCalendar(ctx, "Avail", "", owner.ID, "submit_to_view")
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -460,7 +398,7 @@ func TestDuplicateCalendar_CopiesCoreFields(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	src, err := s.CreateCalendar(ctx, "Tennis", "🎾", "", owner.ID, "submit_to_view")
+	src, err := s.CreateCalendar(ctx, "Tennis", "🎾", owner.ID, "submit_to_view")
 	if err != nil {
 		t.Fatalf("create src: %v", err)
 	}
@@ -508,7 +446,7 @@ func TestDuplicateCalendar_SkipParticipants(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	src, err := s.CreateCalendar(ctx, "Tennis", "", "", owner.ID, "open")
+	src, err := s.CreateCalendar(ctx, "Tennis", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create src: %v", err)
 	}
@@ -537,7 +475,7 @@ func TestDuplicateCalendar_OwnerDedupedOnIncludeParticipants(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 
-	src, err := s.CreateCalendar(ctx, "Tennis", "", "", owner.ID, "open")
+	src, err := s.CreateCalendar(ctx, "Tennis", "", owner.ID, "open")
 	if err != nil {
 		t.Fatalf("create src: %v", err)
 	}

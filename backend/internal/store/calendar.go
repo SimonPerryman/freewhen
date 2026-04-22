@@ -10,17 +10,16 @@ import (
 	"github.com/freewhen/backend/internal/model"
 )
 
-func (s *Store) CreateCalendar(ctx context.Context, name, emoji, theme, ownerID, visibility string) (model.Calendar, error) {
+func (s *Store) CreateCalendar(ctx context.Context, name, emoji, ownerID, visibility string) (model.Calendar, error) {
 	const maxRetries = 3
 	for i := 0; i < maxRetries; i++ {
 		id := generateID(8)
 		var cal model.Calendar
 		var emojiCol sql.NullString
-		var themeCol sql.NullString
 		err := s.db.QueryRowContext(ctx,
-			`INSERT INTO calendars (id, name, emoji, theme, owner_id, visibility) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, emoji, theme, owner_id, visibility, created_at, updated_at, access_epoch`,
-			id, name, nullableString(emoji), nullableString(theme), ownerID, visibility,
-		).Scan(&cal.ID, &cal.Name, &emojiCol, &themeCol, &cal.OwnerID, &cal.Visibility, &cal.CreatedAt, &cal.UpdatedAt, &cal.AccessEpoch)
+			`INSERT INTO calendars (id, name, emoji, owner_id, visibility) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, emoji, owner_id, visibility, created_at, updated_at, access_epoch`,
+			id, name, nullableString(emoji), ownerID, visibility,
+		).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.Visibility, &cal.CreatedAt, &cal.UpdatedAt, &cal.AccessEpoch)
 		if err != nil {
 			if isUniqueViolation(err) {
 				continue
@@ -28,7 +27,6 @@ func (s *Store) CreateCalendar(ctx context.Context, name, emoji, theme, ownerID,
 			return model.Calendar{}, fmt.Errorf("insert calendar: %w", err)
 		}
 		cal.Emoji = emojiCol.String
-		cal.Theme = themeCol.String
 		return cal, nil
 	}
 	return model.Calendar{}, fmt.Errorf("failed to generate unique calendar ID after %d attempts", maxRetries)
@@ -105,14 +103,13 @@ func (s *Store) GetCalendarOnly(ctx context.Context, id string) (model.Calendar,
 func (s *Store) getCalendarRow(ctx context.Context, id string) (model.Calendar, error) {
 	var cal model.Calendar
 	var emojiCol sql.NullString
-	var themeCol sql.NullString
 	var finalisedDate sql.NullString
 	var finalisedAt sql.NullTime
 	var passphrase sql.NullString
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, name, emoji, theme, owner_id, visibility, created_at, updated_at, finalised_date::text, finalised_at, passphrase, access_epoch
+		`SELECT id, name, emoji, owner_id, visibility, created_at, updated_at, finalised_date::text, finalised_at, passphrase, access_epoch
 		 FROM calendars WHERE id = $1`, id,
-	).Scan(&cal.ID, &cal.Name, &emojiCol, &themeCol, &cal.OwnerID, &cal.Visibility, &cal.CreatedAt, &cal.UpdatedAt, &finalisedDate, &finalisedAt, &passphrase, &cal.AccessEpoch)
+	).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.Visibility, &cal.CreatedAt, &cal.UpdatedAt, &finalisedDate, &finalisedAt, &passphrase, &cal.AccessEpoch)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Calendar{}, ErrNotFound
@@ -120,7 +117,6 @@ func (s *Store) getCalendarRow(ctx context.Context, id string) (model.Calendar, 
 		return model.Calendar{}, fmt.Errorf("get calendar: %w", err)
 	}
 	cal.Emoji = emojiCol.String
-	cal.Theme = themeCol.String
 	if finalisedDate.Valid {
 		d := finalisedDate.String
 		cal.FinalisedDate = &d
@@ -191,26 +187,6 @@ func (s *Store) UpdateCalendarVisibility(ctx context.Context, calendarID, visibi
 	)
 	if err != nil {
 		return model.Calendar{}, fmt.Errorf("update calendar visibility: %w", err)
-	}
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return model.Calendar{}, fmt.Errorf("rows affected: %w", err)
-	}
-	if rows == 0 {
-		return model.Calendar{}, ErrNotFound
-	}
-	return s.getCalendarRow(ctx, calendarID)
-}
-
-// UpdateCalendarTheme sets the theme slug on a calendar.
-// Returns ErrNotFound if the calendar does not exist.
-func (s *Store) UpdateCalendarTheme(ctx context.Context, calendarID, theme string) (model.Calendar, error) {
-	res, err := s.db.ExecContext(ctx,
-		`UPDATE calendars SET theme = $1, updated_at = now() WHERE id = $2`,
-		nullableString(theme), calendarID,
-	)
-	if err != nil {
-		return model.Calendar{}, fmt.Errorf("update calendar theme: %w", err)
 	}
 	rows, err := res.RowsAffected()
 	if err != nil {
@@ -296,7 +272,7 @@ type CalendarListItem struct {
 // responsible for passing limit = pageSize + 1 when detecting has_more.
 func (s *Store) ListCalendarsForUser(ctx context.Context, userID string, limit int) ([]CalendarListItem, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT c.id, c.name, c.emoji, c.theme, c.owner_id, c.visibility, c.created_at, c.updated_at,
+		`SELECT c.id, c.name, c.emoji, c.owner_id, c.visibility, c.created_at, c.updated_at,
 		        c.finalised_date::text, c.finalised_at,
 		        (SELECT COUNT(*) FROM participants WHERE calendar_id = c.id) AS participant_count
 		 FROM calendars c
@@ -315,18 +291,16 @@ func (s *Store) ListCalendarsForUser(ctx context.Context, userID string, limit i
 	for rows.Next() {
 		var item CalendarListItem
 		var emojiCol sql.NullString
-		var themeCol sql.NullString
 		var finalisedDate sql.NullString
 		var finalisedAt sql.NullTime
 		if err := rows.Scan(
-			&item.ID, &item.Name, &emojiCol, &themeCol, &item.OwnerID, &item.Visibility,
+			&item.ID, &item.Name, &emojiCol, &item.OwnerID, &item.Visibility,
 			&item.CreatedAt, &item.UpdatedAt, &finalisedDate, &finalisedAt,
 			&item.ParticipantCount,
 		); err != nil {
 			return nil, fmt.Errorf("scan calendar row: %w", err)
 		}
 		item.Emoji = emojiCol.String
-		item.Theme = themeCol.String
 		if finalisedDate.Valid {
 			d := finalisedDate.String
 			item.FinalisedDate = &d
@@ -372,14 +346,13 @@ func (s *Store) DuplicateCalendar(
 	// Load source within the tx.
 	var source model.Calendar
 	var emojiCol sql.NullString
-	var themeCol sql.NullString
 	var finalisedDate sql.NullString
 	var finalisedAt sql.NullTime
 	var passphrase sql.NullString
 	err = tx.QueryRowContext(ctx,
-		`SELECT id, name, emoji, theme, owner_id, visibility, created_at, updated_at, finalised_date::text, finalised_at, passphrase, access_epoch
+		`SELECT id, name, emoji, owner_id, visibility, created_at, updated_at, finalised_date::text, finalised_at, passphrase, access_epoch
 		 FROM calendars WHERE id = $1`, sourceID,
-	).Scan(&source.ID, &source.Name, &emojiCol, &themeCol, &source.OwnerID, &source.Visibility, &source.CreatedAt, &source.UpdatedAt, &finalisedDate, &finalisedAt, &passphrase, &source.AccessEpoch)
+	).Scan(&source.ID, &source.Name, &emojiCol, &source.OwnerID, &source.Visibility, &source.CreatedAt, &source.UpdatedAt, &finalisedDate, &finalisedAt, &passphrase, &source.AccessEpoch)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Calendar{}, model.Participant{}, ErrNotFound
@@ -387,7 +360,6 @@ func (s *Store) DuplicateCalendar(
 		return model.Calendar{}, model.Participant{}, fmt.Errorf("get source calendar: %w", err)
 	}
 	source.Emoji = emojiCol.String
-	source.Theme = themeCol.String
 
 	// Service layer supplies the final name (including "(copy)" suffix and
 	// length clipping). Store trusts the caller.
@@ -399,15 +371,13 @@ func (s *Store) DuplicateCalendar(
 	for i := 0; i < maxRetries; i++ {
 		id := generateID(8)
 		var emojiOut sql.NullString
-		var themeOut sql.NullString
 		err = tx.QueryRowContext(ctx,
-			`INSERT INTO calendars (id, name, emoji, theme, owner_id, visibility) VALUES ($1, $2, $3, $4, $5, $6)
-			 RETURNING id, name, emoji, theme, owner_id, visibility, created_at, updated_at, access_epoch`,
-			id, newName, nullableString(source.Emoji), nullableString(source.Theme), newOwnerID, source.Visibility,
-		).Scan(&newCal.ID, &newCal.Name, &emojiOut, &themeOut, &newCal.OwnerID, &newCal.Visibility, &newCal.CreatedAt, &newCal.UpdatedAt, &newCal.AccessEpoch)
+			`INSERT INTO calendars (id, name, emoji, owner_id, visibility) VALUES ($1, $2, $3, $4, $5)
+			 RETURNING id, name, emoji, owner_id, visibility, created_at, updated_at, access_epoch`,
+			id, newName, nullableString(source.Emoji), newOwnerID, source.Visibility,
+		).Scan(&newCal.ID, &newCal.Name, &emojiOut, &newCal.OwnerID, &newCal.Visibility, &newCal.CreatedAt, &newCal.UpdatedAt, &newCal.AccessEpoch)
 		if err == nil {
 			newCal.Emoji = emojiOut.String
-			newCal.Theme = themeOut.String
 			break
 		}
 		if isUniqueViolation(err) && i < maxRetries-1 {

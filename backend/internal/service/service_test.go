@@ -13,8 +13,7 @@ import (
 // mockStore implements Store for testing. Only GetParticipant and SetAvailability
 // are exercised; the rest panic if called unexpectedly.
 type mockStore struct {
-	createCalendar             func(name, emoji, theme, ownerID, visibility string) (model.Calendar, error)
-	updateCalendarTheme        func(ctx context.Context, calendarID, theme string) (model.Calendar, error)
+	createCalendar             func(name, emoji, ownerID, visibility string) (model.Calendar, error)
 	duplicateCalendar          func(ctx context.Context, sourceID, newOwnerID, finalName, ownerParticipantName string, includeParticipants bool) (model.Calendar, model.Participant, error)
 	getCalendar                func(ctx context.Context, id string) (model.CalendarWithDetails, error)
 	getParticipant             func(ctx context.Context, id string) (model.Participant, error)
@@ -36,11 +35,11 @@ type mockStore struct {
 	participantsWithNoAvailability func() ([]model.Participant, error)
 }
 
-func (m *mockStore) CreateCalendar(_ context.Context, name, emoji, theme, ownerID, visibility string) (model.Calendar, error) {
+func (m *mockStore) CreateCalendar(_ context.Context, name, emoji, ownerID, visibility string) (model.Calendar, error) {
 	if m.createCalendar == nil {
 		panic("unexpected call to CreateCalendar")
 	}
-	return m.createCalendar(name, emoji, theme, ownerID, visibility)
+	return m.createCalendar(name, emoji, ownerID, visibility)
 }
 
 func (m *mockStore) DuplicateCalendar(ctx context.Context, sourceID, newOwnerID, finalName, ownerParticipantName string, includeParticipants bool) (model.Calendar, model.Participant, error) {
@@ -97,13 +96,6 @@ func (m *mockStore) UpdateCalendarName(_ context.Context, _, _ string) (model.Ca
 
 func (m *mockStore) UpdateCalendarVisibility(_ context.Context, _, _ string) (model.Calendar, error) {
 	panic("unexpected call to UpdateCalendarVisibility")
-}
-
-func (m *mockStore) UpdateCalendarTheme(ctx context.Context, calendarID, theme string) (model.Calendar, error) {
-	if m.updateCalendarTheme == nil {
-		panic("unexpected call to UpdateCalendarTheme")
-	}
-	return m.updateCalendarTheme(ctx, calendarID, theme)
 }
 
 func (m *mockStore) DeleteParticipant(_ context.Context, _, _ string) error {
@@ -276,13 +268,12 @@ func TestPickRandomEmoji_ReturnsFromCuratedSet(t *testing.T) {
 }
 
 func TestCreateCalendar_PassesEmojiToStore(t *testing.T) {
-	var gotEmoji, gotTheme, gotVisibility string
+	var gotEmoji, gotVisibility string
 	ms := &mockStore{
-		createCalendar: func(_, emoji, theme, _, visibility string) (model.Calendar, error) {
+		createCalendar: func(_, emoji, _, visibility string) (model.Calendar, error) {
 			gotEmoji = emoji
-			gotTheme = theme
 			gotVisibility = visibility
-			return model.Calendar{ID: "c1", Name: "x", Emoji: emoji, Theme: theme, Visibility: visibility}, nil
+			return model.Calendar{ID: "c1", Name: "x", Emoji: emoji, Visibility: visibility}, nil
 		},
 	}
 
@@ -296,12 +287,6 @@ func TestCreateCalendar_PassesEmojiToStore(t *testing.T) {
 	}
 	if cal.Emoji != gotEmoji {
 		t.Errorf("returned emoji %q, want %q", cal.Emoji, gotEmoji)
-	}
-	if gotTheme == "" {
-		t.Fatal("expected service to pass a theme to the store, got empty string")
-	}
-	if !IsValidTheme(gotTheme) {
-		t.Errorf("theme %q not in curated set", gotTheme)
 	}
 	if gotVisibility != model.VisibilityOpen {
 		t.Errorf("visibility = %q, want %q", gotVisibility, model.VisibilityOpen)
@@ -722,7 +707,7 @@ func TestCreateCalendar_UnderCap(t *testing.T) {
 		countCalendarsForOwner: func(_ context.Context, _ string) (int, error) {
 			return 199, nil
 		},
-		createCalendar: func(_, _, _, _, _ string) (model.Calendar, error) {
+		createCalendar: func(_, _, _, _ string) (model.Calendar, error) {
 			return model.Calendar{ID: "c1", Name: "Trip"}, nil
 		},
 	}
@@ -843,51 +828,6 @@ func TestRenameParticipant_EmptyNameRejected(t *testing.T) {
 	_, err := s.RenameParticipant(context.Background(), "c1", "p1", &ownerID, "", "   ")
 	if !errors.Is(err, ErrInvalidName) {
 		t.Fatalf("err = %v, want ErrInvalidName", err)
-	}
-}
-
-func TestPickRandomTheme_ReturnsFromCuratedSet(t *testing.T) {
-	for i := 0; i < 50; i++ {
-		got := pickRandomTheme()
-		if !IsValidTheme(got) {
-			t.Fatalf("pickRandomTheme returned %q, not in curated set", got)
-		}
-	}
-}
-
-func TestValidThemes_MatchesExpectedSet(t *testing.T) {
-	expected := []string{"peach", "ocean", "forest", "plum", "lemon", "graphite"}
-	if len(ValidThemes) != len(expected) {
-		t.Fatalf("ValidThemes len = %d, want %d", len(ValidThemes), len(expected))
-	}
-	for i, slug := range expected {
-		if ValidThemes[i] != slug {
-			t.Errorf("ValidThemes[%d] = %q, want %q", i, ValidThemes[i], slug)
-		}
-	}
-}
-
-func TestUpdateCalendarTheme_InvalidSlug(t *testing.T) {
-	s := New(&mockStore{}, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
-	_, err := s.UpdateCalendarTheme(context.Background(), "c1", "neon-goblin")
-	if !errors.Is(err, ErrInvalidTheme) {
-		t.Fatalf("err = %v, want ErrInvalidTheme", err)
-	}
-}
-
-func TestUpdateCalendarTheme_Valid(t *testing.T) {
-	ms := &mockStore{
-		updateCalendarTheme: func(_ context.Context, _, theme string) (model.Calendar, error) {
-			return model.Calendar{ID: "c1", Theme: theme}, nil
-		},
-	}
-	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
-	cal, err := s.UpdateCalendarTheme(context.Background(), "c1", "ocean")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if cal.Theme != "ocean" {
-		t.Fatalf("theme = %q, want ocean", cal.Theme)
 	}
 }
 

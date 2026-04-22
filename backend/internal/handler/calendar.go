@@ -306,13 +306,12 @@ func (h *Handler) UpdateCalendar(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name       *string `json:"name"`
 		Visibility *string `json:"visibility"`
-		Theme      *string `json:"theme"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
 		return
 	}
-	if req.Name == nil && req.Visibility == nil && req.Theme == nil {
+	if req.Name == nil && req.Visibility == nil {
 		respondError(w, http.StatusBadRequest, "invalid_request", "no updatable fields provided")
 		return
 	}
@@ -326,10 +325,6 @@ func (h *Handler) UpdateCalendar(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Visibility != nil && !model.IsValidVisibility(*req.Visibility) {
 		respondError(w, http.StatusBadRequest, "invalid_visibility", "invalid visibility value")
-		return
-	}
-	if req.Theme != nil && !service.IsValidTheme(*req.Theme) {
-		respondError(w, http.StatusBadRequest, "invalid_theme", "invalid theme value")
 		return
 	}
 
@@ -372,23 +367,6 @@ func (h *Handler) UpdateCalendar(w http.ResponseWriter, r *http.Request) {
 		}
 		cal = updated
 	}
-	if req.Theme != nil {
-		updated, err := h.service.UpdateCalendarTheme(r.Context(), id, *req.Theme)
-		if err != nil {
-			if errors.Is(err, service.ErrInvalidTheme) {
-				respondError(w, http.StatusBadRequest, "invalid_theme", "invalid theme value")
-				return
-			}
-			if errors.Is(err, store.ErrNotFound) {
-				respondError(w, http.StatusNotFound, "not_found", "calendar not found")
-				return
-			}
-			respondError(w, http.StatusInternalServerError, "internal_error", "failed to update calendar theme")
-			return
-		}
-		cal = updated
-	}
-
 	respondJSON(w, http.StatusOK, cal)
 }
 

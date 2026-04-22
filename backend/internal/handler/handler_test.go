@@ -31,7 +31,6 @@ type mockService struct {
 	claimParticipant         func(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error)
 	renameCalendar           func(ctx context.Context, calendarID, name string) (model.Calendar, error)
 	updateCalendarVisibility func(ctx context.Context, calendarID, visibility string) (model.Calendar, error)
-	updateCalendarTheme      func(ctx context.Context, calendarID, theme string) (model.Calendar, error)
 	removeParticipant        func(ctx context.Context, calendarID, participantID string) error
 	renameParticipant        func(ctx context.Context, calendarID, targetParticipantID string, callerUserID *string, callerParticipantID, name string) (model.Participant, error)
 	listUserCalendars        func(ctx context.Context, userID string) ([]store.CalendarListItem, bool, error)
@@ -93,13 +92,6 @@ func (m *mockService) RenameCalendar(ctx context.Context, calendarID, name strin
 
 func (m *mockService) UpdateCalendarVisibility(ctx context.Context, calendarID, visibility string) (model.Calendar, error) {
 	return m.updateCalendarVisibility(ctx, calendarID, visibility)
-}
-
-func (m *mockService) UpdateCalendarTheme(ctx context.Context, calendarID, theme string) (model.Calendar, error) {
-	if m.updateCalendarTheme == nil {
-		return model.Calendar{ID: calendarID, Theme: theme}, nil
-	}
-	return m.updateCalendarTheme(ctx, calendarID, theme)
 }
 
 func (m *mockService) RemoveParticipant(ctx context.Context, calendarID, participantID string) error {
@@ -1309,63 +1301,6 @@ func TestUpdateCalendar_VisibilityOnly(t *testing.T) {
 	decodeJSON(t, rec, &got)
 	if got.Visibility != model.VisibilitySubmitToView {
 		t.Fatalf("visibility = %q, want %q", got.Visibility, model.VisibilitySubmitToView)
-	}
-}
-
-func TestUpdateCalendar_ThemeOnly(t *testing.T) {
-	updated := model.Calendar{ID: "cal1", Name: "X", OwnerID: "u1", Theme: "ocean"}
-	var gotTheme string
-	h := New(&mockService{
-		getCalendarOnly: func(_ context.Context, id string) (model.Calendar, error) {
-			return model.Calendar{ID: id, OwnerID: "u1"}, nil
-		},
-		updateCalendarTheme: func(_ context.Context, _, theme string) (model.Calendar, error) {
-			gotTheme = theme
-			return updated, nil
-		},
-	})
-	req := withUser(httptest.NewRequest(http.MethodPatch, "/calendars/cal1", jsonBody(t, map[string]string{"theme": "ocean"})), testUser)
-	req.SetPathValue("id", "cal1")
-	rec := httptest.NewRecorder()
-	h.UpdateCalendar(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
-	}
-	if gotTheme != "ocean" {
-		t.Fatalf("theme = %q, want ocean", gotTheme)
-	}
-}
-
-func TestUpdateCalendar_InvalidTheme(t *testing.T) {
-	h := New(&mockService{
-		getCalendarOnly: func(_ context.Context, id string) (model.Calendar, error) {
-			return model.Calendar{ID: id, OwnerID: "u1"}, nil
-		},
-	})
-	req := withUser(httptest.NewRequest(http.MethodPatch, "/calendars/cal1", jsonBody(t, map[string]string{"theme": "neon-goblin"})), testUser)
-	req.SetPathValue("id", "cal1")
-	rec := httptest.NewRecorder()
-	h.UpdateCalendar(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
-	}
-}
-
-func TestUpdateCalendar_ThemeNotOwner(t *testing.T) {
-	h := New(&mockService{
-		getCalendarOnly: func(_ context.Context, id string) (model.Calendar, error) {
-			return model.Calendar{ID: id, OwnerID: "other-user"}, nil
-		},
-	})
-	req := withUser(httptest.NewRequest(http.MethodPatch, "/calendars/cal1", jsonBody(t, map[string]string{"theme": "ocean"})), testUser)
-	req.SetPathValue("id", "cal1")
-	rec := httptest.NewRecorder()
-	h.UpdateCalendar(rec, req)
-
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
 	}
 }
 
