@@ -43,6 +43,7 @@ import SummaryView from "@/components/SummaryView/SummaryView";
 import BestDay from "@/components/BestDay/BestDay";
 import LiveStatusDot from "@/components/LiveStatusDot/LiveStatusDot";
 import CalendarSettingsSheet from "@/components/CalendarSettingsSheet/CalendarSettingsSheet";
+import ConfirmDialog from "@/components/ConfirmDialog/ConfirmDialog";
 import WhosMissingPanel from "@/components/WhosMissingPanel/WhosMissingPanel";
 import { resolveTheme } from "@/lib/themes";
 import styles from "./page.module.css";
@@ -106,6 +107,9 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   const router = useRouter();
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [removePassphraseOpen, setRemovePassphraseOpen] = useState(false);
+  const [regeneratePassphraseOpen, setRegeneratePassphraseOpen] = useState(false);
+  const [participantToRemove, setParticipantToRemove] = useState<Participant | null>(null);
   const [calendar, setCalendar] = useState<CalendarWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<LoadError | null>(null);
@@ -827,13 +831,12 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
 
   const handleRegeneratePassphrase = useCallback(async () => {
     if (!calendar) return;
-    if (
-      !confirm(
-        "Regenerating will invalidate the old passphrase — anyone already using the old link will need the new one. Continue?",
-      )
-    ) {
-      return;
-    }
+    setRegeneratePassphraseOpen(true);
+  }, [calendar]);
+
+  const confirmRegeneratePassphrase = useCallback(async () => {
+    if (!calendar) return;
+    setRegeneratePassphraseOpen(false);
     markLocalMutation();
     try {
       const passphrase = await rotateCalendarPassphrase(calendarId);
@@ -856,7 +859,12 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
 
   const handleDisablePassphrase = useCallback(async () => {
     if (!calendar) return;
-    if (!confirm("Remove the passphrase? The calendar will be openable without it.")) return;
+    setRemovePassphraseOpen(true);
+  }, [calendar]);
+
+  const confirmDisablePassphrase = useCallback(async () => {
+    if (!calendar) return;
+    setRemovePassphraseOpen(false);
     markLocalMutation();
     try {
       await clearCalendarPassphrase(calendarId);
@@ -878,8 +886,17 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   }, [calendar, calendarId, markLocalMutation]);
 
   const handleRemoveParticipant = useCallback(
-    async (target: Participant) => {
-      if (!confirm(`Remove ${target.name}?`)) return;
+    (target: Participant) => {
+      setParticipantToRemove(target);
+    },
+    [],
+  );
+
+  const confirmRemoveParticipant = useCallback(
+    async () => {
+      const target = participantToRemove;
+      if (!target) return;
+      setParticipantToRemove(null);
 
       const previous = calendar;
       setCalendar((prev) =>
@@ -900,7 +917,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
         setCalendar(previous);
       }
     },
-    [calendarId, calendar, markLocalMutation],
+    [participantToRemove, calendarId, calendar, markLocalMutation],
   );
 
   const handleRenameParticipant = useCallback(
@@ -1415,6 +1432,42 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           <WhosMissingPanel
             calendarId={calendar.calendar.id}
             participants={calendar.participants}
+          />
+        ) : null}
+
+        {removePassphraseOpen ? (
+          <ConfirmDialog
+            title="Remove passphrase?"
+            message="The calendar will be openable without it. You can set a new one later."
+            confirmLabel="Remove passphrase"
+            cancelLabel="Keep it"
+            destructive
+            onConfirm={confirmDisablePassphrase}
+            onCancel={() => setRemovePassphraseOpen(false)}
+          />
+        ) : null}
+
+        {regeneratePassphraseOpen ? (
+          <ConfirmDialog
+            title="Regenerate passphrase?"
+            message="The old passphrase stops working immediately. Anyone using the old link will need the new one."
+            confirmLabel="Regenerate"
+            cancelLabel="Cancel"
+            destructive
+            onConfirm={confirmRegeneratePassphrase}
+            onCancel={() => setRegeneratePassphraseOpen(false)}
+          />
+        ) : null}
+
+        {participantToRemove ? (
+          <ConfirmDialog
+            title={`Remove ${participantToRemove.name}?`}
+            message="Their availability will be cleared from the calendar."
+            confirmLabel="Remove"
+            cancelLabel="Cancel"
+            destructive
+            onConfirm={confirmRemoveParticipant}
+            onCancel={() => setParticipantToRemove(null)}
           />
         ) : null}
 
