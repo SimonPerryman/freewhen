@@ -103,3 +103,7 @@ Status: pending | in-progress | done
 - Frontend uses vitest with jsdom; `@` alias maps to `src/`
 - Single test file: `cd frontend && pnpm exec vitest run path/to/file`
 - Single Go test: `cd backend && go test ./internal/store/ -run TestName`
+
+## Before committing
+
+Always run `make lint` and `make test` before committing, and make sure both pass. For changes that touch backend storage, handlers, or server wiring, also run `make test-integration`. Fix failures rather than committing around them.

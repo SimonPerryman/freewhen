@@ -736,8 +736,8 @@ describe("CalendarPageClient", () => {
     const { ApiError } = await import("@/lib/api");
     mockAddParticipant.mockRejectedValue(new ApiError(409, "Name taken"));
 
-    // The handleJoin callback re-throws, so we catch it here
-    await expect(capturedOnJoin!("Alice")).rejects.toThrow();
+    // handleJoin swallows the error after surfacing it via the joinError prop
+    await expect(capturedOnJoin!("Alice")).resolves.toBeUndefined();
 
     // The captured error prop is updated on re-render
     await waitFor(() => {
