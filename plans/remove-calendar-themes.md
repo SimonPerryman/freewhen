@@ -158,19 +158,21 @@ First entry: Calendar colour themes.
 - **Keep the themes row in `v2-priorities.md`** with a "previously
   shipped and cut — see docs/cut-features.md" annotation. The anti-re-
   propose signal is worth the line.
-- **Tag the pre-removal SHA** as `themes-shipped-2026-04-21` before
-  merging the removal, so restoration is a clean cherry-pick target.
-  The tag should point at `f2a80a3` (or the most recent commit where
-  themes are still fully present — `c5664fa` or later if subsequent
-  commits touched theme code). Record the tagged SHA in the
-  `docs/cut-features.md` entry under "To restore."
+- **Don't tag the pre-removal SHA.** The original plan proposed a
+  `themes-shipped-2026-04-21` tag as a cherry-pick target. On reflection
+  this is namespace pollution: the ship commit SHA (`f2a80a3`) is already
+  recorded in `docs/cut-features.md` under "To restore," and `git
+  cherry-pick <sha>` works fine without a tag. Tags are a shared
+  namespace; creating one per cut feature gets noisy, and if the feature
+  is never restored the tag is dead weight. Keep the SHA in the
+  cut-features entry — that's sufficient.
 
 ## Log
 
 - 2026-04-22 — Created plan.
 - 2026-04-22 — Resolved open questions: keep the v2-priorities row
-  with a cut annotation; tag pre-removal SHA as
-  `themes-shipped-2026-04-21`.
+  with a cut annotation; decided against tagging the pre-removal SHA
+  (the SHA in `docs/cut-features.md` is enough).
 - 2026-04-22 — Implemented. Migration 016 drops `calendars.theme`;
   removed backend theme plumbing (service allow-list, store helpers,
   handler PATCH field, model field, tests); removed frontend

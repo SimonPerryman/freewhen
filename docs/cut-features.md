@@ -32,10 +32,9 @@ needs to re-check.
   (`c5664fa`) was introduced partly to contain the theme picker's UI weight;
   it survives the cut and now holds visibility + passphrase + duplicate, so
   the sheet itself remains justified.
-- **To restore:** The pre-removal tree is tagged `themes-shipped-2026-04-21`
-  (pointing at the most recent commit where themes are fully present).
-  Cherry-pick the feature commit (`f2a80a3`) and any follow-ups that touched
-  theme code between then and the removal. Migration 014 (`ALTER TABLE
+- **To restore:** Cherry-pick the feature commit (`f2a80a3`) and any
+  follow-ups that touched theme code between then and the removal commit.
+  Migration 014 (`ALTER TABLE
   calendars ADD COLUMN theme VARCHAR(32);`) is already on disk and was
   followed by the drop in 016; a clean restore needs a *new* migration
   (017+) to re-add the column rather than resurrecting 014. Palette values
