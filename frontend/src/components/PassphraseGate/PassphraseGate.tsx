@@ -56,7 +56,7 @@ export default function PassphraseGate({
         <input
           type="text"
           className={styles.input}
-          placeholder="word-word-word-word"
+          placeholder="correct-horse-battery-staple"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           autoComplete="off"
