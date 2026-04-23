@@ -6,6 +6,7 @@ Group availability coordination tool. Go backend + Next.js frontend + Postgres.
 
 - **Mobile first** — all UI must be designed for small screens first, then enhanced for larger viewports. Use min-width breakpoints, test on 375px as the baseline, and never ship a component that doesn't work on a phone.
 - **Config over environment detection** ([12-factor](https://12factor.net/config)) — branch on explicit env vars (e.g. `POSTHOG_KEY` set/unset, `LOG_LEVEL=info`, `SECURE_COOKIES=false`), never on `NODE_ENV` or a generic `ENV=prod`/`ENV=dev` label. Dev/prod parity means the same code path runs everywhere; only config changes.
+- **Flags are temporary** — long-lived feature flags are a smell. Flags gate in-flight work and experiments; once a feature is fully rolled out and stable, delete the flag and the branch of code it gated. Flags are not a substitute for runtime configuration (`DATABASE_URL`, `CORS_ORIGIN`, etc — those stay env vars).
 
 ## Architecture
 

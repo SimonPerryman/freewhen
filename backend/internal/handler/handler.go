@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/freewhen/backend/internal/flags"
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/service"
 	"github.com/freewhen/backend/internal/store"
@@ -44,10 +45,20 @@ type CalendarService interface {
 
 type Handler struct {
 	service CalendarService
+	flags   flags.Evaluator
 }
 
 func New(s CalendarService) *Handler {
-	return &Handler{service: s}
+	return &Handler{service: s, flags: flags.Noop{}}
+}
+
+// WithFlags swaps the flag evaluator. Call once during server setup; the
+// default is a no-op evaluator so tests don't need to wire PostHog.
+func (h *Handler) WithFlags(fe flags.Evaluator) *Handler {
+	if fe != nil {
+		h.flags = fe
+	}
+	return h
 }
 
 // UserFromContext returns the authenticated user from the request context, or nil.

@@ -44,13 +44,14 @@ Managed Postgres on Neon (free tier). Connection via `DATABASE_URL` env var. Mig
 - Server-side sessions with HTTP-only cookies stored in Postgres (no JWTs).
 - Backend served on `api.` subdomain for same-site cookies.
 
-## Product Analytics — PostHog
+## Product Analytics & Feature Flags — PostHog
 
-Product events, session replay, and error capture via one SDK. EU cloud region. Free tier (1M events/mo) is comfortable at current scale.
+Product events, session replay, error capture, and feature flags via one SDK. EU cloud region. Free tier (1M events/mo, 1M flag requests/mo) is comfortable at current scale.
 
-- Gated on `NEXT_PUBLIC_POSTHOG_KEY` — unset means the SDK no-ops (12-factor, same code path everywhere).
-- Centralised init in `frontend/src/lib/analytics.ts`.
-- See `plans/observability-and-analytics.md`.
+- Gated on `NEXT_PUBLIC_POSTHOG_KEY` (frontend) and `POSTHOG_KEY` (backend) — unset means both analytics and flag evaluation no-op (12-factor, same code path everywhere).
+- Frontend init in `frontend/src/lib/analytics.ts`; flag helpers in `frontend/src/lib/flags.ts` (`isEnabled`, `getVariant`, `onFlagsLoaded`).
+- Backend evaluator in `internal/flags/`, threaded onto the handler struct via `WithFlags`. Defaults to a no-op evaluator so tests and unconfigured environments share one code path.
+- See `plans/observability-and-analytics.md` and `plans/feature-flags.md`.
 
 ## Transactional Email — Resend
 

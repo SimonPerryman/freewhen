@@ -8,6 +8,7 @@ import (
 
 	"github.com/freewhen/backend/internal/config"
 	"github.com/freewhen/backend/internal/email"
+	"github.com/freewhen/backend/internal/flags"
 	"github.com/freewhen/backend/internal/handler"
 	"github.com/freewhen/backend/internal/realtime"
 	"github.com/freewhen/backend/internal/service"
@@ -27,6 +28,7 @@ type Server struct {
 	db             *sql.DB
 	corsOrigin     string
 	cfg            *config.Config
+	flags          flags.Evaluator
 }
 
 func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
@@ -36,7 +38,22 @@ func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 		Secret: cfg.CalendarAccessSecret,
 		TTL:    30 * 24 * time.Hour,
 	})
-	h := handler.New(svc)
+
+	var flagEval flags.Evaluator = flags.Noop{}
+	if cfg.PostHogKey != "" {
+		phEval, err := flags.NewPostHog(flags.PostHogConfig{
+			APIKey:         cfg.PostHogKey,
+			Host:           cfg.PostHogHost,
+			PersonalAPIKey: cfg.PostHogPersonalKey,
+		}, logger)
+		if err != nil {
+			logger.Warn("feature flag evaluator unavailable, falling back to noop", "error", err)
+		} else {
+			flagEval = phEval
+		}
+	}
+
+	h := handler.New(svc).WithFlags(flagEval)
 	eh := handler.NewEvents(hub, svc, logger)
 
 	var emailSender handler.EmailSender
@@ -60,6 +77,7 @@ func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 		db:             db,
 		corsOrigin:     cfg.CORSOrigin,
 		cfg:            cfg,
+		flags:          flagEval,
 	}
 	srv.routes()
 	return srv

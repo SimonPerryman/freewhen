@@ -25,6 +25,14 @@ type Config struct {
 	// CalendarAccessSecret is the HMAC key used to sign per-calendar access
 	// tokens (password-protected calendars). Must be at least 32 bytes.
 	CalendarAccessSecret string
+	// PostHogKey is the project API key for PostHog. When unset, flag
+	// evaluation no-ops and analytics events are dropped server-side.
+	PostHogKey string
+	// PostHogHost overrides the PostHog API host (e.g. https://eu.i.posthog.com).
+	PostHogHost string
+	// PostHogPersonalKey enables local polling of flag definitions for
+	// in-process evaluation. Optional.
+	PostHogPersonalKey string
 }
 
 func Load() (*Config, error) {
@@ -75,6 +83,9 @@ func Load() (*Config, error) {
 		ResendAPIKey:         os.Getenv("RESEND_API_KEY"),
 		MagicLinkFromEmail:   os.Getenv("MAGIC_LINK_FROM_EMAIL"),
 		CalendarAccessSecret: accessSecret,
+		PostHogKey:           os.Getenv("POSTHOG_KEY"),
+		PostHogHost:          os.Getenv("POSTHOG_HOST"),
+		PostHogPersonalKey:   os.Getenv("POSTHOG_PERSONAL_API_KEY"),
 	}, nil
 }
 

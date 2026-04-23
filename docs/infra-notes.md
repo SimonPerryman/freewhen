@@ -43,6 +43,9 @@ Backend env vars (all read once at startup in `internal/config/config.go`):
 | `CORS_ORIGIN` | `http://localhost:3000` | |
 | `LOG_LEVEL` | `info` | `debug` \| `info` \| `warn` \| `error`. JSON to stdout always — pipe through `jq` locally if you want readability. |
 | `SECURE_COOKIES` | `true` | Set `false` for local HTTP dev. Prod / staging leave unset → defaults to secure. |
+| `POSTHOG_KEY` | unset | PostHog project API key. If unset, backend flag evaluation no-ops (returns caller-supplied fallback). |
+| `POSTHOG_HOST` | unset | PostHog API host (e.g. `https://eu.i.posthog.com`). Leave unset to use the SDK default. |
+| `POSTHOG_PERSONAL_API_KEY` | unset | Optional. Enables local polling of flag definitions for fast in-process evaluation. Without it, the SDK still works but evaluates flags remotely. |
 
 Frontend env vars:
 
@@ -76,6 +79,14 @@ UPDATE users SET is_admin = true WHERE email = 'you@example.com';
 - **Events tracked:** `calendar_created`, `invite_shared`, `calendar_opened`, `participant_added`, `availability_marked`
 
 **Consent banner required before wider rollout.** Session replay + analytics cookies need explicit consent under UK/EU rules. The `analytics.init()` call in `src/lib/analytics.ts` is the single hook point for gating behind a consent banner.
+
+### PostHog feature flags
+
+- **Frontend:** `frontend/src/lib/flags.ts` exposes `isEnabled(key, fallback)`, `getVariant(key, fallback)`, and `onFlagsLoaded(cb)`. Call sites never touch `posthog-js` directly, so swapping vendors later is a library change, not a codebase sweep.
+- **Backend:** `internal/flags/` exposes an `Evaluator` interface threaded onto the handler struct via `WithFlags(...)`. The PostHog implementation reads `POSTHOG_KEY`, `POSTHOG_HOST`, and `POSTHOG_PERSONAL_API_KEY` from env. When `POSTHOG_KEY` is unset, a `Noop` evaluator returns the caller-supplied fallback — same 12-factor pattern as the frontend.
+- **Naming:** `kebab-case`, prefixed with the area it gates — e.g. `calendar-import-suggestions`, `auth-magic-link-v2`, `share-cta-v2`.
+- **Lifecycle:** create in PostHog dashboard → wrap a single code path → roll 0% → 10% → 100% over a few days → once stable for a week, delete the flag *and* the code branch it gated. Long-lived flags accumulate into the next observability problem.
+- **Events:** PostHog fires a `$feature_flag_called` event on every evaluation. This counts against the 1M events/mo allowance — keep flag keys out of tight loops (e.g. don't call `isEnabled` inside a render that runs 60x/sec).
 
 ## Deploy Flow
 
