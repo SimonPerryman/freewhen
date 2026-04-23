@@ -5,7 +5,7 @@ Status: done
 ## Goal
 
 Rip out the `submit_to_view` calendar privacy mode shipped in `b3aa5fc`
-(2026-04-20, plan `plans/submit-to-view-privacy.md`). The feature works,
+(2026-04-20, plan `plans/v2/t2/submit-to-view-privacy.md`). The feature works,
 but we're still pre-launch with no user signal, nobody pulled for it,
 and the "Hide others until you respond" toggle already feels heavy
 enough on the create form that the v2-priorities doc was proposing to
@@ -13,7 +13,7 @@ hide it behind an Advanced options disclosure. That's the same shape
 of decision we just made on calendar colour themes: when the instinct
 is "hide the weight," the consistent call is to cut. See
 `docs/cut-features.md` for the decision log; this plan is the
-mechanical removal and mirrors `plans/remove-calendar-themes.md`.
+mechanical removal and mirrors `plans/ui/remove-calendar-themes.md`.
 
 Not a revert. Migration 008 has nine migrations stacked on top of it,
 so removal is a new forward-only migration.
@@ -43,7 +43,7 @@ so removal is a new forward-only migration.
 - Update `docs/v2-priorities.md` — restore the row to its pre-ship
   state with a `(previously shipped and cut — see
   docs/cut-features.md)` suffix, matching how themes was handled.
-- Mark `plans/submit-to-view-privacy.md` status as `cut` and add a
+- Mark `plans/v2/t2/submit-to-view-privacy.md` status as `cut` and add a
   log entry pointing at this plan and `docs/cut-features.md`.
 - Add a second entry to `docs/cut-features.md` with rationale and
   restoration notes.
@@ -73,7 +73,7 @@ so removal is a new forward-only migration.
   re-narrowing it now would be pointless churn. Just drop
   `visibility` from the accepted body.
 - **Delete the plan? No — mark it `cut`.**
-  `plans/submit-to-view-privacy.md` stays on disk with
+  `plans/v2/t2/submit-to-view-privacy.md` stays on disk with
   `Status: cut` and a log entry pointing at this removal plan and
   `docs/cut-features.md`. Same treatment as themes.
 - **Revert `docs/v2-priorities.md` rather than leaving it as
@@ -171,16 +171,16 @@ so removal is a new forward-only migration.
      suffix. Delete the Tier 3 "Advanced options disclosure on
      create" row (it was premised on a home for this toggle and
      no longer has a reason to exist).
-   - `plans/submit-to-view-privacy.md` — set `Status: cut`, add a
+   - `plans/v2/t2/submit-to-view-privacy.md` — set `Status: cut`, add a
      log entry pointing at this plan and `docs/cut-features.md`.
 
 4. **Append to `docs/cut-features.md`.**
    New entry at the top, above "Calendar colour themes", following
    the shape established by that entry:
    - **Shipped:** 2026-04-20 — commit `b3aa5fc` — plan
-     `plans/submit-to-view-privacy.md`
+     `plans/v2/t2/submit-to-view-privacy.md`
    - **Cut:** 2026-04-23 — commit `<TBD>` — plan
-     `plans/remove-submit-to-view.md`
+     `plans/v2/t2/remove-submit-to-view.md`
    - **Why cut:** Pre-launch feature that nobody asked for. The
      create-form toggle already felt disproportionate enough that the
      v2-priorities doc was proposing to hide it behind an Advanced
@@ -230,5 +230,5 @@ so removal is a new forward-only migration.
   the `calendar_visibility_set`/`availability_gate_unlocked` events.
   Docs: `api.md` PATCH body + POST body updated; `v2-priorities.md`
   row restored and Advanced-options row removed;
-  `plans/submit-to-view-privacy.md` set to `cut`; new entry at the top
+  `plans/v2/t2/submit-to-view-privacy.md` set to `cut`; new entry at the top
   of `docs/cut-features.md`.

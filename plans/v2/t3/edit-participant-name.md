@@ -20,7 +20,7 @@ From `docs/v2-priorities.md` (Tier 3):
 **Out of scope:**
 - Rename rate limiting — only add if abuse appears.
 - Rename history / audit log.
-- Admin-role rename (admins-other-than-owner don't exist yet; see `plans/admin-controls.md`).
+- Admin-role rename (admins-other-than-owner don't exist yet; see `plans/v2/t1/admin-controls.md`).
 - Changing participant colour (separate feature if ever needed).
 
 ## Design Decisions
@@ -177,7 +177,7 @@ In `ParticipantList` (or wherever the current user's row is rendered): when the 
 
 **SSE race during edit:** while a row is in edit mode, ignore incoming SSE participant-renamed events targeting that same participant; reconcile on save-success or cancel. Otherwise a late event replays stale state into the live input.
 
-Same interaction pattern the rename-calendar title already uses (see `plans/admin-controls.md` Phase 4) — steal the component if it's reusable, but verify it already handles the Escape-vs-blur and focus-return behaviours; if not, fix them there too.
+Same interaction pattern the rename-calendar title already uses (see `plans/v2/t1/admin-controls.md` Phase 4) — steal the component if it's reusable, but verify it already handles the Escape-vs-blur and focus-return behaviours; if not, fix them there too.
 
 ### Phase 3: Owner-rename UI
 

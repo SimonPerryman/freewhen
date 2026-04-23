@@ -10,7 +10,7 @@ Status: done
 
 Prefill the join form's name input so users rarely have to type their name. Covers three cases:
 
-1. **Signed-in user** — prefill with `user.name` from the session. Already implemented as a side effect of `plans/participant-user-linking.md` (see `CalendarPageClient.tsx:225-228`), but needs confirmation-via-tests and a retroactive note. Magic-link users without a name fall back to empty — that's fine, the name field stays editable.
+1. **Signed-in user** — prefill with `user.name` from the session. Already implemented as a side effect of `plans/v2/t1/participant-user-linking.md` (see `CalendarPageClient.tsx:225-228`), but needs confirmation-via-tests and a retroactive note. Magic-link users without a name fall back to empty — that's fine, the name field stays editable.
 2. **Returning anon user on a calendar they've already joined** — already works via per-calendar `localStorage` (`STORAGE_PREFIX + calendarId`).
 3. **Anon user opening a fresh calendar link in a browser they've joined from before** — **not covered today.** Per-calendar storage doesn't carry across. We want a global "last used name" fallback so the 4th calendar someone receives doesn't make them retype "Sam" again.
 

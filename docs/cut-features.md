@@ -14,8 +14,8 @@ needs to re-check.
 
 ## Submit-to-view privacy
 
-- **Shipped:** 2026-04-20 — commit `b3aa5fc` — plan `plans/submit-to-view-privacy.md`
-- **Cut:** 2026-04-23 — plan `plans/remove-submit-to-view.md`
+- **Shipped:** 2026-04-20 — commit `b3aa5fc` — plan `plans/v2/t2/submit-to-view-privacy.md`
+- **Cut:** 2026-04-23 — plan `plans/v2/t2/remove-submit-to-view.md`
 - **Why cut:** Pre-launch feature that nobody asked for. The create-form
   toggle already felt disproportionate enough that the v2-priorities doc was
   proposing to hide it behind an Advanced options disclosure — the same
@@ -44,8 +44,8 @@ needs to re-check.
 
 ## Calendar colour themes
 
-- **Shipped:** 2026-04-21 — commit `f2a80a3` — plan `plans/calendar-colour-themes.md`
-- **Cut:** 2026-04-22 — plan `plans/remove-calendar-themes.md`
+- **Shipped:** 2026-04-21 — commit `f2a80a3` — plan `plans/ui/calendar-colour-themes.md`
+- **Cut:** 2026-04-22 — plan `plans/ui/remove-calendar-themes.md`
 - **Why cut:** Cosmetic knob that solved a problem nobody asked about. Added
   ~900 lines across the stack, and the day after it shipped we had to hide
   it behind a settings sheet because its UI weight was already disproportionate

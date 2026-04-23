@@ -67,7 +67,18 @@ Group availability coordination tool. Go backend + Next.js frontend + Postgres.
 
 Every new piece of work must have a plan in `plans/`. Create the plan before starting implementation.
 
-- One markdown file per piece of work (e.g. `plans/add-calendar-api.md`)
+Plans are organised by what they are:
+
+- `plans/v1/` — MVP build (shipped)
+- `plans/v2/t1/`, `plans/v2/t2/`, `plans/v2/t3/` — roadmap tiers from `docs/v2-priorities.md`
+- `plans/bugfix/` — concrete bugfixes not tied to a feature
+- `plans/infra/` — deploy, CI, test harness, tooling
+- `plans/tech-debt/` — hardening, audits, cleanup passes
+- `plans/ui/` — design/UX polish outside feature scope
+
+Pick the folder that matches the work. Roadmap features go under the matching `v2/tN/` (or future `v3/`); cross-cutting concerns go in the themed folders. Cut/reversed features stay in their original folder — the `Status:` field records the fate. `docs/cut-features.md` is the index for anything removed.
+
+- One markdown file per piece of work (e.g. `plans/v2/t2/comments-on-dates.md`)
 - Each plan must include a **Log** section with concise, timestamped entries recording what changed and when
 - Log entries use the format `YYYY-MM-DD HH:MM — <what changed>`
 - Update the log as work progresses — it should tell the story of what actually happened, not just what was planned

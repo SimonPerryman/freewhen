@@ -179,4 +179,4 @@ err on the side of "only add" and keep the list tasteful from the start.
 
 - 2026-04-21 — Created plan.
 - 2026-04-21 21:48 — Shipped. Migration 014 adds `theme VARCHAR(32)`; service picks a random slug on create from a six-slug curated set (`peach`, `ocean`, `forest`, `plum`, `lemon`, `graphite`); `PATCH /calendars/{id}` accepts `theme` with allow-list validation; duplicate preserves source theme; frontend renders `data-theme="<slug>"` on the calendar page wrapper, scoped accent overrides live in `globals.css`, and an owner-only `ThemePicker` (swatch row) sits below the rename controls.
-- 2026-04-22 — Cut. See `plans/remove-calendar-themes.md` and the entry in `docs/cut-features.md`. Feature removed via forward-only migration 016; column and UI dropped from the stack.
+- 2026-04-22 — Cut. See `plans/ui/remove-calendar-themes.md` and the entry in `docs/cut-features.md`. Feature removed via forward-only migration 016; column and UI dropped from the stack.

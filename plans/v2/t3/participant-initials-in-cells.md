@@ -9,7 +9,7 @@ Render each participant's initial inside their cell slot so the calendar grid co
 ## Context
 
 - Shipped work this builds on:
-  - `plans/visual-overlap.md` — slot grid in `CalendarGrid.tsx`: `layoutSlots(n)` stripes for n ≤ 4, near-square for n ≥ 5, row-major, sorted by palette index.
+  - `plans/v1/visual-overlap.md` — slot grid in `CalendarGrid.tsx`: `layoutSlots(n)` stripes for n ≤ 4, near-square for n ≥ 5, row-major, sorted by palette index.
   - Cell `min-height` scales with `layout.rows`, capped at 120px. Slot `min-height: 4px`; faint slots at `opacity: 0.2`.
   - `aria-label` already lists free/not-free names per cell — accessibility contract is unchanged.
 - Participants come from the backend with `name` strings. No initials field is stored; we compute on the frontend.

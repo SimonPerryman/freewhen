@@ -28,7 +28,7 @@ migration 015 on top of it, so removal is a *new* forward-only change.
 - Update `docs/api.md` to remove the `theme` field from the PATCH body.
 - Update `docs/v2-priorities.md` — keep the row but annotate it as
   "previously shipped and cut" (see Resolved decisions).
-- Mark `plans/calendar-colour-themes.md` status as `cut` and cross-link
+- Mark `plans/ui/calendar-colour-themes.md` status as `cut` and cross-link
   `docs/cut-features.md`.
 - Add the feature to `docs/cut-features.md` with rationale and
   restoration notes.
@@ -50,7 +50,7 @@ migration 015 on top of it, so removal is a *new* forward-only change.
   history is honest — a fresh environment will add and then drop the
   column, which costs one no-op round-trip but preserves "migrations are
   immutable once merged."
-- **Delete the plan? No — mark it `cut`.** `plans/calendar-colour-themes.md`
+- **Delete the plan? No — mark it `cut`.** `plans/ui/calendar-colour-themes.md`
   stays on disk as a record of what was built and why it was removed.
   Set `Status: cut` at the top and append a log entry pointing at this
   removal plan and `docs/cut-features.md`. Future-you searching the
@@ -113,7 +113,7 @@ migration 015 on top of it, so removal is a *new* forward-only change.
    - `docs/v2-priorities.md` — restore the row to its pre-ship state
      with a `(previously shipped and cut — see docs/cut-features.md)`
      suffix.
-   - `plans/calendar-colour-themes.md` — set `Status: cut`, add a log
+   - `plans/ui/calendar-colour-themes.md` — set `Status: cut`, add a log
      entry pointing at this plan.
 
 4. **Create `docs/cut-features.md`** (see separate plan section below
@@ -178,5 +178,5 @@ First entry: Calendar colour themes.
   handler PATCH field, model field, tests); removed frontend
   `ThemePicker`, `themes.ts`, `data-theme` wrapper, `globals.css`
   theme blocks, and settings-sheet theme section. Updated `docs/api.md`,
-  `docs/v2-priorities.md`, and marked `plans/calendar-colour-themes.md`
+  `docs/v2-priorities.md`, and marked `plans/ui/calendar-colour-themes.md`
   as cut. Created `docs/cut-features.md` with the first entry.

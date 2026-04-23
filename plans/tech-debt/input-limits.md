@@ -19,7 +19,7 @@ The server already has a few shape-level checks (visibility enum, date format, e
 
 **Out**
 - Rate limiting (per-IP / per-user). Different problem — needs Redis or similar infra, and the biggest abuse-by-volume vector (magic-link email send) is already the reason we'd reach for it. Separate plan.
-- Calendar archival / deletion to recover headroom once the calendars-per-user cap is hit. If anyone hits 200, they can delete one; adding a proper archive UI is the Tier-3 "expiry / auto-archive" item mentioned in `plans/my-calendars.md`.
+- Calendar archival / deletion to recover headroom once the calendars-per-user cap is hit. If anyone hits 200, they can delete one; adding a proper archive UI is the Tier-3 "expiry / auto-archive" item mentioned in `plans/v2/t2/my-calendars.md`.
 - Per-participant availability-row cap as a stored check (e.g. DB constraint). The per-request cap is enough; availability is replace-semantics (`DELETE then INSERT`), so the stored row count can't exceed the per-request cap anyway.
 - Magic-link request throttling. Abuse-grade, but out of scope here — same reason as rate limiting.
 
@@ -31,7 +31,7 @@ The server already has a few shape-level checks (visibility enum, date format, e
 | 2 | Participant name length | 50 chars | handler (`AddParticipant`) | Real names, nicknames, "Alex (desk 3)" — 50 is generous without being silly. |
 | 3 | Dates per availability submission | 366 | handler (`SetAvailability`) | One year of daily availability. If someone needs two years they can split the submission; the UI never shows more than ~3 months at once. |
 | 4 | Individual date range | `today - 1y` .. `today + 5y` | handler (`SetAvailability` per-date, `FinaliseCalendar`) | Rejects year-9999 nonsense while leaving obvious legit planning windows intact. |
-| 5 | Participants per calendar | 100 | service (`AddParticipant`) | Matches the implicit assumption in `plans/my-calendars.md` ("tens of participants"); larger events aren't our use case. |
+| 5 | Participants per calendar | 100 | service (`AddParticipant`) | Matches the implicit assumption in `plans/v2/t2/my-calendars.md` ("tens of participants"); larger events aren't our use case. |
 | 6 | Calendars per user (owner) | 200 | service (`CreateCalendar`) | 2× the `/users/me/calendars` page cap. Generous for power users, finite for abuse. Joining calendars doesn't count — only ownership is rate-limitable. |
 
 Each value is a named constant in `internal/limits/limits.go` so bumping one is a one-line change.

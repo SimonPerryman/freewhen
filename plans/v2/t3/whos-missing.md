@@ -21,7 +21,7 @@ Today the owner can only see who *has* joined and marked dates. Absence is invis
 
 **Out**
 - Email/SMS invitations. We don't collect contact details for joiners (explicitly by design), and we're not going to start here. The owner nudges via whatever channel they already use.
-- Reminders/notifications. That's the Tier 2 "Notifications" feature (`plans/notifications.md`, paused). "Who's missing?" is the *data*; reminders are the *delivery*.
+- Reminders/notifications. That's the Tier 2 "Notifications" feature (`plans/v2/t2/notifications.md`, paused). "Who's missing?" is the *data*; reminders are the *delivery*.
 - Making invites visible to non-owners. The list is owner-planning state, not a participant-facing directory. Leaking it would also leak intent ("the owner expects Alice to come") before Alice has signed up.
 - Hard-gating joins to the invite list. No "only invited names may join." The list is a soft expectation, not an ACL. Anyone with the link can still join under any name; hard gating is the domain of passphrase + `submit_to_view`, not this feature.
 - Per-invite metadata (role, +1, email, RSVP yes/no). Keeps the primitive as thin as possible. Can extend later without migration pain — `calendar_invites` is its own table.
@@ -227,7 +227,7 @@ Panel content, top to bottom:
 
 Render rules:
 - Owner-only. If the page's `isOwner` is false, the panel doesn't render and `getMissing` is not called.
-- Live updates: when an SSE participant event arrives (`plans/live-updates.md`), refetch `getMissing` in the background. Panel updates in place.
+- Live updates: when an SSE participant event arrives (`plans/v2/t2/live-updates.md`), refetch `getMissing` in the background. Panel updates in place.
 - Empty state: "No-one's missing 🎉" when both buckets are empty and there's at least one invite; "Add names to track who still needs to respond" when the invite list is empty.
 
 ### Phase 3 — Wiring on joins/renames

@@ -41,7 +41,7 @@ Clearing fires immediately and shows a toast: `"Cleared 12 dates. Undo"` with a 
 Rationale:
 - `window.confirm` on mobile is a system dialog that breaks the PWA aesthetic (on iOS it shows the domain, looks like an error), and it's a pre-commit prompt for a reversible action — the wrong shape.
 - Undo toast is the standard mobile pattern (Gmail, iOS Mail, Linear) and solves "did I mean to do that" + "can I get it back" with one element.
-- No existing toast primitive — we build a minimal one (§7). It has at least two other near-term reuses (admin "remove participant", future send-status feedback from `plans/notifications.md`).
+- No existing toast primitive — we build a minimal one (§7). It has at least two other near-term reuses (admin "remove participant", future send-status feedback from `plans/v2/t2/notifications.md`).
 
 Edge case: if the user triggers another availability mutation while the toast is live, the `Undo` would restore stale state. Simplest resolution: the toast's `Undo` handler snapshots the pre-clear set at toast-creation time and unconditionally sets that as the new selection. If the user made intervening edits, `Undo` wins (it's an explicit action). Document in tests.
 

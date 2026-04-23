@@ -1,7 +1,7 @@
 # Admin Controls
 
 Status: done
-Depends on: `plans/participant-user-linking.md`
+Depends on: `plans/v2/t1/participant-user-linking.md`
 
 ## Goal
 

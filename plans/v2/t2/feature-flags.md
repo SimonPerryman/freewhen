@@ -64,7 +64,7 @@ The cost of this choice is lock-in to PostHog's flag API. Mitigated by the abstr
 
 ### Phase 3 — First real flag + rollout drill
 
-Pick one genuinely low-stakes change to exercise the end-to-end flow before anyone relies on it. Candidate: the "Accept all suggestions" button from `plans/calendar-integrations.md` when that lands, or — sooner — gating a small copy change on the share sheet.
+Pick one genuinely low-stakes change to exercise the end-to-end flow before anyone relies on it. Candidate: the "Accept all suggestions" button from `plans/v2/t3/calendar-integrations.md` when that lands, or — sooner — gating a small copy change on the share sheet.
 
 - Create the flag in PostHog with a rollout percentage slider.
 - Wrap the feature in `isEnabled('share-cta-v2')` on the frontend.
@@ -82,7 +82,7 @@ Pick one genuinely low-stakes change to exercise the end-to-end flow before anyo
 - **A/B testing / experimentation v1.** Flags first, experiments later. PostHog supports both; we'll layer experimentation on once we have a flag we actually want to run a stats test on.
 - **Server-driven flag configs checked into git** (e.g. Unleash's approach). PostHog's dashboard is the source of truth; we accept that trade-off for zero ops burden.
 - **Flag-as-config for infra settings** like `DATABASE_URL` or `CORS_ORIGIN`. Those stay as env vars per 12-factor — flags are for runtime user-facing behaviour, not startup configuration.
-- **Self-hosting PostHog.** Same reasoning as in `plans/observability-and-analytics.md` — cloud free tier is enough and avoids ops.
+- **Self-hosting PostHog.** Same reasoning as in `plans/v2/t2/observability-and-analytics.md` — cloud free tier is enough and avoids ops.
 
 ## Open questions
 

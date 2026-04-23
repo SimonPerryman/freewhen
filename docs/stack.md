@@ -51,7 +51,7 @@ Product events, session replay, error capture, and feature flags via one SDK. EU
 - Gated on `NEXT_PUBLIC_POSTHOG_KEY` (frontend) and `POSTHOG_KEY` (backend) — unset means both analytics and flag evaluation no-op (12-factor, same code path everywhere).
 - Frontend init in `frontend/src/lib/analytics.ts`; flag helpers in `frontend/src/lib/flags.ts` (`isEnabled`, `getVariant`, `onFlagsLoaded`).
 - Backend evaluator in `internal/flags/`, threaded onto the handler struct via `WithFlags`. Defaults to a no-op evaluator so tests and unconfigured environments share one code path.
-- See `plans/observability-and-analytics.md` and `plans/feature-flags.md`.
+- See `plans/v2/t2/observability-and-analytics.md` and `plans/v2/t2/feature-flags.md`.
 
 ## Transactional Email — Resend
 

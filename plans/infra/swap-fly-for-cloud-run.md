@@ -22,7 +22,7 @@ Run-compatible — most of the work is documentation and CI.
 - Migrations already run on boot, which works fine with Cloud Run's
   scale-to-zero model — the first request after idle pays a one-time
   ~1s cold start that includes the migration check (no-op once applied).
-- The existing `plans/cleanup-pass.md` documents the original Fly decision and
+- The existing `plans/tech-debt/cleanup-pass.md` documents the original Fly decision and
   is a historical record. **Do not edit it** — it should reflect what was
   decided at the time, not what we did later.
 
@@ -83,7 +83,7 @@ Run-compatible — most of the work is documentation and CI.
   documented in `infra-notes.md` so anyone can do it).
 - The first deploy itself.
 - Any Fly account cleanup — there's nothing to clean up.
-- Touching `plans/cleanup-pass.md`. It's history.
+- Touching `plans/tech-debt/cleanup-pass.md`. It's history.
 
 ## Risks and mitigations
 

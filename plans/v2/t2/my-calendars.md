@@ -6,7 +6,7 @@ Status: done
 
 Give signed-in users a single page that lists every calendar they're part of — whether they created it or joined it — so they stop needing to bookmark or dig through their browser history to find a calendar they've previously used. This is the first v2 feature that makes an authenticated account feel actively valuable rather than just a gate for creation.
 
-It also quietly solves a friction point that has existed since launch: if you joined a calendar on your phone and want to view it from your laptop, today there's no way to find it unless someone re-shares the link. Signed-in users already reconnect to their participant via `user_id` (see `plans/participant-user-linking.md`); this page is the natural UI for that data.
+It also quietly solves a friction point that has existed since launch: if you joined a calendar on your phone and want to view it from your laptop, today there's no way to find it unless someone re-shares the link. Signed-in users already reconnect to their participant via `user_id` (see `plans/v2/t1/participant-user-linking.md`); this page is the natural UI for that data.
 
 ## Scope
 
@@ -29,7 +29,7 @@ It also quietly solves a friction point that has existed since launch: if you jo
 
 ## Design Decisions
 
-**One query, one role-agnostic list.** Because `CreateCalendar` auto-joins the owner as a participant linked to their user ID (`plans/participant-user-linking.md:32`), "calendars I'm in" equals "calendars where a participant row has my `user_id`." No UNION with `calendars.owner_id`, no special-casing ownership at query time. We just derive the "owner" badge in the response by comparing `calendars.owner_id` to the requesting user's ID. This keeps the query a single JOIN and means joiners and owners appear in the same list the same way.
+**One query, one role-agnostic list.** Because `CreateCalendar` auto-joins the owner as a participant linked to their user ID (`plans/v2/t1/participant-user-linking.md:32`), "calendars I'm in" equals "calendars where a participant row has my `user_id`." No UNION with `calendars.owner_id`, no special-casing ownership at query time. We just derive the "owner" badge in the response by comparing `calendars.owner_id` to the requesting user's ID. This keeps the query a single JOIN and means joiners and owners appear in the same list the same way.
 
 **Sort by `calendars.updated_at`, not `created_at`.** A list of "my calendars" is only useful if it surfaces the thing you most recently touched at the top. `created_at` doesn't move, so a calendar you made three months ago that's active today would sink below one you made yesterday and never touched. We're adding an `updated_at TIMESTAMPTZ NOT NULL DEFAULT now()` column on `calendars`, bumped by every service method that mutates calendar-visible state:
 

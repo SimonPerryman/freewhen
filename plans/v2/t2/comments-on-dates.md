@@ -15,7 +15,7 @@ From `docs/future-ideas.md`:
 - Writes go through `PUT /calendars/{id}/availability` with `{participant_id, dates[]}` — the store **bulk-replaces** the participant's rows in a transaction (`backend/internal/store/availability.go:10-53`).
 - Live updates: the SSE frame carries only `{"calendar_id":"..."}` as a refresh pointer; clients refetch `GET /calendars/{id}` on receipt (`backend/internal/handler/events.go:143-149`). No payload shape change needed.
 - Frontend tracks availability as `selectedDates: Set<string>` and debounces writes via `queueSave` / `flushSave` (`frontend/src/app/calendars/[id]/CalendarPageClient.tsx:232-315`).
-- Cells render in `CalendarGrid.tsx`. Mobile-first, 375px baseline. Past + finalised cells are non-interactive. The grid already owns a horizontal swipe gesture for week nav (50px threshold) and a toolbar with Range / Weekends / Weekdays modes from `plans/multi-select-range-tap.md`.
+- Cells render in `CalendarGrid.tsx`. Mobile-first, 375px baseline. Past + finalised cells are non-interactive. The grid already owns a horizontal swipe gesture for week nav (50px threshold) and a toolbar with Range / Weekends / Weekdays modes from `plans/v2/t2/multi-select-range-tap.md`.
 
 ## Design Decisions
 

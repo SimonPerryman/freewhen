@@ -102,7 +102,7 @@ If we find a legitimate need for a generic env label (metrics tags, Sentry envir
 
 ## Out of scope
 
-- Observability/analytics work — tracked separately in `plans/observability-and-analytics.md`.
+- Observability/analytics work — tracked separately in `plans/v2/t2/observability-and-analytics.md`.
 - Anything that would add new backing services or change deploy topology.
 
 ## Log

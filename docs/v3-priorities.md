@@ -31,7 +31,7 @@ Revisit only if a concrete use case surfaces; none did pre-launch.
 ## Notifications
 
 - Push notifications or email nudges ("3 responded, waiting on 2")
-- Prereq: the paused notifications plan in `plans/notifications.md`
+- Prereq: the paused notifications plan in `plans/v2/t2/notifications.md`
 
 ## Internationalization
 

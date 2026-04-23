@@ -12,7 +12,7 @@ From `docs/v2-priorities.md` (Tier 3):
 ## Context
 
 - Availability rows live in `availability(participant_id, calendar_id, date, note)` — composite key, bulk-replaced per write (`backend/internal/store/migrations/001_create_tables.sql`, `011_add_availability_note.sql`). The notes feature already added one nullable column and a matching PUT extension, so we have a template for doing the same.
-- `PUT /calendars/{id}/availability` takes `{participant_id, dates[], notes?}` with "absent `notes` = don't touch" semantics (`plans/comments-on-dates.md` §3). Voting should follow the same contract.
+- `PUT /calendars/{id}/availability` takes `{participant_id, dates[], notes?}` with "absent `notes` = don't touch" semantics (`plans/v2/t2/comments-on-dates.md` §3). Voting should follow the same contract.
 - `GET /calendars/{id}` returns `availability[]` with `participant_id / calendar_id / date / note?`. Adding a boolean is a pure additive change.
 - SSE carries only a refresh-pointer (`{"calendar_id":"..."}`), so nothing on the wire changes (`backend/internal/handler/events.go:143`).
 - Frontend state: `CalendarPageClient` tracks `selectedDates: Set<string>` and `notesByDate: Map<string,string>`, debounced via `queueSave` / `pendingNotesRef` (`frontend/src/app/calendars/[id]/CalendarPageClient.tsx`). Preferences fit the same pattern.

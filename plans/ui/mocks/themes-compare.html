@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FreeWhen · Themes compare</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        font-family: "Geist", ui-sans-serif, system-ui, sans-serif;
+        background: #0a0908;
+        min-height: 100vh;
+        padding: 32px 16px 80px;
+        color: #e8e4df;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        max-width: 1280px;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 18px;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        margin: 0 0 6px;
+      }
+      .sub {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #7a7168;
+        margin-bottom: 28px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+      @media (min-width: 880px) {
+        .grid { grid-template-columns: 1fr 1fr; }
+      }
+
+      .panel {
+        border-radius: 16px;
+        padding: 24px;
+        background: var(--bg);
+        color: var(--ink);
+        border: 1px solid var(--border);
+      }
+
+      /* PAPER (new light) — from calendar-integrations-cell-states.html */
+      .panel--paper {
+        --bg:           #F3EEE4;
+        --bg-raised:    #FAF6ED;
+        --ink:          #1A1814;
+        --muted:        #6B6358;
+        --faint:        #9A9183;
+        --border:       #D8D1C5;
+        --border-soft:  #E6DFD1;
+        --accent:       #0F7566;
+        --accent-strong:#0C5E52;
+        --accent-ink:   #FAF6ED;
+        --accent-tint:  rgba(15, 117, 102, 0.12);
+        --accent-tint-2:rgba(15, 117, 102, 0.22);
+        --busy-ink:     #5A4A3A;
+        --busy-tint:    rgba(90, 74, 58, 0.12);
+        --p1: #B4552F;
+        --p2: #5A6E8F;
+        --p3: #8A6A3E;
+        background-image:
+          radial-gradient(900px 600px at 80% -10%, var(--accent-tint), transparent 60%),
+          radial-gradient(700px 500px at -10% 110%, rgba(0,0,0,0.04), transparent 70%);
+      }
+
+      /* CURRENT DARK — kept as today */
+      .panel--dark {
+        --bg:           #141210;
+        --bg-raised:    #2c2720;
+        --ink:          #edebe8;
+        --muted:        #9e9688;
+        --faint:        #7a7168;
+        --border:       #4a443d;
+        --border-soft:  #38332d;
+        --accent:       #e8755e;
+        --accent-strong:#f0917e;
+        --accent-ink:   #141210;
+        --accent-tint:  rgba(232, 117, 94, 0.14);
+        --accent-tint-2:rgba(232, 117, 94, 0.24);
+        --busy-ink:     #c9b89a;
+        --busy-tint:    rgba(201, 184, 154, 0.10);
+        --p1: #e8755e;
+        --p2: #7ba0c6;
+        --p3: #c9a15a;
+        background-image:
+          radial-gradient(900px 600px at 80% -10%, var(--accent-tint), transparent 60%),
+          radial-gradient(700px 500px at -10% 110%, rgba(255,255,255,0.02), transparent 70%);
+      }
+
+      .panel-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-bottom: 24px;
+      }
+      .panel-title {
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        color: var(--ink);
+      }
+      .panel-tag {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      .card {
+        background: var(--bg-raised);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 18px;
+      }
+      .card-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--ink);
+        margin: 0 0 4px;
+      }
+      .card-meta {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-top: 14px;
+        flex-wrap: wrap;
+      }
+      .btn {
+        font: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        padding: 8px 14px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--ink);
+        cursor: pointer;
+      }
+      .btn--primary {
+        background: var(--accent);
+        color: var(--accent-ink);
+        border-color: transparent;
+      }
+      .btn--ghost { color: var(--muted); }
+      .chip {
+        font-size: 11px;
+        font-weight: 500;
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: var(--accent-tint);
+        color: var(--accent);
+        font-family: "Geist Mono", ui-monospace, monospace;
+        letter-spacing: 0.04em;
+      }
+
+      .cal {
+        margin-top: 18px;
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 6px;
+      }
+      .dow {
+        font-size: 10px;
+        font-family: "Geist Mono", ui-monospace, monospace;
+        letter-spacing: 0.1em;
+        color: var(--faint);
+        text-transform: uppercase;
+        text-align: center;
+        padding-bottom: 4px;
+      }
+      .cell {
+        aspect-ratio: 1;
+        border-radius: 8px;
+        background: var(--bg-raised);
+        border: 1px solid var(--border-soft);
+        display: flex;
+        align-items: flex-start;
+        justify-content: flex-start;
+        padding: 6px;
+        font-size: 12px;
+        color: var(--muted);
+        position: relative;
+      }
+      .cell--free {
+        background: var(--accent-tint);
+        border-color: var(--accent-tint-2);
+        color: var(--ink);
+      }
+      .cell--all {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--accent-ink);
+        font-weight: 600;
+      }
+      .cell--busy {
+        background: var(--busy-tint);
+        color: var(--busy-ink);
+      }
+      .cell--out {
+        color: var(--faint);
+        background: transparent;
+        border-color: transparent;
+      }
+      .initials {
+        position: absolute;
+        bottom: 4px;
+        right: 4px;
+        display: flex;
+        gap: 2px;
+      }
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+      }
+      .dot--1 { background: var(--p1); }
+      .dot--2 { background: var(--p2); }
+      .dot--3 { background: var(--p3); }
+
+      .tokens {
+        margin-top: 18px;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 8px;
+      }
+      .swatch {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 10px;
+        color: var(--muted);
+      }
+      .swatch span {
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        border: 1px solid var(--border-soft);
+        display: inline-block;
+      }
+
+      .legend {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 14px;
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+      .legend b { color: var(--ink); font-weight: 500; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Themes compare</h1>
+      <div class="sub">paper (new light) · vs · current dark (keep)</div>
+
+      <div class="grid">
+        <!-- PAPER (proposed new light) -->
+        <section class="panel panel--paper">
+          <header class="panel-head">
+            <div class="panel-title">Paper</div>
+            <div class="panel-tag">proposed light</div>
+          </header>
+
+          <div class="card">
+            <h3 class="card-title">Bea's 30th</h3>
+            <p class="card-meta">4 of 6 responded · best: Sat 3rd</p>
+            <div class="row">
+              <button class="btn btn--primary">Share</button>
+              <button class="btn">Edit</button>
+              <button class="btn btn--ghost">Leave</button>
+              <span class="chip">3 free</span>
+            </div>
+
+            <div class="cal">
+              <div class="dow">M</div><div class="dow">T</div><div class="dow">W</div><div class="dow">T</div><div class="dow">F</div><div class="dow">S</div><div class="dow">S</div>
+
+              <div class="cell cell--out">28</div>
+              <div class="cell">29</div>
+              <div class="cell cell--free">30<div class="initials"><div class="dot dot--1"></div><div class="dot dot--2"></div></div></div>
+              <div class="cell cell--free">1<div class="initials"><div class="dot dot--1"></div></div></div>
+              <div class="cell cell--busy">2</div>
+              <div class="cell cell--all">3<div class="initials"><div class="dot dot--1"></div><div class="dot dot--2"></div><div class="dot dot--3"></div></div></div>
+              <div class="cell cell--free">4<div class="initials"><div class="dot dot--2"></div><div class="dot dot--3"></div></div></div>
+
+              <div class="cell">5</div>
+              <div class="cell cell--busy">6</div>
+              <div class="cell cell--free">7<div class="initials"><div class="dot dot--1"></div></div></div>
+              <div class="cell">8</div>
+              <div class="cell cell--free">9<div class="initials"><div class="dot dot--2"></div></div></div>
+              <div class="cell">10</div>
+              <div class="cell">11</div>
+            </div>
+          </div>
+
+          <div class="legend">
+            <span><b>●</b> Participants</span>
+            <span>free · all-free · busy</span>
+          </div>
+
+          <div class="tokens">
+            <div class="swatch"><span style="background:#F3EEE4"></span>bg #F3EEE4</div>
+            <div class="swatch"><span style="background:#FAF6ED"></span>raised #FAF6ED</div>
+            <div class="swatch"><span style="background:#1A1814"></span>ink #1A1814</div>
+            <div class="swatch"><span style="background:#D8D1C5"></span>border #D8D1C5</div>
+            <div class="swatch"><span style="background:#0F7566"></span>accent #0F7566</div>
+          </div>
+        </section>
+
+        <!-- CURRENT DARK (keep) -->
+        <section class="panel panel--dark">
+          <header class="panel-head">
+            <div class="panel-title">Current dark</div>
+            <div class="panel-tag">keep as-is</div>
+          </header>
+
+          <div class="card">
+            <h3 class="card-title">Bea's 30th</h3>
+            <p class="card-meta">4 of 6 responded · best: Sat 3rd</p>
+            <div class="row">
+              <button class="btn btn--primary">Share</button>
+              <button class="btn">Edit</button>
+              <button class="btn btn--ghost">Leave</button>
+              <span class="chip">3 free</span>
+            </div>
+
+            <div class="cal">
+              <div class="dow">M</div><div class="dow">T</div><div class="dow">W</div><div class="dow">T</div><div class="dow">F</div><div class="dow">S</div><div class="dow">S</div>
+
+              <div class="cell cell--out">28</div>
+              <div class="cell">29</div>
+              <div class="cell cell--free">30<div class="initials"><div class="dot dot--1"></div><div class="dot dot--2"></div></div></div>
+              <div class="cell cell--free">1<div class="initials"><div class="dot dot--1"></div></div></div>
+              <div class="cell cell--busy">2</div>
+              <div class="cell cell--all">3<div class="initials"><div class="dot dot--1"></div><div class="dot dot--2"></div><div class="dot dot--3"></div></div></div>
+              <div class="cell cell--free">4<div class="initials"><div class="dot dot--2"></div><div class="dot dot--3"></div></div></div>
+
+              <div class="cell">5</div>
+              <div class="cell cell--busy">6</div>
+              <div class="cell cell--free">7<div class="initials"><div class="dot dot--1"></div></div></div>
+              <div class="cell">8</div>
+              <div class="cell cell--free">9<div class="initials"><div class="dot dot--2"></div></div></div>
+              <div class="cell">10</div>
+              <div class="cell">11</div>
+            </div>
+          </div>
+
+          <div class="legend">
+            <span><b>●</b> Participants</span>
+            <span>free · all-free · busy</span>
+          </div>
+
+          <div class="tokens">
+            <div class="swatch"><span style="background:#141210"></span>bg #141210</div>
+            <div class="swatch"><span style="background:#2c2720"></span>raised #2c2720</div>
+            <div class="swatch"><span style="background:#edebe8"></span>ink #edebe8</div>
+            <div class="swatch"><span style="background:#4a443d"></span>border #4a443d</div>
+            <div class="swatch"><span style="background:#e8755e"></span>accent #e8755e</div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </body>
+</html>
