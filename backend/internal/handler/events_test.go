@@ -103,21 +103,19 @@ func TestEvents_Stream_DeliversEventFrame(t *testing.T) {
 	defer srv.Close()
 
 	client := &http.Client{Timeout: 5 * time.Second}
-	httpReq, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/calendars/cal-1/events", nil)
-	// httptest.NewServer doesn't run mux path parameters; set the Host path
-	// and craft the request to go through the handler directly.
-	// Simpler: wrap the handler in a mux.
+	// httptest.NewServer doesn't run mux path parameters; wrap the handler
+	// in a mux so `GET /calendars/{id}/events` resolves correctly.
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /calendars/{id}/events", h.Stream)
 	srv.Config.Handler = mux
 
-	httpReq, _ = http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/calendars/cal-1/events", nil)
+	httpReq, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/calendars/cal-1/events", nil)
 
 	resp, err := client.Do(httpReq)
 	if err != nil {
 		t.Fatalf("GET failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if ct := resp.Header.Get("Content-Type"); ct != "text/event-stream" {
 		t.Fatalf("Content-Type = %q, want text/event-stream", ct)
@@ -163,7 +161,7 @@ func TestEvents_Stream_MultipleSubscribersReceiveSameEvent(t *testing.T) {
 		if err != nil {
 			t.Fatalf("GET failed: %v", err)
 		}
-		t.Cleanup(func() { resp.Body.Close() })
+		t.Cleanup(func() { _ = resp.Body.Close() })
 		r := bufio.NewReader(resp.Body)
 		if err := waitForPing(r); err != nil {
 			t.Fatalf("waiting for heartbeat: %v", err)

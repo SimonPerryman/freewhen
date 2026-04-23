@@ -271,10 +271,7 @@ func (s *Service) RenameParticipant(ctx context.Context, calendarID, targetParti
 		return model.Participant{}, store.ErrCalendarFinalised
 	}
 
-	allowed := false
-	if callerUserID != nil && *callerUserID == cal.OwnerID {
-		allowed = true
-	}
+	allowed := callerUserID != nil && *callerUserID == cal.OwnerID
 	if !allowed && callerParticipantID != "" && callerParticipantID == targetParticipantID {
 		allowed = true
 	}
