@@ -38,11 +38,19 @@ Managed Postgres on Neon (free tier). Connection via `DATABASE_URL` env var. Mig
 | Method | Provider | Status |
 |--------|----------|--------|
 | Google OAuth | Google Cloud OAuth | Implemented |
-| Email magic link | Resend | Planned |
+| Email magic link | Resend | Implemented |
 
 - Creator must sign in to create a calendar. Joiners stay anonymous.
 - Server-side sessions with HTTP-only cookies stored in Postgres (no JWTs).
 - Backend served on `api.` subdomain for same-site cookies.
+
+## Product Analytics — PostHog
+
+Product events, session replay, and error capture via one SDK. EU cloud region. Free tier (1M events/mo) is comfortable at current scale.
+
+- Gated on `NEXT_PUBLIC_POSTHOG_KEY` — unset means the SDK no-ops (12-factor, same code path everywhere).
+- Centralised init in `frontend/src/lib/analytics.ts`.
+- See `plans/observability-and-analytics.md`.
 
 ## Transactional Email — Resend
 
