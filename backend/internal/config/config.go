@@ -9,19 +9,22 @@ import (
 )
 
 type Config struct {
-	DatabaseURL        string
-	Port               string
-	LogLevel           slog.Level
-	SecureCookies      bool
-	CORSOrigin         string
+	DatabaseURL               string
+	Port                      string
+	LogLevel                  slog.Level
+	SecureCookies             bool
+	CORSOrigin                string
 	GoogleClientID            string
 	GoogleClientSecret        string
 	GoogleRedirectURL         string
 	GoogleCalendarRedirectURL string
-	FrontendURL        string
-	CookieDomain       string
-	ResendAPIKey       string
-	MagicLinkFromEmail string
+	FrontendURL               string
+	CookieDomain              string
+	ResendAPIKey              string
+	MagicLinkFromEmail        string
+	// AuthEmailDisabled is set when AUTH_EMAIL_DISABLED=true; callers should
+	// skip magic-link email wiring rather than inferring from empty keys.
+	AuthEmailDisabled bool
 	// CalendarAccessSecret is the HMAC key used to sign per-calendar access
 	// tokens (password-protected calendars). Must be at least 32 bytes.
 	CalendarAccessSecret string
@@ -68,25 +71,85 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("CALENDAR_ACCESS_SECRET environment variable must be at least 32 bytes")
 	}
 
+	authEmailDisabled, err := parseBool(os.Getenv("AUTH_EMAIL_DISABLED"), false)
+	if err != nil {
+		return nil, fmt.Errorf("AUTH_EMAIL_DISABLED: %w", err)
+	}
+
+	resendKey := os.Getenv("RESEND_API_KEY")
+	fromEmail := os.Getenv("MAGIC_LINK_FROM_EMAIL")
+	frontendURL := os.Getenv("FRONTEND_URL")
+
+	if err := validateAuthEmail(authEmailDisabled, resendKey, fromEmail, frontendURL); err != nil {
+		return nil, err
+	}
+
+	googleID := os.Getenv("GOOGLE_CLIENT_ID")
+	googleSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
+	googleRedirect := os.Getenv("GOOGLE_REDIRECT_URL")
+	googleCalRedirect := os.Getenv("GOOGLE_CALENDAR_REDIRECT_URL")
+
+	if err := validateGoogleOAuth(googleID, googleSecret, googleRedirect, googleCalRedirect); err != nil {
+		return nil, err
+	}
+
+	cookieDomain := os.Getenv("COOKIE_DOMAIN")
+	if secureCookies && cookieDomain == "" {
+		return nil, fmt.Errorf("COOKIE_DOMAIN is required when SECURE_COOKIES=true (set SECURE_COOKIES=false for local HTTP dev)")
+	}
+
 	return &Config{
-		DatabaseURL:        dbURL,
-		Port:               port,
-		LogLevel:           level,
-		SecureCookies:      secureCookies,
-		CORSOrigin:         corsOrigin,
-		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
-		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
-		GoogleRedirectURL:         os.Getenv("GOOGLE_REDIRECT_URL"),
-		GoogleCalendarRedirectURL: os.Getenv("GOOGLE_CALENDAR_REDIRECT_URL"),
-		FrontendURL:        os.Getenv("FRONTEND_URL"),
-		CookieDomain:       os.Getenv("COOKIE_DOMAIN"),
-		ResendAPIKey:         os.Getenv("RESEND_API_KEY"),
-		MagicLinkFromEmail:   os.Getenv("MAGIC_LINK_FROM_EMAIL"),
-		CalendarAccessSecret: accessSecret,
-		PostHogKey:           os.Getenv("POSTHOG_KEY"),
-		PostHogHost:          os.Getenv("POSTHOG_HOST"),
-		PostHogPersonalKey:   os.Getenv("POSTHOG_PERSONAL_API_KEY"),
+		DatabaseURL:               dbURL,
+		Port:                      port,
+		LogLevel:                  level,
+		SecureCookies:             secureCookies,
+		CORSOrigin:                corsOrigin,
+		GoogleClientID:            googleID,
+		GoogleClientSecret:        googleSecret,
+		GoogleRedirectURL:         googleRedirect,
+		GoogleCalendarRedirectURL: googleCalRedirect,
+		FrontendURL:               frontendURL,
+		CookieDomain:              cookieDomain,
+		ResendAPIKey:              resendKey,
+		MagicLinkFromEmail:        fromEmail,
+		AuthEmailDisabled:         authEmailDisabled,
+		CalendarAccessSecret:      accessSecret,
+		PostHogKey:                os.Getenv("POSTHOG_KEY"),
+		PostHogHost:               os.Getenv("POSTHOG_HOST"),
+		PostHogPersonalKey:        os.Getenv("POSTHOG_PERSONAL_API_KEY"),
 	}, nil
+}
+
+func validateAuthEmail(disabled bool, resendKey, fromEmail, frontendURL string) error {
+	anySet := resendKey != "" || fromEmail != "" || frontendURL != ""
+	if disabled {
+		if anySet {
+			return fmt.Errorf("AUTH_EMAIL_DISABLED=true but RESEND_API_KEY/MAGIC_LINK_FROM_EMAIL/FRONTEND_URL are set — unset them or flip AUTH_EMAIL_DISABLED")
+		}
+		return nil
+	}
+	if resendKey == "" || fromEmail == "" || frontendURL == "" {
+		return fmt.Errorf("RESEND_API_KEY, MAGIC_LINK_FROM_EMAIL, and FRONTEND_URL are all required (set AUTH_EMAIL_DISABLED=true to opt out)")
+	}
+	return nil
+}
+
+func validateGoogleOAuth(id, secret, loginRedirect, calendarRedirect string) error {
+	hasID := id != ""
+	hasSecret := secret != ""
+	if hasID != hasSecret {
+		return fmt.Errorf("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set together (or both unset to disable Google OAuth)")
+	}
+	if !hasID {
+		if loginRedirect != "" || calendarRedirect != "" {
+			return fmt.Errorf("GOOGLE_REDIRECT_URL/GOOGLE_CALENDAR_REDIRECT_URL set without GOOGLE_CLIENT_ID — add credentials or unset the redirect URLs")
+		}
+		return nil
+	}
+	if loginRedirect == "" && calendarRedirect == "" {
+		return fmt.Errorf("GOOGLE_CLIENT_ID is set but neither GOOGLE_REDIRECT_URL (login) nor GOOGLE_CALENDAR_REDIRECT_URL (calendar import) is configured")
+	}
+	return nil
 }
 
 func parseLogLevel(s string) (slog.Level, error) {

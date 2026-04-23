@@ -57,7 +57,7 @@ func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 	eh := handler.NewEvents(hub, svc, logger)
 
 	var emailSender handler.EmailSender
-	if cfg.ResendAPIKey != "" {
+	if !cfg.AuthEmailDisabled {
 		emailSender = email.NewSender(cfg.ResendAPIKey, cfg.MagicLinkFromEmail)
 	}
 	ah := handler.NewAuth(st, emailSender, cfg, logger)
