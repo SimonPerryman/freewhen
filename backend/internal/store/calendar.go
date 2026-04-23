@@ -10,16 +10,16 @@ import (
 	"github.com/freewhen/backend/internal/model"
 )
 
-func (s *Store) CreateCalendar(ctx context.Context, name, emoji, ownerID, visibility string) (model.Calendar, error) {
+func (s *Store) CreateCalendar(ctx context.Context, name, emoji, ownerID string) (model.Calendar, error) {
 	const maxRetries = 3
 	for i := 0; i < maxRetries; i++ {
 		id := generateID(8)
 		var cal model.Calendar
 		var emojiCol sql.NullString
 		err := s.db.QueryRowContext(ctx,
-			`INSERT INTO calendars (id, name, emoji, owner_id, visibility) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, emoji, owner_id, visibility, created_at, updated_at, access_epoch`,
-			id, name, nullableString(emoji), ownerID, visibility,
-		).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.Visibility, &cal.CreatedAt, &cal.UpdatedAt, &cal.AccessEpoch)
+			`INSERT INTO calendars (id, name, emoji, owner_id) VALUES ($1, $2, $3, $4) RETURNING id, name, emoji, owner_id, created_at, updated_at, access_epoch`,
+			id, name, nullableString(emoji), ownerID,
+		).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.CreatedAt, &cal.UpdatedAt, &cal.AccessEpoch)
 		if err != nil {
 			if isUniqueViolation(err) {
 				continue
@@ -56,10 +56,9 @@ func (s *Store) GetCalendar(ctx context.Context, id string) (model.CalendarWithD
 	}
 
 	return model.CalendarWithDetails{
-		Calendar:         cal,
-		Participants:     participants,
-		Availability:     availability,
-		ParticipantCount: len(participants),
+		Calendar:     cal,
+		Participants: participants,
+		Availability: availability,
 	}, nil
 }
 
@@ -81,19 +80,6 @@ func (s *Store) CountCalendarsForOwner(ctx context.Context, ownerID string) (int
 	return count, nil
 }
 
-// ParticipantHasAvailability reports whether the participant has any availability rows.
-func (s *Store) ParticipantHasAvailability(ctx context.Context, participantID string) (bool, error) {
-	var has bool
-	err := s.db.QueryRowContext(ctx,
-		`SELECT EXISTS(SELECT 1 FROM availability WHERE participant_id = $1)`,
-		participantID,
-	).Scan(&has)
-	if err != nil {
-		return false, fmt.Errorf("participant has availability: %w", err)
-	}
-	return has, nil
-}
-
 // GetCalendarOnly returns the calendar row without details. Used by handlers
 // that need ownership/finalised checks without paying for participants+availability.
 func (s *Store) GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error) {
@@ -107,9 +93,9 @@ func (s *Store) getCalendarRow(ctx context.Context, id string) (model.Calendar, 
 	var finalisedAt sql.NullTime
 	var passphrase sql.NullString
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, name, emoji, owner_id, visibility, created_at, updated_at, finalised_date::text, finalised_at, passphrase, access_epoch
+		`SELECT id, name, emoji, owner_id, created_at, updated_at, finalised_date::text, finalised_at, passphrase, access_epoch
 		 FROM calendars WHERE id = $1`, id,
-	).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.Visibility, &cal.CreatedAt, &cal.UpdatedAt, &finalisedDate, &finalisedAt, &passphrase, &cal.AccessEpoch)
+	).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.CreatedAt, &cal.UpdatedAt, &finalisedDate, &finalisedAt, &passphrase, &cal.AccessEpoch)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Calendar{}, ErrNotFound
@@ -167,26 +153,6 @@ func (s *Store) UpdateCalendarName(ctx context.Context, calendarID, name string)
 	)
 	if err != nil {
 		return model.Calendar{}, fmt.Errorf("update calendar name: %w", err)
-	}
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return model.Calendar{}, fmt.Errorf("rows affected: %w", err)
-	}
-	if rows == 0 {
-		return model.Calendar{}, ErrNotFound
-	}
-	return s.getCalendarRow(ctx, calendarID)
-}
-
-// UpdateCalendarVisibility sets the visibility mode on a calendar.
-// Returns ErrNotFound if the calendar does not exist.
-func (s *Store) UpdateCalendarVisibility(ctx context.Context, calendarID, visibility string) (model.Calendar, error) {
-	res, err := s.db.ExecContext(ctx,
-		`UPDATE calendars SET visibility = $1, updated_at = now() WHERE id = $2`,
-		visibility, calendarID,
-	)
-	if err != nil {
-		return model.Calendar{}, fmt.Errorf("update calendar visibility: %w", err)
 	}
 	rows, err := res.RowsAffected()
 	if err != nil {
@@ -272,7 +238,7 @@ type CalendarListItem struct {
 // responsible for passing limit = pageSize + 1 when detecting has_more.
 func (s *Store) ListCalendarsForUser(ctx context.Context, userID string, limit int) ([]CalendarListItem, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT c.id, c.name, c.emoji, c.owner_id, c.visibility, c.created_at, c.updated_at,
+		`SELECT c.id, c.name, c.emoji, c.owner_id, c.created_at, c.updated_at,
 		        c.finalised_date::text, c.finalised_at,
 		        (SELECT COUNT(*) FROM participants WHERE calendar_id = c.id) AS participant_count
 		 FROM calendars c
@@ -294,7 +260,7 @@ func (s *Store) ListCalendarsForUser(ctx context.Context, userID string, limit i
 		var finalisedDate sql.NullString
 		var finalisedAt sql.NullTime
 		if err := rows.Scan(
-			&item.ID, &item.Name, &emojiCol, &item.OwnerID, &item.Visibility,
+			&item.ID, &item.Name, &emojiCol, &item.OwnerID,
 			&item.CreatedAt, &item.UpdatedAt, &finalisedDate, &finalisedAt,
 			&item.ParticipantCount,
 		); err != nil {
@@ -319,7 +285,7 @@ func (s *Store) ListCalendarsForUser(ctx context.Context, userID string, limit i
 
 // DuplicateCalendar creates a new calendar copied from sourceID.
 //
-// Copies name (or overrideName if non-empty), emoji, visibility. Does NOT
+// Copies name (or overrideName if non-empty) and emoji. Does NOT
 // copy availability, finalised state, or passphrase. The owner is auto-joined
 // as a participant. When includeParticipants is true, every non-owner source
 // participant is recreated as a stub (same name, same user_id, new id).
@@ -350,9 +316,9 @@ func (s *Store) DuplicateCalendar(
 	var finalisedAt sql.NullTime
 	var passphrase sql.NullString
 	err = tx.QueryRowContext(ctx,
-		`SELECT id, name, emoji, owner_id, visibility, created_at, updated_at, finalised_date::text, finalised_at, passphrase, access_epoch
+		`SELECT id, name, emoji, owner_id, created_at, updated_at, finalised_date::text, finalised_at, passphrase, access_epoch
 		 FROM calendars WHERE id = $1`, sourceID,
-	).Scan(&source.ID, &source.Name, &emojiCol, &source.OwnerID, &source.Visibility, &source.CreatedAt, &source.UpdatedAt, &finalisedDate, &finalisedAt, &passphrase, &source.AccessEpoch)
+	).Scan(&source.ID, &source.Name, &emojiCol, &source.OwnerID, &source.CreatedAt, &source.UpdatedAt, &finalisedDate, &finalisedAt, &passphrase, &source.AccessEpoch)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Calendar{}, model.Participant{}, ErrNotFound
@@ -372,10 +338,10 @@ func (s *Store) DuplicateCalendar(
 		id := generateID(8)
 		var emojiOut sql.NullString
 		err = tx.QueryRowContext(ctx,
-			`INSERT INTO calendars (id, name, emoji, owner_id, visibility) VALUES ($1, $2, $3, $4, $5)
-			 RETURNING id, name, emoji, owner_id, visibility, created_at, updated_at, access_epoch`,
-			id, newName, nullableString(source.Emoji), newOwnerID, source.Visibility,
-		).Scan(&newCal.ID, &newCal.Name, &emojiOut, &newCal.OwnerID, &newCal.Visibility, &newCal.CreatedAt, &newCal.UpdatedAt, &newCal.AccessEpoch)
+			`INSERT INTO calendars (id, name, emoji, owner_id) VALUES ($1, $2, $3, $4)
+			 RETURNING id, name, emoji, owner_id, created_at, updated_at, access_epoch`,
+			id, newName, nullableString(source.Emoji), newOwnerID,
+		).Scan(&newCal.ID, &newCal.Name, &emojiOut, &newCal.OwnerID, &newCal.CreatedAt, &newCal.UpdatedAt, &newCal.AccessEpoch)
 		if err == nil {
 			newCal.Emoji = emojiOut.String
 			break

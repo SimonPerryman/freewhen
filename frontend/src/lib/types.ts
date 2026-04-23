@@ -1,11 +1,8 @@
-export type Visibility = "open" | "submit_to_view";
-
 export interface Calendar {
   id: string;
   name: string;
   emoji?: string;
   ownerId: string;
-  visibility: Visibility;
   createdAt: string;
   updatedAt: string;
   finalisedDate?: string;
@@ -35,7 +32,6 @@ export interface CalendarWithDetails {
   calendar: Calendar;
   participants: Participant[];
   availability: Availability[];
-  participantCount: number;
   // Present (and true) when the calendar is gated and the caller has not yet
   // provided a valid access token. When set, `participants` / `availability`
   // are empty and `calendar` is a stub containing only id + hasPassphrase.
@@ -48,7 +44,6 @@ export interface CreateCalendarResponse extends Calendar {
 
 export interface CreateCalendarRequest {
   name: string;
-  visibility?: Visibility;
 }
 
 export interface DuplicateCalendarRequest {
@@ -58,7 +53,6 @@ export interface DuplicateCalendarRequest {
 
 export interface UpdateCalendarRequest {
   name?: string;
-  visibility?: Visibility;
 }
 
 export interface AddParticipantRequest {
@@ -94,7 +88,6 @@ export interface MyCalendarListItem {
   id: string;
   name: string;
   emoji: string;
-  visibility: Visibility;
   createdAt: string;
   updatedAt: string;
   finalisedDate: string | null;

@@ -16,10 +16,9 @@ var UserContextKey = contextKey{}
 
 // CalendarService defines the operations the handler needs from the service layer.
 type CalendarService interface {
-	CreateCalendar(ctx context.Context, name, ownerID, visibility string) (model.Calendar, error)
+	CreateCalendar(ctx context.Context, name, ownerID string) (model.Calendar, error)
 	DuplicateCalendar(ctx context.Context, sourceID, newOwnerID, ownerParticipantName, overrideName string, includeParticipants bool) (model.Calendar, model.Participant, error)
 	GetCalendar(ctx context.Context, id string) (model.CalendarWithDetails, error)
-	GetCalendarView(ctx context.Context, calendarID string, viewer service.Viewer) (service.CalendarView, error)
 	GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error)
 	AddParticipant(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
 	SetAvailability(ctx context.Context, calendarID, participantID string, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) error
@@ -27,7 +26,6 @@ type CalendarService interface {
 	UnfinaliseCalendar(ctx context.Context, calendarID string) (model.Calendar, error)
 	ClaimParticipant(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error)
 	RenameCalendar(ctx context.Context, calendarID, name string) (model.Calendar, error)
-	UpdateCalendarVisibility(ctx context.Context, calendarID, visibility string) (model.Calendar, error)
 	RemoveParticipant(ctx context.Context, calendarID, participantID string) error
 	RenameParticipant(ctx context.Context, calendarID, targetParticipantID string, callerUserID *string, callerParticipantID, name string) (model.Participant, error)
 	ListUserCalendars(ctx context.Context, userID string) ([]store.CalendarListItem, bool, error)

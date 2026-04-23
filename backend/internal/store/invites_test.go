@@ -12,7 +12,7 @@ func TestAddInvites_BasicAndDedupe(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
-	cal, err := s.CreateCalendar(ctx, "Trip", "", owner.ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Trip", "", owner.ID)
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -53,7 +53,7 @@ func TestMatchInviteByName_AutoMatchOnAddParticipant(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
-	cal, err := s.CreateCalendar(ctx, "Trip", "", owner.ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Trip", "", owner.ID)
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestMatchInviteByName_ReMatchOnRename(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
-	cal, err := s.CreateCalendar(ctx, "Trip", "", owner.ID, "open")
+	cal, err := s.CreateCalendar(ctx, "Trip", "", owner.ID)
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
@@ -131,7 +131,7 @@ func TestUpdateInviteName_Collision(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
-	cal, _ := s.CreateCalendar(ctx, "Trip", "", owner.ID, "open")
+	cal, _ := s.CreateCalendar(ctx, "Trip", "", owner.ID)
 	res, err := s.AddInvites(ctx, cal.ID, []string{"Alice", "Bob"})
 	if err != nil {
 		t.Fatalf("add: %v", err)
@@ -147,7 +147,7 @@ func TestDeleteInvite(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
-	cal, _ := s.CreateCalendar(ctx, "Trip", "", owner.ID, "open")
+	cal, _ := s.CreateCalendar(ctx, "Trip", "", owner.ID)
 	res, _ := s.AddInvites(ctx, cal.ID, []string{"Alice"})
 	if err := s.DeleteInvite(ctx, res.Added[0].ID); err != nil {
 		t.Fatalf("delete: %v", err)
@@ -161,7 +161,7 @@ func TestParticipantsWithNoAvailability(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
-	cal, _ := s.CreateCalendar(ctx, "Trip", "", owner.ID, "open")
+	cal, _ := s.CreateCalendar(ctx, "Trip", "", owner.ID)
 	alice, _ := s.AddParticipant(ctx, cal.ID, "Alice", nil)
 	bob, _ := s.AddParticipant(ctx, cal.ID, "Bob", nil)
 	// Alice submits, Bob doesn't.

@@ -4,10 +4,8 @@ import { useEffect } from "react";
 import styles from "./CalendarSettingsSheet.module.css";
 
 interface Props {
-  visibility: "open" | "submit_to_view";
   hasPassphrase: boolean;
   passphrase?: string | null;
-  onVisibilityToggle: () => void;
   onEnablePassphrase: () => void;
   onRegeneratePassphrase: () => void;
   onDisablePassphrase: () => void;
@@ -16,10 +14,8 @@ interface Props {
 }
 
 export default function CalendarSettingsSheet({
-  visibility,
   hasPassphrase,
   passphrase,
-  onVisibilityToggle,
   onEnablePassphrase,
   onRegeneratePassphrase,
   onDisablePassphrase,
@@ -58,33 +54,6 @@ export default function CalendarSettingsSheet({
             ×
           </button>
         </div>
-
-        <section className={styles.section}>
-          <p className={styles.sectionLabel}>Visibility</p>
-          <button
-            type="button"
-            className={styles.toggleRow}
-            onClick={onVisibilityToggle}
-            aria-pressed={visibility === "submit_to_view"}
-          >
-            <span>
-              <span className={styles.toggleTitle}>
-                Hide others until they respond
-              </span>
-              <span className={styles.toggleHint}>
-                {visibility === "submit_to_view"
-                  ? "On — people must mark a day before they see the grid."
-                  : "Off — anyone with the link sees everyone's availability."}
-              </span>
-            </span>
-            <span
-              className={`${styles.switch} ${
-                visibility === "submit_to_view" ? styles.switchOn : ""
-              }`}
-              aria-hidden="true"
-            />
-          </button>
-        </section>
 
         <section className={styles.section}>
           <p className={styles.sectionLabel}>Passphrase</p>

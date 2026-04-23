@@ -23,8 +23,7 @@ func (h *Handler) CreateCalendar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Name       string `json:"name"`
-		Visibility string `json:"visibility"`
+		Name string `json:"name"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
@@ -36,16 +35,7 @@ func (h *Handler) CreateCalendar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	visibility := req.Visibility
-	if visibility == "" {
-		visibility = model.VisibilityOpen
-	}
-	if !model.IsValidVisibility(visibility) {
-		respondError(w, http.StatusBadRequest, "invalid_visibility", "invalid visibility value")
-		return
-	}
-
-	cal, err := h.service.CreateCalendar(r.Context(), req.Name, user.ID, visibility)
+	cal, err := h.service.CreateCalendar(r.Context(), req.Name, user.ID)
 	if err != nil {
 		if errors.Is(err, store.ErrCalendarLimitReached) {
 			respondError(w, http.StatusConflict, "calendar_limit_reached", "you have reached the calendar limit")
@@ -74,9 +64,9 @@ func (h *Handler) CreateCalendar(w http.ResponseWriter, r *http.Request) {
 }
 
 // DuplicateCalendar handles POST /calendars/{id}/duplicate. Owner-only.
-// Creates a new calendar derived from the source: same emoji, visibility,
-// and (by default) participants. Availability, finalised state, and
-// passphrase are intentionally dropped.
+// Creates a new calendar derived from the source: same emoji and (by default)
+// participants. Availability, finalised state, and passphrase are
+// intentionally dropped.
 func (h *Handler) DuplicateCalendar(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
@@ -160,10 +150,9 @@ const AccessHeader = "X-Calendar-Access"
 // embedded Calendar is replaced with a DTO that adds has_passphrase /
 // passphrase (owner only).
 type calendarResponseDTO struct {
-	Calendar         calendarDTO          `json:"calendar"`
-	Participants     []model.Participant  `json:"participants"`
-	Availability     []model.Availability `json:"availability"`
-	ParticipantCount int                  `json:"participantCount"`
+	Calendar     calendarDTO          `json:"calendar"`
+	Participants []model.Participant  `json:"participants"`
+	Availability []model.Availability `json:"availability"`
 }
 
 type calendarDTO struct {
@@ -189,9 +178,6 @@ func (h *Handler) GetCalendar(w http.ResponseWriter, r *http.Request) {
 		uid := user.ID
 		viewer.UserID = &uid
 	}
-	if as := strings.TrimSpace(r.URL.Query().Get("as")); as != "" {
-		viewer.ParticipantID = &as
-	}
 
 	cal, err := h.service.GetCalendarOnly(r.Context(), id)
 	if err != nil {
@@ -215,7 +201,7 @@ func (h *Handler) GetCalendar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	view, err := h.service.GetCalendarView(r.Context(), id, viewer)
+	details, err := h.service.GetCalendar(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
@@ -227,10 +213,9 @@ func (h *Handler) GetCalendar(w http.ResponseWriter, r *http.Request) {
 
 	isOwner := user != nil && user.ID == cal.OwnerID
 	resp := calendarResponseDTO{
-		Calendar:         toCalendarDTO(view.Details.Calendar, isOwner),
-		Participants:     view.Details.Participants,
-		Availability:     view.Details.Availability,
-		ParticipantCount: view.Details.ParticipantCount,
+		Calendar:     toCalendarDTO(details.Calendar, isOwner),
+		Participants: details.Participants,
+		Availability: details.Availability,
 	}
 	respondJSON(w, http.StatusOK, resp)
 }
@@ -290,8 +275,7 @@ func (h *Handler) FinaliseCalendar(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, cal)
 }
 
-// UpdateCalendar handles PATCH /calendars/{id}. Accepts any combination of
-// optional name and visibility fields. Owner only.
+// UpdateCalendar handles PATCH /calendars/{id}. Owner only.
 func (h *Handler) UpdateCalendar(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
@@ -304,27 +288,22 @@ func (h *Handler) UpdateCalendar(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
 	var req struct {
-		Name       *string `json:"name"`
-		Visibility *string `json:"visibility"`
+		Name *string `json:"name"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
 		return
 	}
-	if req.Name == nil && req.Visibility == nil {
+	if req.Name == nil {
 		respondError(w, http.StatusBadRequest, "invalid_request", "no updatable fields provided")
 		return
 	}
-	if req.Name != nil && strings.TrimSpace(*req.Name) == "" {
+	if strings.TrimSpace(*req.Name) == "" {
 		respondError(w, http.StatusBadRequest, "invalid_request", "name is required")
 		return
 	}
-	if req.Name != nil && len(*req.Name) > limits.MaxCalendarNameLength {
+	if len(*req.Name) > limits.MaxCalendarNameLength {
 		respondError(w, http.StatusBadRequest, "name_too_long", "calendar name is too long")
-		return
-	}
-	if req.Visibility != nil && !model.IsValidVisibility(*req.Visibility) {
-		respondError(w, http.StatusBadRequest, "invalid_visibility", "invalid visibility value")
 		return
 	}
 
@@ -342,30 +321,14 @@ func (h *Handler) UpdateCalendar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cal := existing
-	if req.Name != nil {
-		updated, err := h.service.RenameCalendar(r.Context(), id, *req.Name)
-		if err != nil {
-			if errors.Is(err, store.ErrNotFound) {
-				respondError(w, http.StatusNotFound, "not_found", "calendar not found")
-				return
-			}
-			respondError(w, http.StatusInternalServerError, "internal_error", "failed to rename calendar")
+	cal, err := h.service.RenameCalendar(r.Context(), id, *req.Name)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
-		cal = updated
-	}
-	if req.Visibility != nil {
-		updated, err := h.service.UpdateCalendarVisibility(r.Context(), id, *req.Visibility)
-		if err != nil {
-			if errors.Is(err, store.ErrNotFound) {
-				respondError(w, http.StatusNotFound, "not_found", "calendar not found")
-				return
-			}
-			respondError(w, http.StatusInternalServerError, "internal_error", "failed to update calendar visibility")
-			return
-		}
-		cal = updated
+		respondError(w, http.StatusInternalServerError, "internal_error", "failed to rename calendar")
+		return
 	}
 	respondJSON(w, http.StatusOK, cal)
 }
@@ -413,7 +376,6 @@ type myCalendarDTO struct {
 	ID               string     `json:"id"`
 	Name             string     `json:"name"`
 	Emoji            string     `json:"emoji"`
-	Visibility       string     `json:"visibility"`
 	CreatedAt        time.Time  `json:"created_at"`
 	UpdatedAt        time.Time  `json:"updated_at"`
 	FinalisedDate    *string    `json:"finalised_date"`
@@ -447,7 +409,6 @@ func (h *Handler) ListUserCalendars(w http.ResponseWriter, r *http.Request) {
 			ID:               item.ID,
 			Name:             item.Name,
 			Emoji:            item.Emoji,
-			Visibility:       item.Visibility,
 			CreatedAt:        item.CreatedAt,
 			UpdatedAt:        item.UpdatedAt,
 			FinalisedDate:    item.FinalisedDate,

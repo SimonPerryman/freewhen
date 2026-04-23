@@ -136,9 +136,8 @@ export async function duplicateCalendar(
   });
 }
 
-export async function getCalendar(id: string, as?: string): Promise<CalendarWithDetails> {
-  const query = as ? `?as=${encodeURIComponent(as)}` : "";
-  return request<CalendarWithDetails>(`/calendars/${id}${query}`, { calendarId: id });
+export async function getCalendar(id: string): Promise<CalendarWithDetails> {
+  return request<CalendarWithDetails>(`/calendars/${id}`, { calendarId: id });
 }
 
 // unlockCalendar submits the passphrase (shared or `?unlock=` magic-link

@@ -13,7 +13,6 @@ import {
   removeParticipant,
   renameParticipant,
   renameCalendar,
-  updateCalendar,
   unlockCalendar,
   rotateCalendarPassphrase,
   clearCalendarPassphrase,
@@ -203,7 +202,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
         }
 
         const stored = readStorage(calendarId);
-        const data = await getCalendar(calendarId, stored?.participantId);
+        const data = await getCalendar(calendarId);
         if (cancelled) return;
 
         if (data.requiresPassphrase) {
@@ -250,18 +249,6 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
             } else {
               resolved = existing;
             }
-          } else if (
-            data.calendar.visibility === "submit_to_view" &&
-            data.participants.length === 0
-          ) {
-            // Hidden view — trust stored participant as the current viewer.
-            // Minimal shape: id/name/calendarId are all the page actually reads.
-            resolved = {
-              id: stored.participantId,
-              calendarId,
-              name: stored.name,
-              colour: stored.colour ?? "#9CA3AF",
-            };
           } else {
             // Stale participant — pre-fill name
             prefillName = stored.name;
@@ -335,8 +322,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   const refresh = useCallback(async () => {
     if (Date.now() < suppressRefreshUntilRef.current) return;
     try {
-      const pid = participantIdRef.current ?? undefined;
-      const data = await getCalendar(calendarId, pid);
+      const data = await getCalendar(calendarId);
       if (data.requiresPassphrase) {
         clearCalendarAccessToken(calendarId);
         setCalendar(null);
@@ -438,7 +424,6 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     [flushSave, markLocalMutation],
   );
 
-  const firstSubmitRef = useRef(false);
   const handleToggle = useCallback(
     (date: string) => {
       const prev = selectedDatesRef.current;
@@ -467,21 +452,9 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
         });
       }
 
-      if (
-        prev.size === 0 &&
-        next.size > 0 &&
-        calendar?.calendar.visibility === "submit_to_view" &&
-        calendar.participants.length === 0 &&
-        !firstSubmitRef.current
-      ) {
-        firstSubmitRef.current = true;
-        analytics.capture("availability_gate_unlocked", { calendar_id: calendarId });
-        setTimeout(() => setLoadAttempt((n) => n + 1), 400);
-      }
-
       queueSave(Array.from(next));
     },
-    [queueSave, calendar, calendarId],
+    [queueSave],
   );
 
   const handleOpenDay = useCallback(
@@ -766,26 +739,6 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
       setCalendar(previous);
     }
   }, [calendarId, calendar, markLocalMutation]);
-
-  const handleVisibilityToggle = useCallback(async () => {
-    if (!calendar) return;
-    const current = calendar.calendar.visibility;
-    const next = current === "submit_to_view" ? "open" : "submit_to_view";
-    const previous = calendar;
-    setCalendar((prev) =>
-      prev ? { ...prev, calendar: { ...prev.calendar, visibility: next } } : prev,
-    );
-    markLocalMutation();
-    try {
-      await updateCalendar(calendarId, { visibility: next });
-      analytics.capture("calendar_visibility_set", {
-        calendar_id: calendarId,
-        visibility: next,
-      });
-    } catch {
-      setCalendar(previous);
-    }
-  }, [calendar, calendarId, markLocalMutation]);
 
   const handleEnablePassphrase = useCallback(async () => {
     if (!calendar) return;
@@ -1155,12 +1108,6 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   const calendarEmoji = calendar.calendar.emoji;
   const finalisedDate = calendar.calendar.finalisedDate ?? null;
   const isOwner = !!user && calendar.calendar.ownerId === user.id;
-  const revealed =
-    calendar.calendar.visibility === "open" ||
-    isOwner ||
-    calendar.participants.length > 0 ||
-    selectedDates.size > 0;
-  const participantCount = calendar.participantCount;
   const isFull = calendar.participants.length >= MAX_PARTICIPANTS_PER_CALENDAR;
 
   return (
@@ -1278,18 +1225,8 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           </p>
         ) : null}
 
-        {!revealed && !finalisedDate ? (
-          <p className={styles.hiddenBanner} role="status">
-            {participantCount > 0
-              ? `Mark a day to see when the other ${participantCount === 1 ? "person is" : `${participantCount} people are`} free.`
-              : "Mark a day — you're the first to respond."}
-          </p>
-        ) : null}
-
         <CalendarGrid
-          participants={
-            revealed ? calendar.participants : currentParticipant ? [currentParticipant] : []
-          }
+          participants={calendar.participants}
           freeByDate={freeByDate}
           noteAuthorsByDate={noteAuthorsByDate}
           voteCountsByDate={voteCountsByDate}
@@ -1334,7 +1271,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           />
         ) : null}
 
-        {revealed && !finalisedDate ? (
+        {!finalisedDate ? (
           <BestDay
             participants={calendar.participants}
             freeByDate={freeByDate}
@@ -1343,7 +1280,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
         ) : null}
 
         {finalisedDate ? (
-          revealed && calendar.participants.length >= 1 ? (
+          calendar.participants.length >= 1 ? (
             <>
               <ShareButton
                 calendarName={calendarName}
@@ -1453,10 +1390,8 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
 
         {settingsOpen ? (
           <CalendarSettingsSheet
-            visibility={calendar.calendar.visibility}
             hasPassphrase={calendar.calendar.hasPassphrase ?? false}
             passphrase={calendar.calendar.passphrase ?? null}
-            onVisibilityToggle={handleVisibilityToggle}
             onEnablePassphrase={handleEnablePassphrase}
             onRegeneratePassphrase={handleRegeneratePassphrase}
             onDisablePassphrase={handleDisablePassphrase}

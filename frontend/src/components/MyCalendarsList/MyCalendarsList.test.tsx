@@ -12,7 +12,6 @@ function item(overrides: Partial<MyCalendarListItem> = {}): MyCalendarListItem {
     id: "cal1",
     name: "Trip",
     emoji: "🎉",
-    visibility: "open",
     createdAt: "2026-04-01T10:00:00Z",
     updatedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
     finalisedDate: null,

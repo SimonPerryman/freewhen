@@ -1,6 +1,6 @@
 # Submit-to-View Privacy
 
-Status: done
+Status: cut
 
 ## Goal
 
@@ -192,3 +192,4 @@ Lets us measure whether the mode actually gets used and how often it gates a rea
 - 2026-04-20 14:20 — Confirmed with user: hide names but surface participant count; no live push on visibility change (refetch model is fine, WebSockets deferred to the Live Updates plan).
 - 2026-04-20 15:30 — Backend implemented: migration 008, `visibility` column with CHECK, `ParticipantHasAvailability`/`CountCalendarParticipants` store methods, `GetCalendarView` service with reveal matrix, PATCH `/calendars/{id}` accepts `visibility`, GET accepts `?as=`. Unit tests cover open/submit_to_view × owner/submitted/unsubmitted/anonymous, plus invalid-visibility handler responses.
 - 2026-04-20 15:40 — Frontend implemented: `visibility` toggle on creation form, owner toggle on calendar page, hidden-state banner with participant count, optimistic reveal on first toggle + refetch with `?as=`, localStorage stores participant colour for hidden-mode grid render. Analytics events `calendar_visibility_set` and `availability_gate_unlocked` wired up. Status → done.
+- 2026-04-23 — Cut. Feature removed per `plans/remove-submit-to-view.md`; see `docs/cut-features.md` for rationale and restoration notes. Status → cut.

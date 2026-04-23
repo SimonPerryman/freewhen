@@ -12,6 +12,36 @@ needs to re-check.
 
 ---
 
+## Submit-to-view privacy
+
+- **Shipped:** 2026-04-20 — commit `b3aa5fc` — plan `plans/submit-to-view-privacy.md`
+- **Cut:** 2026-04-23 — plan `plans/remove-submit-to-view.md`
+- **Why cut:** Pre-launch feature that nobody asked for. The create-form
+  toggle already felt disproportionate enough that the v2-priorities doc was
+  proposing to hide it behind an Advanced options disclosure — the same
+  "hide the weight" instinct that preceded cutting calendar colour themes.
+  No user signal for or against; cheapest time to remove is now.
+- **What it did:** Per-calendar `visibility` enum (`open` vs
+  `submit_to_view`) gating the `GET /calendars/{id}` response —
+  unsubmitted non-owner viewers got a stripped shape
+  (`participants: []`, `availability: []`, `participantCount`) until they
+  marked a day. Owner always bypassed; anonymous viewers identified
+  themselves via `?as={participantId}`. Frontend rendered a hidden-state
+  banner and flipped to full UI optimistically on first toggle.
+- **Downstream decisions changed:** The PATCH handler was generalised from
+  `RenameCalendar` to `UpdateCalendar` as part of this feature. That
+  generalisation stays — later features (finalise, passphrase) already ride
+  on it and it's no longer tied to visibility.
+- **To restore:** Cherry-pick `b3aa5fc` and any follow-ups that touched
+  visibility code between then and the removal commit. Migration 008 is on
+  disk; migration 017 drops the column, so a clean restore needs a new
+  migration (018+) to re-add `visibility` with the CHECK constraint rather
+  than resurrecting 008. Re-evaluate whether the owner toggle still belongs
+  in `CalendarSettingsSheet` — the sheet has evolved (passphrase,
+  duplicate) since the original plan assumed the toggle sat near rename.
+
+---
+
 ## Calendar colour themes
 
 - **Shipped:** 2026-04-21 — commit `f2a80a3` — plan `plans/calendar-colour-themes.md`

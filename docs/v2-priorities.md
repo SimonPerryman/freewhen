@@ -17,10 +17,12 @@ See `future-ideas.md` for detailed descriptions of each feature.
 
 | Feature | Requires | Notes |
 |---|---|---|
-| ~~"Submit to view" privacy~~ ✅ | — | **Shipped.** See `plans/submit-to-view-privacy.md`. |
+| "Submit to view" privacy | — | Hide others' names/availability until the viewer marks a day, to prevent anchoring bias. (previously shipped and cut — see `docs/cut-features.md`) |
 | ~~Live updates~~ ✅ | — | **Shipped** via Server-Sent Events. See `plans/live-updates.md`. |
 | ~~"My calendars" list~~ ✅ | Auth | **Shipped.** See `plans/my-calendars.md`. |
 | Notifications/reminders ⏸ | Auth | **Paused** — plan drafted in `plans/notifications.md`. Deferred in favour of lighter Tier 3 QoL wins; revisit when a clear week is available. |
+| ~~Observability & analytics~~ ✅ | — | **Shipped.** PostHog (events, session replay, error capture) + admin metrics endpoint. See `plans/observability-and-analytics.md`. |
+| Feature flags ⏸ | Observability | **Paused** — plan drafted in `plans/feature-flags.md`. PostHog-based flag plumbing for gradual rollouts and kill-switches. Prereq for safer shipping of Calendar integrations. |
 | ~~Share with pre-filled message~~ ✅ | — | **Shipped.** See `plans/share-prefilled-message.md`. |
 | ~~Comments/notes on dates~~ ✅ | — | **Shipped.** Tap a selected cell to open a day sheet with a 140-char note editor. See `plans/comments-on-dates.md`. |
 | ~~Private links / password protection~~ ✅ | — | **Shipped.** Shared password before calendar loads. See `plans/password-protected-calendars.md`. |
@@ -36,13 +38,12 @@ See `future-ideas.md` for detailed descriptions of each feature.
 | ~~Clear availability~~ ✅ | — | **Shipped.** Third toolbar button with undo toast. See `plans/clear-availability.md`. |
 | Date range suggestions | — | Highlight creator's preferred window. Might be a solution looking for a problem. |
 | ~~Duplicate a calendar~~ ✅ | Auth | **Shipped.** "Same group, new event." Owner-only duplicate copies name/emoji/visibility and (optionally) participants; drops availability/finalised/passphrase. See `plans/duplicate-a-calendar.md`. |
-| Calendar integrations | Auth | Import/export Google/Apple. High value, high complexity. |
+| Calendar integrations ⏸ | Auth, Feature flags | **Paused** — plan drafted in `plans/calendar-integrations.md`. Import/export Google/Apple. High value, high complexity; waiting on feature-flag plumbing so the rollout can be gated. |
 | ~~"Who's missing?"~~ ✅ | Auth | **Shipped.** Owner-only invite list + "Not joined" / "Joined but not responded" panel on the calendar page. Auto-matches invites to participants by normalised name with a manual-link escape hatch. See `plans/whos-missing.md`. |
 | Expiry / auto-archive | Auth | Keeps "my calendars" clean. Only matters at scale. |
 | ~~Voting on preferred dates~~ ✅ | — | **Shipped.** Binary per-date vote attached to a participant's available dates; ★ badge on the cell, checkbox in the day sheet, and a tie-breaker in `BestDay`. See `plans/voting-on-preferred-dates.md`. |
 | Calendar colour themes | — | Let creator pick a vibe. Minor but personal. (previously shipped and cut — see `docs/cut-features.md`) |
 | Week/day views | — | Mainly useful if time-of-day is added. |
-| Advanced options disclosure on create | — | Roll "Hide others until you respond" (and other power-user toggles) into a collapsed **Advanced options** section on the create-calendar form. Today it sits inline next to the primary fields and adds cognitive weight to the 90% case who don't need it. Default-collapsed, chevron to expand, remembers expanded state per-session. Future toggles (date-range, host-only reveal, etc.) land inside the same drawer so the primary form stays calm. |
 | "Sign in to see names" anonymity | Auth | Niche for friend groups. |
 | Recurring calendars | Auth? | Ongoing group planning. Different product shape. |
 

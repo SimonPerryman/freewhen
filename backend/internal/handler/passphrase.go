@@ -129,10 +129,6 @@ func (h *Handler) requireCalendarAccess(w http.ResponseWriter, r *http.Request, 
 		uid := u.ID
 		viewer.UserID = &uid
 	}
-	if as := strings.TrimSpace(r.URL.Query().Get("as")); as != "" {
-		viewer.ParticipantID = &as
-	}
-
 	cal, err := h.service.GetCalendarOnly(r.Context(), calendarID)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {

@@ -221,21 +221,19 @@ Replace a participant's available dates. Sending an empty `dates` array clears a
 
 ### PATCH /calendars/{id}
 
-Update presentation fields on a calendar. Owner only. All fields are optional;
-at least one must be supplied.
+Update presentation fields on a calendar. Owner only.
 
 **Request**
 
 ```json
-{"name": "Tennis Fridays", "visibility": "submit_to_view"}
+{"name": "Tennis Fridays"}
 ```
 
 - `name` — new display name.
-- `visibility` — one of `open`, `submit_to_view`.
 
 **Response 200** — the updated calendar.
 
-**Errors:** 400 (invalid JSON, no fields supplied, invalid visibility, name too long) | 401 (not authenticated) | 403 (not owner) | 404 (calendar not found)
+**Errors:** 400 (invalid JSON, no fields supplied, name too long) | 401 (not authenticated) | 403 (not owner) | 404 (calendar not found)
 
 ---
 

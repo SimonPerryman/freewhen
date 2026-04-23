@@ -196,12 +196,10 @@ function makeCalendarData(overrides: Partial<CalendarWithDetails> = {}): Calenda
       name: "Team Meetup",
       emoji: "✨",
       ownerId: "owner-1",
-      visibility: "open",
       createdAt: "2026-01-01T00:00:00Z",
     },
     participants: [],
     availability: [],
-    participantCount: 0,
     ...overrides,
   };
 }
@@ -246,7 +244,7 @@ describe("CalendarPageClient", () => {
       expect(screen.getByText("Team Meetup")).toBeInTheDocument();
     });
 
-    expect(mockGetCalendar).toHaveBeenCalledWith(CALENDAR_ID, undefined);
+    expect(mockGetCalendar).toHaveBeenCalledWith(CALENDAR_ID);
   });
 
   it("renders the calendar emoji alongside the name when present", async () => {

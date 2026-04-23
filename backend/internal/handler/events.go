@@ -6,7 +6,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/freewhen/backend/internal/realtime"
@@ -76,9 +75,6 @@ func (h *EventsHandler) Stream(w http.ResponseWriter, r *http.Request) {
 	if u := UserFromContext(r); u != nil {
 		uid := u.ID
 		viewer.UserID = &uid
-	}
-	if as := strings.TrimSpace(r.URL.Query().Get("as")); as != "" {
-		viewer.ParticipantID = &as
 	}
 	// EventSource can't set custom headers; accept the token via query param
 	// for SSE only. The token is not a secret that unlocks the passphrase —
