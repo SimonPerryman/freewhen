@@ -46,13 +46,14 @@ type CalendarWithDetails struct {
 }
 
 type User struct {
-	ID         string    `json:"id"`
-	Email      string    `json:"email"`
-	Name       string    `json:"name"`
-	IsAdmin    bool      `json:"is_admin"`
-	Provider   string    `json:"-"`
-	ProviderID string    `json:"-"`
-	CreatedAt  time.Time `json:"-"`
+	ID                         string     `json:"id"`
+	Email                      string     `json:"email"`
+	Name                       string     `json:"name"`
+	IsAdmin                    bool       `json:"is_admin"`
+	Provider                   string     `json:"-"`
+	ProviderID                 string     `json:"-"`
+	CreatedAt                  time.Time  `json:"-"`
+	CalendarImportConsentAckAt *time.Time `json:"calendar_import_consent_ack_at,omitempty"`
 }
 
 type Invite struct {

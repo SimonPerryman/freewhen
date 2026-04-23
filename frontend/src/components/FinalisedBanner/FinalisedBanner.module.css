@@ -133,6 +133,11 @@
   min-width: 0;
 }
 
+.exportRow {
+  display: flex;
+  align-items: center;
+}
+
 .voteLine {
   margin: 4px 0 0;
   font-size: 12px;

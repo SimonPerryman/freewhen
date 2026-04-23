@@ -34,6 +34,7 @@ import CalendarGrid from "@/components/CalendarGrid/CalendarGrid";
 import DayDetailSheet from "@/components/DayDetailSheet/DayDetailSheet";
 import DuplicateCalendarSheet from "@/components/DuplicateCalendarSheet/DuplicateCalendarSheet";
 import FinalisedBanner from "@/components/FinalisedBanner/FinalisedBanner";
+import { useImportFromGoogle } from "@/components/ImportFromGoogle/ImportFromGoogle";
 import JoinForm from "@/components/JoinForm/JoinForm";
 import InvitePrompt from "@/components/InvitePrompt/InvitePrompt";
 import ParticipantList from "@/components/ParticipantList/ParticipantList";
@@ -455,6 +456,21 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
       queueSave(Array.from(next));
     },
     [queueSave],
+  );
+
+  const importView = useImportFromGoogle({
+    calendarId,
+    user,
+    participantId: currentParticipant?.id ?? null,
+  });
+  const { clearSuggestion } = importView;
+
+  const handleToggleWithSuggestions = useCallback(
+    (date: string) => {
+      clearSuggestion(date);
+      handleToggle(date);
+    },
+    [clearSuggestion, handleToggle],
   );
 
   const handleOpenDay = useCallback(
@@ -1186,6 +1202,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           <FinalisedBanner
             date={finalisedDate}
             emoji={calendarEmoji || "📅"}
+            calendarId={calendar.calendar.id}
             canUnfinalise={isOwner}
             onUnfinalise={handleUnfinalise}
             participants={calendar.participants}
@@ -1225,13 +1242,20 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           </p>
         ) : null}
 
+        {!finalisedDate && currentParticipant ? (
+          <div>{importView.entry}</div>
+        ) : null}
+        {importView.chrome}
+        {importView.interstitial}
         <CalendarGrid
           participants={calendar.participants}
           freeByDate={freeByDate}
           noteAuthorsByDate={noteAuthorsByDate}
           voteCountsByDate={voteCountsByDate}
           currentParticipantId={currentParticipant?.id ?? null}
-          onToggle={handleToggle}
+          suggestedFreeDates={importView.suggestedFree}
+          suggestedBusyDates={importView.suggestedBusy}
+          onToggle={handleToggleWithSuggestions}
           onOpenDay={currentParticipant ? handleOpenDay : undefined}
           onRangeToggle={handleRangeToggle}
           onClear={currentParticipant ? handleClearAvailability : undefined}

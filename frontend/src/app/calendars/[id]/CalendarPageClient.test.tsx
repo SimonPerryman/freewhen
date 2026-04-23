@@ -41,6 +41,10 @@ vi.mock("@/lib/api", () => {
     claimParticipant: vi.fn(),
     getMe: vi.fn().mockRejectedValue(new Error("not authenticated")),
     logout: vi.fn().mockResolvedValue(undefined),
+    fetchImportSuggestions: vi.fn().mockResolvedValue(null),
+    ackCalendarImportConsent: vi.fn().mockResolvedValue(undefined),
+    importAvailabilityDays: vi.fn().mockResolvedValue(undefined),
+    googleCalendarConnectUrl: (id: string) => `/auth/google/calendar/connect?calendar_id=${id}`,
     ApiError,
   };
 });

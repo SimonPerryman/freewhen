@@ -263,6 +263,36 @@
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
+/* Google Calendar import suggestions. Rendered dashed / hatched to read as
+   "preview" — neither truly confirmed nor empty. Tap-through commits via the
+   normal onToggle path. */
+.suggestedFree {
+  border: 2px dashed var(--accent);
+  background-color: color-mix(in srgb, var(--accent) 7%, var(--card-bg));
+}
+
+.suggestedFree::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.suggestedBusy {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 4px,
+    color-mix(in srgb, var(--text-secondary) 25%, transparent) 4px,
+    color-mix(in srgb, var(--text-secondary) 25%, transparent) 5px
+  );
+  color: var(--text-secondary);
+}
+
 .finalised {
   border: 2px solid var(--accent);
   background-color: var(--accent);

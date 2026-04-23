@@ -41,6 +41,13 @@ interface CalendarGridProps {
   // as preferred. Renders a ★ badge in the cell's bottom-right.
   voteCountsByDate?: Map<string, number>;
   currentParticipantId: string | null;
+  // Inline Google Calendar import suggestions. When present, cells for these
+  // dates render in the "suggested-free" (dashed accent border + dot) or
+  // "suggested-busy" (hatched) states. Tapping either fires onToggle as if
+  // the cell were empty; the caller is responsible for removing the date
+  // from the suggestion set once the server confirms.
+  suggestedFreeDates?: Set<string>;
+  suggestedBusyDates?: Set<string>;
   onToggle: (date: string) => void;
   onOpenDay?: (date: string) => void;
   onRangeToggle?: (dates: string[], target: boolean) => void;
@@ -99,6 +106,8 @@ export default function CalendarGrid({
   noteAuthorsByDate,
   voteCountsByDate,
   currentParticipantId,
+  suggestedFreeDates,
+  suggestedBusyDates,
   onToggle,
   onOpenDay,
   onRangeToggle,
@@ -363,6 +372,10 @@ export default function CalendarGrid({
           if (everyoneFree) classNames.push(styles.everyoneFree);
           if (isFinalised) classNames.push(styles.finalised);
           if (pulsing === dateStr) classNames.push(styles.toggle);
+          const isSuggestedFree = !!suggestedFreeDates?.has(dateStr);
+          const isSuggestedBusy = !isSuggestedFree && !!suggestedBusyDates?.has(dateStr);
+          if (isSuggestedFree) classNames.push(styles.suggestedFree);
+          if (isSuggestedBusy) classNames.push(styles.suggestedBusy);
 
           const dateLabel = formatDateLabel(date);
           const ariaLabel = buildAriaLabel(dateLabel, sorted, freeIds);

@@ -15,17 +15,18 @@ import (
 )
 
 type Server struct {
-	handler    *handler.Handler
-	events     *handler.EventsHandler
-	auth       *handler.AuthHandler
-	metrics    *handler.MetricsHandler
-	hub        *realtime.Hub
-	store      *store.Store
-	mux        *http.ServeMux
-	logger     *slog.Logger
-	db         *sql.DB
-	corsOrigin string
-	cfg        *config.Config
+	handler        *handler.Handler
+	events         *handler.EventsHandler
+	auth           *handler.AuthHandler
+	metrics        *handler.MetricsHandler
+	calIntegration *handler.CalendarIntegrationHandler
+	hub            *realtime.Hub
+	store          *store.Store
+	mux            *http.ServeMux
+	logger         *slog.Logger
+	db             *sql.DB
+	corsOrigin     string
+	cfg            *config.Config
 }
 
 func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
@@ -44,19 +45,21 @@ func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 	}
 	ah := handler.NewAuth(st, emailSender, cfg, logger)
 	mh := handler.NewMetrics(st, hub)
+	ch := handler.NewCalendarIntegration(st, svc, cfg, logger)
 
 	srv := &Server{
-		handler:    h,
-		events:     eh,
-		auth:       ah,
-		metrics:    mh,
-		hub:        hub,
-		store:      st,
-		mux:        http.NewServeMux(),
-		logger:     logger,
-		db:         db,
-		corsOrigin: cfg.CORSOrigin,
-		cfg:        cfg,
+		handler:        h,
+		events:         eh,
+		auth:           ah,
+		metrics:        mh,
+		calIntegration: ch,
+		hub:            hub,
+		store:          st,
+		mux:            http.NewServeMux(),
+		logger:         logger,
+		db:             db,
+		corsOrigin:     cfg.CORSOrigin,
+		cfg:            cfg,
 	}
 	srv.routes()
 	return srv
@@ -102,6 +105,20 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("PUT /calendars/{id}/invites/{inviteId}", s.requireAuth(s.handler.RenameInvite))
 	s.mux.HandleFunc("DELETE /calendars/{id}/invites/{inviteId}", s.requireAuth(s.handler.DeleteInvite))
 	s.mux.HandleFunc("POST /calendars/{id}/invites/{inviteId}/match", s.requireAuth(s.handler.ManualMatchInvite))
+
+	// Calendar integrations — export (Phase 1) + Google Calendar import (Phase 2).
+	// Export endpoints are intentionally public — finalised calendars should be
+	// addable to anyone's calendar, including anonymous joiners.
+	s.mux.HandleFunc("GET /calendars/{id}/export.ics", s.handler.ExportICS)
+	s.mux.HandleFunc("GET /calendars/{id}/export/google", s.handler.ExportGoogle)
+
+	// Incremental OAuth round-trip for Google Calendar import. All three
+	// endpoints require a signed-in session.
+	s.mux.HandleFunc("POST /auth/google/calendar/consent-ack", s.requireAuth(s.calIntegration.ConsentAck))
+	s.mux.HandleFunc("GET /auth/google/calendar/connect", s.requireAuth(s.calIntegration.Connect))
+	s.mux.HandleFunc("GET /auth/google/calendar/callback", s.requireAuth(s.calIntegration.Callback))
+	s.mux.HandleFunc("GET /calendars/{id}/import/suggestions", s.requireAuth(s.calIntegration.GetSuggestions))
+	s.mux.HandleFunc("POST /calendars/{id}/availability/import", s.requireAuth(s.handler.ImportAvailability))
 
 	// Server-sent events stream for live updates.
 	s.mux.HandleFunc("GET /calendars/{id}/events", s.optionalAuth(s.events.Stream))

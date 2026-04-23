@@ -22,6 +22,7 @@ type CalendarService interface {
 	GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error)
 	AddParticipant(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
 	SetAvailability(ctx context.Context, calendarID, participantID string, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) error
+	ImportAvailability(ctx context.Context, calendarID, participantID string, dates []string) error
 	FinaliseCalendar(ctx context.Context, calendarID, date string) (model.Calendar, error)
 	UnfinaliseCalendar(ctx context.Context, calendarID string) (model.Calendar, error)
 	ClaimParticipant(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error)

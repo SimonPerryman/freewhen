@@ -76,6 +76,15 @@ export interface User {
   email: string;
   name: string;
   isAdmin: boolean;
+  // Timestamp the user acknowledged the Google Calendar import privacy
+  // interstitial. Null/undefined → show the interstitial before the first
+  // import; set → skip straight to OAuth.
+  calendarImportConsentAckAt?: string;
+}
+
+export interface ImportSuggestions {
+  free: string[];
+  busy: string[];
 }
 
 export interface ApiError {

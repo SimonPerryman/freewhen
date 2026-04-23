@@ -72,6 +72,10 @@ func (m *mockService) SetAvailability(ctx context.Context, calendarID, participa
 	return m.setAvailability(ctx, calendarID, participantID, dates, noteOverrides, preferredOverrides)
 }
 
+func (m *mockService) ImportAvailability(_ context.Context, _, _ string, _ []string) error {
+	return nil
+}
+
 func (m *mockService) FinaliseCalendar(ctx context.Context, calendarID, date string) (model.Calendar, error) {
 	return m.finaliseCalendar(ctx, calendarID, date)
 }

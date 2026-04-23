@@ -1,0 +1,33 @@
+.buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .buttons {
+    flex-direction: row;
+    width: auto;
+  }
+}
+
+.button {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid currentColor;
+  background: transparent;
+  color: var(--card-bg);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 0.12s,
+    color 0.12s;
+}
+
+.button:hover {
+  background: color-mix(in srgb, var(--card-bg) 15%, transparent);
+}

@@ -117,3 +117,67 @@ func (h *Handler) SetAvailability(w http.ResponseWriter, r *http.Request) {
 
 	respondJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
+
+// ImportAvailability handles POST /calendars/{id}/availability/import.
+// Non-destructive merge of imported dates for the caller's participant row.
+// Used by the "Accept all suggestions" shortcut after a Google Calendar
+// import — individual cell taps continue to go through SetAvailability.
+func (h *Handler) ImportAvailability(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
+	user := UserFromContext(r)
+	if user == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized", "unauthorized")
+		return
+	}
+
+	calendarID := r.PathValue("id")
+	if ok, _ := h.requireCalendarAccess(w, r, calendarID); !ok {
+		return
+	}
+
+	var req struct {
+		ParticipantID string   `json:"participant_id"`
+		Days          []string `json:"days"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
+		return
+	}
+	if req.ParticipantID == "" {
+		respondError(w, http.StatusBadRequest, "invalid_request", "participant_id is required")
+		return
+	}
+	if len(req.Days) > limits.MaxDatesPerSubmission {
+		respondError(w, http.StatusBadRequest, "too_many_dates", "too many dates in a single submission")
+		return
+	}
+
+	now := time.Now().UTC()
+	for _, d := range req.Days {
+		parsed, err := time.Parse("2006-01-02", d)
+		if err != nil {
+			respondError(w, http.StatusBadRequest, "invalid_date", "invalid date format: "+d)
+			return
+		}
+		if !limits.DateWithinRange(parsed, now) {
+			respondError(w, http.StatusBadRequest, "date_out_of_range", "date out of range: "+d)
+			return
+		}
+	}
+
+	if err := h.service.ImportAvailability(r.Context(), calendarID, req.ParticipantID, req.Days); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			respondError(w, http.StatusNotFound, "not_found", "participant not found")
+			return
+		}
+		if errors.Is(err, store.ErrCalendarFinalised) {
+			respondError(w, http.StatusConflict, "already_finalised", "calendar is finalised")
+			return
+		}
+		respondError(w, http.StatusInternalServerError, "internal_error", "failed to import availability")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]any{"ok": true, "imported": len(req.Days)})
+}

@@ -14,9 +14,10 @@ type Config struct {
 	LogLevel           slog.Level
 	SecureCookies      bool
 	CORSOrigin         string
-	GoogleClientID     string
-	GoogleClientSecret string
-	GoogleRedirectURL  string
+	GoogleClientID            string
+	GoogleClientSecret        string
+	GoogleRedirectURL         string
+	GoogleCalendarRedirectURL string
 	FrontendURL        string
 	CookieDomain       string
 	ResendAPIKey       string
@@ -67,7 +68,8 @@ func Load() (*Config, error) {
 		CORSOrigin:         corsOrigin,
 		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
 		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
-		GoogleRedirectURL:  os.Getenv("GOOGLE_REDIRECT_URL"),
+		GoogleRedirectURL:         os.Getenv("GOOGLE_REDIRECT_URL"),
+		GoogleCalendarRedirectURL: os.Getenv("GOOGLE_CALENDAR_REDIRECT_URL"),
 		FrontendURL:        os.Getenv("FRONTEND_URL"),
 		CookieDomain:       os.Getenv("COOKIE_DOMAIN"),
 		ResendAPIKey:         os.Getenv("RESEND_API_KEY"),

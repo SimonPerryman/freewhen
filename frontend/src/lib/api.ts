@@ -6,6 +6,7 @@ import type {
   CreateCalendarRequest,
   CreateCalendarResponse,
   DuplicateCalendarRequest,
+  ImportSuggestions,
   Invite,
   MissingView,
   MyCalendarsResponse,
@@ -252,6 +253,46 @@ export async function listMyCalendars(): Promise<MyCalendarsResponse> {
 
 export async function logout(): Promise<void> {
   await request("/auth/logout", { method: "POST" });
+}
+
+// ackCalendarImportConsent records that the user has seen the privacy
+// interstitial shown before the first Google Calendar import. Idempotent —
+// safe to call on every Continue click.
+export async function ackCalendarImportConsent(): Promise<void> {
+  await request("/auth/google/calendar/consent-ack", { method: "POST" });
+}
+
+// fetchImportSuggestions reads the single-use import-suggestions cookie the
+// backend writes after a successful OAuth round-trip. Returns null if the
+// cookie is missing (expired, never present, or already consumed).
+export async function fetchImportSuggestions(calendarId: string): Promise<ImportSuggestions | null> {
+  try {
+    return await request<ImportSuggestions>(`/calendars/${calendarId}/import/suggestions`);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
+}
+
+// importAvailabilityDays calls the "Accept all suggestions" shortcut —
+// non-destructive merge of the given dates into the caller's availability.
+export async function importAvailabilityDays(
+  calendarId: string,
+  participantId: string,
+  days: string[],
+): Promise<void> {
+  await request(`/calendars/${calendarId}/availability/import`, {
+    method: "POST",
+    body: JSON.stringify({ participant_id: participantId, days }),
+    calendarId,
+  });
+}
+
+// googleCalendarConnectUrl builds the backend redirect that starts the
+// incremental OAuth round-trip for Google Calendar free/busy access.
+export function googleCalendarConnectUrl(calendarId: string, tz: string, returnUrl: string): string {
+  const qs = new URLSearchParams({ calendar_id: calendarId, tz, return_url: returnUrl });
+  return `${BASE_URL}/auth/google/calendar/connect?${qs.toString()}`;
 }
 
 export async function claimParticipant(

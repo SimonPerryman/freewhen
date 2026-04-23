@@ -45,6 +45,7 @@ type Store interface {
 	AddParticipant(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
 	GetParticipant(ctx context.Context, id string) (model.Participant, error)
 	SetAvailability(ctx context.Context, participantID string, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) error
+	MergeAvailabilityDates(ctx context.Context, participantID string, dates []string) error
 	SetFinalisedDate(ctx context.Context, calendarID, date string) (model.Calendar, error)
 	ClearFinalisedDate(ctx context.Context, calendarID string) (model.Calendar, error)
 	ClaimParticipant(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error)
@@ -211,6 +212,25 @@ func (s *Service) SetAvailability(ctx context.Context, calendarID, participantID
 		return store.ErrNotFound
 	}
 	if err := s.store.SetAvailability(ctx, participantID, dates, noteOverrides, preferredOverrides); err != nil {
+		return err
+	}
+	s.touch(ctx, calendarID)
+	s.pub.Publish(calendarID, realtime.EventAvailabilityChanged)
+	return nil
+}
+
+// ImportAvailability merges calendar-imported dates into the participant's
+// existing availability without deleting any hand-entered rows. Used by the
+// "Accept all suggestions" shortcut.
+func (s *Service) ImportAvailability(ctx context.Context, calendarID, participantID string, dates []string) error {
+	p, err := s.store.GetParticipant(ctx, participantID)
+	if err != nil {
+		return err
+	}
+	if p.CalendarID != calendarID {
+		return store.ErrNotFound
+	}
+	if err := s.store.MergeAvailabilityDates(ctx, participantID, dates); err != nil {
 		return err
 	}
 	s.touch(ctx, calendarID)

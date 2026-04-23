@@ -89,6 +89,10 @@ func (m *mockStore) SetAvailability(ctx context.Context, participantID string, d
 	return m.setAvailability(ctx, participantID, dates, noteOverrides, preferredOverrides)
 }
 
+func (m *mockStore) MergeAvailabilityDates(_ context.Context, _ string, _ []string) error {
+	panic("unexpected call to MergeAvailabilityDates")
+}
+
 func (m *mockStore) UpdateCalendarName(_ context.Context, _, _ string) (model.Calendar, error) {
 	panic("unexpected call to UpdateCalendarName")
 }

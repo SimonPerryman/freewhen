@@ -2,11 +2,15 @@
 
 import { useMemo, useState } from "react";
 import type { Availability, Participant } from "@/lib/types";
+import ExportButtons from "@/components/ExportButtons/ExportButtons";
 import styles from "./FinalisedBanner.module.css";
 
 interface FinalisedBannerProps {
   date: string;
   emoji?: string;
+  // When provided, renders export buttons (Google Calendar deep link + .ics
+  // download) alongside the unfinalise action.
+  calendarId?: string;
   canUnfinalise?: boolean;
   onUnfinalise?: () => Promise<void> | void;
   // Optional — when provided, the banner surfaces per-participant notes for
@@ -34,6 +38,7 @@ function formatFullDate(dateStr: string): string {
 export default function FinalisedBanner({
   date,
   emoji = "📅",
+  calendarId,
   canUnfinalise = false,
   onUnfinalise,
   participants,
@@ -98,6 +103,11 @@ export default function FinalisedBanner({
           ) : null}
         </div>
       </div>
+      {calendarId ? (
+        <div className={styles.exportRow}>
+          <ExportButtons calendarId={calendarId} />
+        </div>
+      ) : null}
       {canUnfinalise && onUnfinalise ? (
         <div className={styles.actions}>
           {confirming ? (
