@@ -15,6 +15,10 @@ import (
 	"github.com/freewhen/backend/internal/availability"
 )
 
+// freeBusyURL is the Google Calendar freeBusy endpoint. Lifted to a package
+// var so tests can point it at an httptest.Server.
+var freeBusyURL = "https://www.googleapis.com/calendar/v3/freeBusy"
+
 // FreeBusy calls POST https://www.googleapis.com/calendar/v3/freeBusy for the
 // primary calendar and returns the busy intervals verbatim. The access token
 // is used once and never persisted by the caller. tz is the IANA timezone the
@@ -35,7 +39,7 @@ func FreeBusy(ctx context.Context, httpClient *http.Client, accessToken string, 
 		return nil, fmt.Errorf("marshal freebusy request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://www.googleapis.com/calendar/v3/freeBusy", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, freeBusyURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("build freebusy request: %w", err)
 	}

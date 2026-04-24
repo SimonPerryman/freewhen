@@ -8,6 +8,10 @@ import (
 	"net/http"
 )
 
+// resendURL is the Resend API endpoint. Lifted to a package var so tests can
+// point it at an httptest.Server.
+var resendURL = "https://api.resend.com/emails"
+
 // Sender sends transactional emails via Resend.
 type Sender struct {
 	apiKey    string
@@ -50,7 +54,7 @@ func (s *Sender) SendMagicLink(to, link string) error {
 		return fmt.Errorf("marshal email request: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, "https://api.resend.com/emails", bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, resendURL, bytes.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("create email request: %w", err)
 	}

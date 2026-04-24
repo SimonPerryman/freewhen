@@ -51,7 +51,8 @@ func setupTestServer(t *testing.T) *testServer {
 	}
 
 	cfg := &config.Config{
-		CORSOrigin: "*",
+		CORSOrigin:           "*",
+		CalendarAccessSecret: "test-secret-at-least-32-bytes-long-xx",
 	}
 	ts := httptest.NewServer(server.New(db, logger, cfg))
 	t.Cleanup(ts.Close)

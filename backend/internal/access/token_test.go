@@ -1,6 +1,7 @@
 package access
 
 import (
+	"encoding/base64"
 	"strings"
 	"testing"
 	"time"
@@ -24,13 +25,16 @@ func TestIssueAndVerify_RoundTrip(t *testing.T) {
 
 func TestVerify_RejectsTampered(t *testing.T) {
 	tok := IssueToken("cal1", 0, testSecret, time.Hour)
-	// Flip a byte.
-	tampered := tok[:len(tok)-1] + strings.Map(func(r rune) rune {
-		if r == 'a' {
-			return 'b'
-		}
-		return 'a'
-	}, string(tok[len(tok)-1:]))
+	raw, err := base64.RawURLEncoding.DecodeString(tok)
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	parts := strings.Split(string(raw), "|")
+	if len(parts) != 4 {
+		t.Fatalf("unexpected token shape: %d parts", len(parts))
+	}
+	parts[3] = "not-the-real-signature"
+	tampered := base64.RawURLEncoding.EncodeToString([]byte(strings.Join(parts, "|")))
 	if _, _, err := VerifyToken(tampered, testSecret); err == nil {
 		t.Fatal("expected error from tampered token")
 	}

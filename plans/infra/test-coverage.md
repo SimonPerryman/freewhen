@@ -1,6 +1,6 @@
 # Test coverage pass
 
-Status: in-progress
+Status: done
 
 ## Goal
 
@@ -99,3 +99,13 @@ None of the refactors above are invasive — mostly one-line changes (package-le
 
 - 2026-04-23 22:10 — Created plan. Current numbers: frontend 72% lines, backend unit coverage varies 0–100% by package with integration bringing `server` to 86% and `store` to 54%. Integration covers 8/39 routes. Flaky test `TestVerify_RejectsTampered` reproduces ~60% of runs.
 - 2026-04-23 22:18 — Fixed `TestVerify_RejectsTampered`: decode token, replace signature segment with a known-bad value, re-encode. Confirmed deterministic over 20 runs.
+- 2026-04-23 22:22 — Added unit tests for `server/middleware` (cors, requireAuth/Admin no-cookie paths, optionalAuth, requestLog, generateRequestID, responseWriter). No refactor. Auth happy-path stays covered via integration.
+- 2026-04-23 22:23 — Added unit tests for `config`: env-var parsing with `t.Setenv`, defaults, validation branches (missing DATABASE_URL, short access secret, SECURE_COOKIES/COOKIE_DOMAIN pairing, AUTH_EMAIL_DISABLED consistency, Google OAuth pairing), plus table tests for `parseLogLevel`/`parseBool`. 0% → 95.5%.
+- 2026-04-23 22:24 — Lifted hardcoded Google freebusy URL to a package var (`freeBusyURL`). Added unit tests hitting an `httptest.Server` stub for success, missing-primary, calendar errors, non-200, and malformed JSON. 0% → 90%.
+- 2026-04-23 22:24 — Lifted Resend URL to a package var (`resendURL`). Added unit tests for happy path (asserts auth header, body shape, magic link in HTML), 4xx API response, and network error. `handler.EmailSender` interface already existed — no refactor needed. 0% → 89.5%.
+- 2026-04-23 22:25 — Introduced a `posthogClient` interface covering the subset of `posthog.Client` we use so tests can substitute a fake. Added unit tests for bool/variant/error/empty-user/unknown-type paths on `Enabled`/`Variant`, plus `Close` delegation and `Noop`. 0% → 77.1%.
+- 2026-04-23 22:26 — Added integration tests for exports + health + auth: `GET /health`, `GET /auth/me` (auth/unauth), `PATCH /auth/me` (happy/invalid/unauth), `POST /auth/logout` (cookie cleared, session invalidated, idempotent), `GET /calendars/{id}/export.ics` (pre-finalise 404, ICS content/Content-Type, missing 404), `GET /calendars/{id}/export/google` (redirect shape, query params).
+- 2026-04-23 22:26 — Added integration tests for calendar CRUD: `PATCH /calendars/{id}` (rename, validation, unauth, 404), `POST /calendars/{id}/duplicate` (defaults copy participants, name override + skip participants, unauth, not-found), `DELETE /calendars/{id}/participants/{pid}` (unauth, owner 204, already-gone 404), `PATCH /calendars/{id}/participants/{pid}` (owner rename, anon self-rename via `participant_id`, anon without identity 403).
+- 2026-04-23 22:27 — Added integration tests for passphrase flow, including epoch-rotation invariant: set → anon GET returns `requires_passphrase`, wrong passphrase 401, correct passphrase yields token that satisfies subsequent gated GET via `X-Calendar-Access` header, rotating the passphrase invalidates the old token, clear lifts the gate. Updated `setupTestServer` to populate `CalendarAccessSecret` on the test config.
+- 2026-04-23 22:28 — Added integration tests for invites / missing: add (including dup-skip, empty-400), `GET /missing` shape, rename invite, manual match + unmatch, delete + second-delete, owner-only guard on all five endpoints, cross-calendar rename 404.
+- 2026-04-23 22:29 — Re-measured coverage. Packages that were 0% are now 77–96%. `server` unit+integration rose to 92.7%. `handler` coverage via combined unit+server integration runs is 60–100% per function for the in-scope routes; remaining 0%s are the plan's explicit non-goals (Google OAuth login callback, magic-link send/callback, Google Calendar import handlers). `service` sits at 69.1% on its own unit tests; the zero-percent functions there (`AuthorizeAccessByID`, `Publish`, `ImportAvailability`) are similarly tied to out-of-scope features. `make lint`, `make test`, and `make test-integration` all pass.

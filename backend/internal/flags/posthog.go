@@ -8,13 +8,22 @@ import (
 	"github.com/posthog/posthog-go"
 )
 
+// posthogClient is the subset of posthog.Client we use. Having it as an
+// interface lets tests substitute a fake without spinning up a real PostHog
+// client or server.
+type posthogClient interface {
+	IsFeatureEnabled(payload posthog.FeatureFlagPayload) (interface{}, error)
+	GetFeatureFlag(payload posthog.FeatureFlagPayload) (interface{}, error)
+	Close() error
+}
+
 // PostHogEvaluator is an Evaluator backed by PostHog's Go SDK.
 //
 // Flag definitions are polled locally by the SDK (configured via PersonalApiKey
 // when available), so Enabled/Variant are in-process calls rather than a
 // network hop per request.
 type PostHogEvaluator struct {
-	client posthog.Client
+	client posthogClient
 	logger *slog.Logger
 }
 
