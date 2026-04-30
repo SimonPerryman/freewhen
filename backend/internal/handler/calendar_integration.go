@@ -49,9 +49,28 @@ type CalendarIntegrationHandler struct {
 // production implementation calls Google; tests supply a stub.
 type FreeBusyFetcher func(ctx context.Context, accessToken string, start, end time.Time, tz string) ([]availability.TimeRange, error)
 
+// CalendarIntegrationOption configures optional fields on the handler. Used
+// by tests to point the OAuth endpoint at an httptest.Server and to swap in
+// a stub FreeBusyFetcher.
+type CalendarIntegrationOption func(*CalendarIntegrationHandler)
+
+// WithCalendarOAuthEndpoint overrides the OAuth token/auth endpoint.
+func WithCalendarOAuthEndpoint(ep oauth2.Endpoint) CalendarIntegrationOption {
+	return func(h *CalendarIntegrationHandler) {
+		if h.oauth != nil {
+			h.oauth.Endpoint = ep
+		}
+	}
+}
+
+// WithFreeBusyFetcher overrides the FreeBusy fetcher seam.
+func WithFreeBusyFetcher(fb FreeBusyFetcher) CalendarIntegrationOption {
+	return func(h *CalendarIntegrationHandler) { h.freeBusy = fb }
+}
+
 // NewCalendarIntegration wires the handler using the existing Google client
 // credentials with the calendar-specific redirect URL and scope.
-func NewCalendarIntegration(s CalendarIntegrationStore, cal CalendarService, cfg *config.Config, logger *slog.Logger) *CalendarIntegrationHandler {
+func NewCalendarIntegration(s CalendarIntegrationStore, cal CalendarService, cfg *config.Config, logger *slog.Logger, opts ...CalendarIntegrationOption) *CalendarIntegrationHandler {
 	var oauthCfg *oauth2.Config
 	if cfg.GoogleClientID != "" && cfg.GoogleCalendarRedirectURL != "" {
 		oauthCfg = &oauth2.Config{
@@ -63,7 +82,7 @@ func NewCalendarIntegration(s CalendarIntegrationStore, cal CalendarService, cfg
 		}
 	}
 
-	return &CalendarIntegrationHandler{
+	h := &CalendarIntegrationHandler{
 		store:        s,
 		cal:          cal,
 		oauth:        oauthCfg,
@@ -76,6 +95,10 @@ func NewCalendarIntegration(s CalendarIntegrationStore, cal CalendarService, cfg
 			return googlecal.FreeBusy(ctx, nil, token, start, end, tz)
 		},
 	}
+	for _, opt := range opts {
+		opt(h)
+	}
+	return h
 }
 
 // ConsentAck records that the user has seen the privacy interstitial.

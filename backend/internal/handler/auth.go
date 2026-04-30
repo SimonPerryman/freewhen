@@ -43,13 +43,35 @@ type AuthHandler struct {
 	store        AuthStore
 	email        EmailSender
 	oauth        *oauth2.Config
+	userInfoURL  string // overridable for tests
 	frontendURL  string
 	cookieDomain string
 	secureCookie bool
 	logger       *slog.Logger
 }
 
-func NewAuth(s AuthStore, emailSender EmailSender, cfg *config.Config, logger *slog.Logger) *AuthHandler {
+const defaultGoogleUserInfoURL = "https://www.googleapis.com/oauth2/v3/userinfo"
+
+// AuthOption configures optional AuthHandler fields. Production callers pass
+// none — these exist so tests can point the OAuth/userinfo URLs at an
+// httptest.Server without also faking out the network.
+type AuthOption func(*AuthHandler)
+
+// WithOAuthEndpoint overrides the OAuth token/auth endpoint (default: google.Endpoint).
+func WithOAuthEndpoint(ep oauth2.Endpoint) AuthOption {
+	return func(h *AuthHandler) {
+		if h.oauth != nil {
+			h.oauth.Endpoint = ep
+		}
+	}
+}
+
+// WithUserInfoURL overrides the userinfo URL (default: Google's v3 userinfo).
+func WithUserInfoURL(u string) AuthOption {
+	return func(h *AuthHandler) { h.userInfoURL = u }
+}
+
+func NewAuth(s AuthStore, emailSender EmailSender, cfg *config.Config, logger *slog.Logger, opts ...AuthOption) *AuthHandler {
 	var oauthCfg *oauth2.Config
 	if cfg.GoogleClientID != "" {
 		oauthCfg = &oauth2.Config{
@@ -61,15 +83,20 @@ func NewAuth(s AuthStore, emailSender EmailSender, cfg *config.Config, logger *s
 		}
 	}
 
-	return &AuthHandler{
+	h := &AuthHandler{
 		store:        s,
 		email:        emailSender,
 		oauth:        oauthCfg,
+		userInfoURL:  defaultGoogleUserInfoURL,
 		frontendURL:  cfg.FrontendURL,
 		cookieDomain: cfg.CookieDomain,
 		secureCookie: cfg.SecureCookies,
 		logger:       logger,
 	}
+	for _, opt := range opts {
+		opt(h)
+	}
+	return h
 }
 
 // oauthState is encoded as JSON in the OAuth state parameter.
@@ -168,7 +195,7 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch user info from Google
 	client := h.oauth.Client(r.Context(), token)
-	resp, err := client.Get("https://www.googleapis.com/oauth2/v3/userinfo")
+	resp, err := client.Get(h.userInfoURL)
 	if err != nil {
 		h.logger.Error("failed to fetch user info", "error", err)
 		respondError(w, http.StatusInternalServerError, "internal_error", "authentication failed")
