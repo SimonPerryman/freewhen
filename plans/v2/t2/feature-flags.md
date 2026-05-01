@@ -1,6 +1,6 @@
 # Feature Flags
 
-Status: in-progress
+Status: done
 
 ## Goal
 
@@ -97,3 +97,4 @@ Pick one genuinely low-stakes change to exercise the end-to-end flow before anyo
 - 2026-04-23 21:55 — Phase 2: added `internal/flags/` (Evaluator interface, Noop, PostHogEvaluator using `posthog-go`). New config entries `POSTHOG_KEY`/`POSTHOG_HOST`/`POSTHOG_PERSONAL_API_KEY`. Evaluator threaded onto Handler via `WithFlags(...)` (chosen over changing `handler.New` to keep the 20+ test call sites untouched)
 - 2026-04-23 21:55 — Phase 3 (rollout drill) intentionally deferred — it's an operator exercise against the PostHog dashboard with a real flag, not a code change. The infrastructure for it is in place
 - 2026-04-23 21:56 — Phase 4: updated `docs/stack.md`, `docs/infra-notes.md` (env vars + flag conventions block), and `AGENTS.md` (flags-are-temporary principle)
+- 2026-05-01 — Marked done. Phases 1, 2, 4 shipped in `14c8dfd`. Phase 3 (rollout drill) stays deferred as an operator task tied to a real feature flag, not blocking plan closure.
