@@ -107,6 +107,7 @@ Status: pending | in-progress | done
 ## Development
 
 - `make dev-backend` / `make dev-frontend` to run (backend :8080, frontend :3000)
+- `make dev-backend-watch` for auto-restart on `.go`/`.sql` changes (requires [air](https://github.com/air-verse/air): `go install github.com/air-verse/air@latest`). Config in `backend/.air.toml`; build artifacts go to `backend/tmp/` (gitignored).
 - `make lint` to lint both stacks (golangci-lint + oxlint)
 - `make fmt` to format frontend (oxfmt)
 - `make test` to run all tests

@@ -1,4 +1,4 @@
-.PHONY: dev dev-backend dev-frontend lint lint-backend lint-frontend lint-pii fmt build test test-backend test-frontend test-integration
+.PHONY: dev dev-backend dev-backend-watch dev-frontend lint lint-backend lint-frontend lint-pii fmt build test test-backend test-frontend test-integration
 
 # Run both backend and frontend in development mode
 dev:
@@ -8,6 +8,11 @@ dev:
 
 dev-backend:
 	cd backend && go run ./cmd/server
+
+# Auto-restarts on .go/.sql changes. Requires `air` (https://github.com/air-verse/air):
+#   go install github.com/air-verse/air@latest
+dev-backend-watch:
+	cd backend && air
 
 dev-frontend:
 	cd frontend && pnpm dev
