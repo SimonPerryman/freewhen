@@ -168,12 +168,24 @@ export function useImportFromGoogle({
         <h2 id="fw-import-title" className={styles.interstitialTitle}>
           Reading your Google Calendar
         </h2>
-        <ul className={styles.interstitialList}>
-          <li>We only see whether you&apos;re busy, never event titles or attendees.</li>
-          <li>Nothing is stored — the busy times are used once to suggest free days.</li>
-          <li>You confirm each day by tapping. Nothing joins the group calendar until you tap.</li>
-          <li>Tapping a suggestion makes it part of your availability — revoking Google access later won&apos;t undo it.</li>
-        </ul>
+        <dl className={styles.interstitialList}>
+          <div className={styles.interstitialItem}>
+            <dt>Scope</dt>
+            <dd>We only see whether you&apos;re busy, never event titles or attendees.</dd>
+          </div>
+          <div className={styles.interstitialItem}>
+            <dt>Storage</dt>
+            <dd>Nothing is stored — the busy times are used once to suggest free days.</dd>
+          </div>
+          <div className={styles.interstitialItem}>
+            <dt>Control</dt>
+            <dd>You confirm each day by tapping. Nothing joins the group calendar until you tap.</dd>
+          </div>
+          <div className={styles.interstitialItem}>
+            <dt>Persistence</dt>
+            <dd>Tapping a suggestion makes it part of your availability — revoking Google access later won&apos;t undo it.</dd>
+          </div>
+        </dl>
         <div className={styles.interstitialActions}>
           <button
             type="button"

@@ -102,13 +102,48 @@
 
 .interstitialList {
   margin: 0 0 20px;
-  padding-left: 20px;
+  padding: 0;
   font-size: 14px;
-  line-height: 1.45;
+  line-height: 1.5;
   color: var(--text-secondary);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 14px;
+}
+
+.interstitialItem {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  padding-left: 12px;
+  border-left: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.interstitialItem dt {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.interstitialItem dd {
+  margin: 0;
+  color: var(--text-primary, var(--text-secondary));
+}
+
+@media (min-width: 480px) {
+  .interstitialItem {
+    grid-template-columns: 92px 1fr;
+    align-items: baseline;
+    gap: 12px;
+    padding-left: 0;
+    border-left: none;
+  }
+
+  .interstitialItem dt {
+    padding-top: 2px;
+  }
 }
 
 .interstitialActions {
