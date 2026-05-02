@@ -144,37 +144,34 @@ func (h *EventsHandler) Stream(w http.ResponseWriter, r *http.Request) {
 // --- SSE transport ---
 
 type sseTransport struct {
-	w       http.ResponseWriter
-	flusher http.Flusher
+	w  http.ResponseWriter
+	rc *http.ResponseController
 }
 
 func newSSETransport(w http.ResponseWriter) (EventTransport, error) {
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		return nil, errors.New("response writer does not support flushing")
-	}
+	rc := http.NewResponseController(w)
 	h := w.Header()
 	h.Set("Content-Type", "text/event-stream")
 	h.Set("Cache-Control", "no-cache, no-transform")
 	h.Set("Connection", "keep-alive")
 	h.Set("X-Accel-Buffering", "no")
 	w.WriteHeader(http.StatusOK)
-	flusher.Flush()
-	return &sseTransport{w: w, flusher: flusher}, nil
+	if err := rc.Flush(); err != nil {
+		return nil, err
+	}
+	return &sseTransport{w: w, rc: rc}, nil
 }
 
 func (s *sseTransport) WriteEvent(e realtime.Event) error {
 	if _, err := fmt.Fprintf(s.w, "event: %s\ndata: {\"calendar_id\":%q}\n\n", e.Type, e.CalendarID); err != nil {
 		return err
 	}
-	s.flusher.Flush()
-	return nil
+	return s.rc.Flush()
 }
 
 func (s *sseTransport) WriteHeartbeat() error {
 	if _, err := io.WriteString(s.w, ": ping\n\n"); err != nil {
 		return err
 	}
-	s.flusher.Flush()
-	return nil
+	return s.rc.Flush()
 }
