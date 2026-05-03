@@ -7,6 +7,29 @@ on:
     branches: [main]
 
 jobs:
+  changes:
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'Makefile'
+              - '.github/workflows/ci.yml'
+            frontend:
+              - 'frontend/**'
+              - 'Makefile'
+              - '.github/workflows/ci.yml'
+
   # Single job for lint + test + build. Not worth splitting into parallel jobs
   # yet — runner setup overhead (~30-60s each) exceeds the time saved while the
   # total pipeline is under a couple of minutes.
@@ -60,8 +83,8 @@ jobs:
         run: make build-frontend
 
   deploy-backend:
-    needs: [ci]
-    if: github.ref == 'refs/heads/main'
+    needs: [ci, changes]
+    if: github.ref == 'refs/heads/main' && needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
@@ -95,3 +118,28 @@ jobs:
             --set-env-vars "LOG_LEVEL=info,CORS_ORIGIN=https://freewhen.simonperryman.co.uk,COOKIE_DOMAIN=.freewhen.simonperryman.co.uk,FRONTEND_URL=https://freewhen.simonperryman.co.uk,MAGIC_LINK_FROM_EMAIL=onboarding@resend.dev,AUTH_EMAIL_DISABLED=false,GOOGLE_REDIRECT_URL=https://api.freewhen.simonperryman.co.uk/auth/google/callback,GOOGLE_CALENDAR_REDIRECT_URL=https://api.freewhen.simonperryman.co.uk/auth/google/calendar/callback" \
             --set-secrets "DATABASE_URL=freewhen-database-url:latest,CALENDAR_ACCESS_SECRET=freewhen-calendar-secret:latest,RESEND_API_KEY=freewhen-resend-api-key:latest,GOOGLE_CLIENT_ID=freewhen-google-client-id:latest,GOOGLE_CLIENT_SECRET=freewhen-google-client-secret:latest"
         working-directory: backend
+
+  deploy-frontend:
+    needs: [ci, changes]
+    if: github.ref == 'refs/heads/main' && needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-24.04-arm
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+        working-directory: frontend
+
+      - name: Build
+        run: vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
+        working-directory: frontend
+
+      - name: Deploy
+        run: vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}"
+        working-directory: frontend
