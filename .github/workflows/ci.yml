@@ -79,6 +79,15 @@ jobs:
       - name: Build backend
         run: make build-backend
 
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: frontend/.next/cache
+          key: nextjs-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}-${{ hashFiles('frontend/**/*.[jt]s', 'frontend/**/*.[jt]sx') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}-
+            nextjs-${{ runner.os }}-${{ runner.arch }}-
+
       - name: Build frontend
         run: make build-frontend
 
@@ -150,6 +159,15 @@ jobs:
       - name: Pull Vercel environment
         run: pnpm dlx vercel@latest pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
         working-directory: frontend
+
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: frontend/.next/cache
+          key: nextjs-vercel-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}-${{ hashFiles('frontend/**/*.[jt]s', 'frontend/**/*.[jt]sx') }}
+          restore-keys: |
+            nextjs-vercel-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}-
+            nextjs-vercel-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Build
         run: pnpm dlx vercel@latest build --prod --token="${{ secrets.VERCEL_TOKEN }}"
