@@ -31,7 +31,11 @@ export default function Header() {
           </>
         ) : (
           <a
-            href={`/login?return_url=${encodeURIComponent(pathname)}`}
+            href={
+              pathname === "/"
+                ? "/login"
+                : `/login?return_url=${encodeURIComponent(pathname)}`
+            }
             className={styles.signInLink}
           >
             Sign in

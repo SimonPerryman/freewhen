@@ -24,7 +24,7 @@ export default function Home() {
     setError(null);
 
     if (!user) {
-      router.push(`/login?return_url=${encodeURIComponent("/")}`);
+      router.push("/login");
       return;
     }
 
@@ -49,7 +49,7 @@ export default function Home() {
       router.push(`/calendars/${result.id}`);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        router.push(`/login?return_url=${encodeURIComponent("/")}`);
+        router.push("/login");
         return;
       }
       let message = "Something went wrong";

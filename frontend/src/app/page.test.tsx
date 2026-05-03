@@ -107,6 +107,6 @@ describe("Home (calendar creation page)", () => {
 
     await user.click(screen.getByRole("button", { name: /sign in to create/i }));
 
-    expect(pushMock).toHaveBeenCalledWith("/login?return_url=%2F");
+    expect(pushMock).toHaveBeenCalledWith("/login");
   });
 });
