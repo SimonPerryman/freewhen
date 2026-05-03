@@ -4,7 +4,7 @@
 
 | Layer | Provider | Notes |
 |-------|----------|-------|
-| Frontend | Vercel | Auto-build from git, free hobby tier fits V1 |
+| Frontend | Vercel | Deployed from CI on push to main (Vercel git auto-deploy on `main` is disabled via `frontend/vercel.json`); PR previews still come from Vercel's git integration |
 | Backend | Google Cloud Run | Single Go binary, scale-to-zero, deploy via `gcloud run deploy --source .` |
 | Database | Neon | Managed Postgres, free tier, pooled connection string |
 
@@ -90,8 +90,8 @@ UPDATE users SET is_admin = true WHERE email = 'you@example.com';
 
 ## Deploy Flow
 
-- **Backend:** CI runs `gcloud run deploy --source .` on push to main. Migrations run on boot. First request after idle pays a ~1s cold start.
-- **Frontend:** Vercel's git integration deploys on push. Preview deploys on PRs.
+- **Backend:** CI runs `gcloud run deploy --source .` on push to main, gated on lint/test/build passing. Migrations run on boot. First request after idle pays a ~1s cold start.
+- **Frontend:** CI runs `vercel deploy --prebuilt --prod` on push to main, gated on the same `ci` job. Vercel's own git auto-deploy on `main` is disabled in `frontend/vercel.json`. PR previews still come from Vercel's git integration (not gated on CI — they're previews).
 
 ## First-Time Setup
 
@@ -114,6 +114,8 @@ UPDATE users SET is_admin = true WHERE email = 'you@example.com';
 4. **Add the WIF values to GitHub repo secrets:**
    - `GCP_WIF_PROVIDER` — full provider resource name
    - `GCP_DEPLOY_SA` — deploy service account email
+   - `VERCEL_TOKEN` — account-level token from Vercel → Account Settings → Tokens
+   - `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` — from `frontend/.vercel/project.json` after running `vercel link` locally, or from the Vercel project settings
 5. **(Optional) Map a custom domain:**
    ```
    gcloud run domain-mappings create --service freewhen-api \

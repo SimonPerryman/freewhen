@@ -63,6 +63,9 @@ workflow only — never read by the app.
 |---|---|
 | `GCP_WIF_PROVIDER` | Workload Identity Federation provider resource name |
 | `GCP_DEPLOY_SA` | Deploy service account email |
+| `VERCEL_TOKEN` | Account-level Vercel token (Account Settings → Tokens) |
+| `VERCEL_ORG_ID` | From `frontend/.vercel/project.json` after `vercel link`, or Vercel team settings |
+| `VERCEL_PROJECT_ID` | From `frontend/.vercel/project.json`, or Vercel project settings |
 
 ## External setup actions (no env vars, but required)
 
