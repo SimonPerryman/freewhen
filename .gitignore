@@ -22,3 +22,6 @@ Thumbs.db
 
 # Serena
 .serena/
+
+# Claude Code session state
+.claude/
