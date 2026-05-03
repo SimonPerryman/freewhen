@@ -97,12 +97,22 @@ not worth the import overhead for a single DB).
      stay fast (no `terraform plan` on every push). Config drift caught
      by step 5's `make tf-plan`
 
-7. **Optional: run `terraform plan` in CI**
-   - GitHub Actions job that runs `terraform plan` on every PR touching
-     `infra/`, posts the plan output as a comment
-   - Same WIF auth as the deploy job, but with a *read-only* SA so a
-     malicious PR can't `apply` from CI
-   - Skip for now — solo project, not worth the second SA
+7. **Run `terraform plan` in CI on infra changes**
+   - Extend the existing `changes` job (`dorny/paths-filter`) with an
+     `infra` filter: `infra/**` + `.github/workflows/ci.yml`. Same
+     pattern as the existing `backend` / `frontend` filters added in
+     `plans/infra/gate-deploys-on-changed-paths.md`
+   - Add a `tf-plan` job: `needs: [changes]`,
+     `if: needs.changes.outputs.infra == 'true'`. Runs on PRs *and* main
+     (drift detection is most useful pre-merge — no `github.ref` gate)
+   - Auth via WIF, but with a **read-only** SA (`roles/viewer` on the
+     project + `roles/storage.objectViewer` on the state bucket) so a
+     malicious PR can't elevate to `apply` from CI. Add this SA + WIF
+     binding to `infra/iam.tf` alongside the deploy SA
+   - New GitHub repo secret: `GCP_TF_PLAN_SA` for the read-only SA email
+   - Job runs `terraform -chdir=infra plan -no-color -detailed-exitcode`
+     and posts plan output as a PR comment via `actions/github-script`
+     (or `hashicorp/setup-terraform`'s built-in `github_token` integration)
 
 ## Risks / things to watch
 
@@ -139,3 +149,8 @@ reality stable first.
 - 2026-05-03 — Created plan after debugging the third missing IAM binding
   in the gate-deploy-on-ci work made the case for IaC obvious. Sequenced
   to land *after* deploy gating is verified end-to-end.
+- 2026-05-03 — Scaffolded `infra/` (HCL only, no execution): main, variables,
+  tfvars, iam, secrets, cloud_run, artifact_registry, github, imports.sh.
+  Added `tf-plan` CI job behind a new `infra` paths-filter, plus `make tf-plan`.
+  Steps 1 (bucket creation) and 3–4 (imports + zero-diff verification) still
+  need to happen on a real machine before this is operational.
