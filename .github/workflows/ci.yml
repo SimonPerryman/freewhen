@@ -156,9 +156,19 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: frontend/pnpm-lock.yaml
 
+      # Vercel project has Root Directory set to `frontend` in the dashboard,
+      # so the CLI handles the cd itself — run these from the repo root.
       - name: Pull Vercel environment
         run: pnpm dlx vercel@latest pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
-        working-directory: frontend
+
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: frontend/.next/cache
+          key: nextjs-vercel-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}-${{ hashFiles('frontend/**/*.[jt]s', 'frontend/**/*.[jt]sx') }}
+          restore-keys: |
+            nextjs-vercel-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}-
+            nextjs-vercel-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Cache Next.js build
         uses: actions/cache@v4
@@ -171,8 +181,6 @@ jobs:
 
       - name: Build
         run: pnpm dlx vercel@latest build --prod --token="${{ secrets.VERCEL_TOKEN }}"
-        working-directory: frontend
 
       - name: Deploy
         run: pnpm dlx vercel@latest deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}"
-        working-directory: frontend
