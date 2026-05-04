@@ -2,8 +2,8 @@ locals {
   github_actions_variables = {
     GCP_SERVICE_NAME  = var.service_name
     GCP_REGION        = var.region
-    GCP_MEMORY        = "512Mi"
-    GCP_MAX_INSTANCES = "4"
+    GCP_MEMORY        = "256Mi"
+    GCP_MAX_INSTANCES = "3"
   }
 }
 
@@ -15,29 +15,38 @@ resource "github_actions_variable" "ci" {
 }
 
 # GitHub Actions secrets: WIF provider name + the SA emails CI assumes.
-# Values are read from environment at apply time so they don't sit in tfvars.
-# Set TF_VAR_gcp_wif_provider, etc., or pass --var on the command line.
+# The WIF provider name isn't actually sensitive — it's a public OIDC
+# trust binding identifier — so it lives in tfvars. SA emails are
+# computed from the resources TF manages.
 
-variable "gcp_wif_provider" {
-  description = "Full WIF provider resource name. Stored as the GCP_WIF_PROVIDER repo secret."
-  type        = string
-  sensitive   = true
-}
+# GitHub doesn't return secret values via the API, so TF can't verify
+# them on plan — without ignore_changes, every plan would re-write the
+# value. The values themselves are deterministic (TF-managed SA emails
+# or the public WIF provider name), so ignoring is safe.
 
 resource "github_actions_secret" "gcp_wif_provider" {
-  repository      = var.github_repo
-  secret_name     = "GCP_WIF_PROVIDER"
-  plaintext_value = var.gcp_wif_provider
+  repository  = var.github_repo
+  secret_name = "GCP_WIF_PROVIDER"
+  value       = var.gcp_wif_provider
+  lifecycle {
+    ignore_changes = [value]
+  }
 }
 
 resource "github_actions_secret" "gcp_deploy_sa" {
-  repository      = var.github_repo
-  secret_name     = "GCP_DEPLOY_SA"
-  plaintext_value = google_service_account.deploy.email
+  repository  = var.github_repo
+  secret_name = "GCP_DEPLOY_SA"
+  value       = google_service_account.deploy.email
+  lifecycle {
+    ignore_changes = [value]
+  }
 }
 
 resource "github_actions_secret" "gcp_tf_plan_sa" {
-  repository      = var.github_repo
-  secret_name     = "GCP_TF_PLAN_SA"
-  plaintext_value = google_service_account.tf_plan.email
+  repository  = var.github_repo
+  secret_name = "GCP_TF_PLAN_SA"
+  value       = google_service_account.tf_plan.email
+  lifecycle {
+    ignore_changes = [value]
+  }
 }
