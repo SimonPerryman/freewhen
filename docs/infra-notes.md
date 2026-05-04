@@ -56,6 +56,12 @@ Frontend env vars:
 | `NEXT_PUBLIC_POSTHOG_KEY` | unset | If unset, analytics is a no-op. |
 | `NEXT_PUBLIC_POSTHOG_HOST` | unset | |
 
+> **Vercel `NEXT_PUBLIC_*` vars must be added with `--no-sensitive`.** Vercel
+> defaults Production/Preview env vars to sensitive (write-only); `vercel pull`
+> in CI then writes them as `""` and the build inlines empty strings, breaking
+> the deployed bundle. See `docs/deploy-checklist.md` for the exact commands and
+> verification steps.
+
 The backend handles `SIGTERM`/`SIGINT` with a 25-second graceful shutdown — Cloud Run traffic drains cleanly on new revisions.
 
 ## Cost guardrails

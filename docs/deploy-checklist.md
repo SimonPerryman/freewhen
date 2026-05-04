@@ -54,6 +54,52 @@ reuse Production values, or point at a staging Cloud Run if you have one).
 `NEXT_PUBLIC_*` is baked into the client bundle at build time — these are not
 secret, but Vercel is the single source of truth for them.
 
+### `NEXT_PUBLIC_*` vars MUST be added with `--no-sensitive`
+
+Vercel defaults Production/Preview env vars to **sensitive**. Sensitive vars
+are write-only: the dashboard shows "Encrypted ✓" but `vercel env pull`
+returns them as `""`, because the CLI cannot decrypt them. Our CI pipeline
+runs `vercel pull --environment=production` then `vercel build --prebuilt`,
+so any sensitive `NEXT_PUBLIC_*` value lands in `.vercel/.env.production.local`
+as an empty string, gets inlined into the client bundle as `""`, and the
+`?? "http://localhost:8080"` fallback in `src/lib/api.ts` does **not** rescue
+us — `""` is a string, not nullish, so calls become same-origin (e.g.
+`https://freewhen.simonperryman.co.uk/auth/me` → 404).
+
+Symptoms of this bug:
+
+- `vercel env ls` shows the var as `Encrypted` (looks fine)
+- The dashboard appears to "reset" the value on every deploy (it doesn't —
+  it was never readable to begin with)
+- HAR shows API calls hitting the frontend domain instead of `api.…`
+
+Always set `NEXT_PUBLIC_*` vars with `--no-sensitive`. They end up in the
+public bundle anyway, so "sensitive" is meaningless for them:
+
+```bash
+cd frontend
+# Production
+pnpm dlx vercel env add NEXT_PUBLIC_API_URL production \
+  --value 'https://api.freewhen.simonperryman.co.uk' --yes --no-sensitive
+# Preview (note the empty '' for "all preview branches")
+pnpm dlx vercel env add NEXT_PUBLIC_API_URL preview '' \
+  --value 'https://api.freewhen.simonperryman.co.uk' --yes --no-sensitive
+```
+
+Verify before deploying:
+
+```bash
+pnpm dlx vercel env pull /tmp/check.env --environment=production --yes
+grep NEXT_PUBLIC /tmp/check.env  # values must NOT be ""
+```
+
+If a value comes back as `""`, the var is still sensitive — `vercel env rm`
+it and re-add with `--no-sensitive`. Editing in the dashboard cannot flip
+sensitivity; you must remove and recreate.
+
+The same applies to `NEXT_PUBLIC_LOG_LEVEL`, `NEXT_PUBLIC_POSTHOG_KEY`, and
+`NEXT_PUBLIC_POSTHOG_HOST`.
+
 ## GitHub Actions secrets (CI/CD plumbing)
 
 Repo → Settings → Secrets and variables → Actions. Used by the deploy
