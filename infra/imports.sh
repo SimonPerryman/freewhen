@@ -58,9 +58,10 @@ tf google_service_account_iam_member.deploy_wif_binding \
 tf google_service_account_iam_member.tf_plan_wif_binding \
   "projects/${PROJECT_ID}/serviceAccounts/freewhen-tf-plan@${PROJECT_ID}.iam.gserviceaccount.com roles/iam.workloadIdentityUser principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github/attribute.repository/${GITHUB_OWNER}/${GITHUB_REPO}"
 
-# State bucket admin (tf-plan SA — needs write for state lock objects)
+# State bucket admin (tf-plan SA — needs write for state lock objects
+# and bucket-IAM read for state refresh)
 tf google_storage_bucket_iam_member.tf_plan_state_admin \
-  "freewhen-tfstate roles/storage.objectAdmin serviceAccount:freewhen-tf-plan@${PROJECT_ID}.iam.gserviceaccount.com"
+  "freewhen-tfstate roles/storage.admin serviceAccount:freewhen-tf-plan@${PROJECT_ID}.iam.gserviceaccount.com"
 
 # Artifact Registry
 tf google_artifact_registry_repository.cloud_run_source_deploy \

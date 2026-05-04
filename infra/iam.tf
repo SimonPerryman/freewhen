@@ -94,13 +94,14 @@ resource "google_project_iam_member" "tf_plan_roles" {
   member   = "serviceAccount:${google_service_account.tf_plan.email}"
 }
 
-# objectAdmin (not objectViewer) because the GCS backend writes a lock file
-# even on `terraform init` / `plan`. The read-only safety property is
-# preserved by project-level `roles/viewer` — this SA can manage state
-# objects in its own bucket but cannot mutate any actual GCP resources.
+# `storage.admin` (bucket-scoped) — needed because `objectAdmin` doesn't
+# grant `storage.buckets.getIamPolicy`, which TF requires to refresh the
+# state of any `google_storage_bucket_iam_member`. The read-only safety
+# property is preserved by project-level `roles/viewer` — this SA can
+# manage this one bucket but cannot mutate any actual GCP resources.
 resource "google_storage_bucket_iam_member" "tf_plan_state_admin" {
   bucket = "freewhen-tfstate"
-  role   = "roles/storage.objectAdmin"
+  role   = "roles/storage.admin"
   member = "serviceAccount:${google_service_account.tf_plan.email}"
 }
 
