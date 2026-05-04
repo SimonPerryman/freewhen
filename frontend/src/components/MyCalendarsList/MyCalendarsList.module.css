@@ -8,26 +8,6 @@
   position: relative;
 }
 
-.duplicateButton {
-  position: absolute;
-  top: var(--space-sm);
-  right: var(--space-sm);
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 500;
-  font-family: inherit;
-  color: var(--text-secondary);
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-
-.duplicateButton:hover {
-  color: var(--text-primary);
-  border-color: var(--text-secondary);
-}
-
 .card {
   display: flex;
   flex-direction: column;
@@ -58,6 +38,7 @@
   align-items: center;
   gap: var(--space-sm);
   min-width: 0;
+  padding-right: 36px;
 }
 
 .emoji {

@@ -1,0 +1,131 @@
+.trigger {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  z-index: 2;
+}
+
+.trigger:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, black 30%, transparent);
+  z-index: 50;
+}
+
+.menu {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  background: var(--card-bg);
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-md);
+  box-shadow: 0 -8px 24px color-mix(in srgb, black 18%, transparent);
+  z-index: 51;
+  animation: sheetIn 0.18s ease-out;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+@keyframes sheetIn {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (min-width: 640px) {
+  .scrim {
+    background: transparent;
+  }
+
+  .menu {
+    position: absolute;
+    left: auto;
+    right: 8px;
+    top: 44px;
+    bottom: auto;
+    min-width: 180px;
+    border-radius: var(--radius-md);
+    box-shadow: 0 6px 20px color-mix(in srgb, black 18%, transparent);
+    border: 1px solid var(--border);
+    animation: popoverIn 0.12s ease-out;
+    padding-bottom: 8px;
+  }
+}
+
+@keyframes popoverIn {
+  from {
+    transform: translateY(-4px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu {
+    animation: none;
+  }
+}
+
+.item {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 12px;
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+}
+
+.item:hover,
+.item:focus-visible {
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  outline: none;
+}
+
+.destructive {
+  color: var(--danger, #b91c1c);
+}
+
+.destructive:hover,
+.destructive:focus-visible {
+  background: color-mix(in srgb, var(--danger, #b91c1c) 10%, transparent);
+}
