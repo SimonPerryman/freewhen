@@ -112,6 +112,13 @@ jobs:
 
       - name: Terraform plan
         id: plan
+        env:
+          # Variables consumed by the github provider + tfvars at plan time.
+          # GITHUB_TOKEN is the default workflow token — fine for plan, since
+          # nothing's been imported yet so plan proposes creates and doesn't
+          # need to read existing secret values.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TF_VAR_gcp_wif_provider: ${{ secrets.GCP_WIF_PROVIDER }}
         run: |
           set +e
           terraform -chdir=infra plan -no-color -detailed-exitcode -out=tfplan > plan.txt 2>&1
