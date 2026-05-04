@@ -8,3 +8,7 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+
+# Local secrets (PATs etc) — never committed
+secrets.auto.tfvars
+*.auto.tfvars

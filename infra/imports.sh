@@ -24,15 +24,13 @@ tf() {
 
 # Workload Identity Federation
 tf google_iam_workload_identity_pool.github \
-  "projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-pool"
+  "projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github"
 
 tf google_iam_workload_identity_pool_provider.github \
-  "projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+  "projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github/providers/freewhen"
 
-# Service accounts
-tf google_service_account.runtime \
-  "projects/${PROJECT_ID}/serviceAccounts/freewhen-runtime@${PROJECT_ID}.iam.gserviceaccount.com"
-
+# Service accounts (no `runtime` SA — Cloud Run runs as the default
+# Compute Engine SA, which is referenced via a data source, not managed)
 tf google_service_account.deploy \
   "projects/${PROJECT_ID}/serviceAccounts/freewhen-deploy@${PROJECT_ID}.iam.gserviceaccount.com"
 
@@ -41,7 +39,7 @@ tf google_service_account.tf_plan \
 
 # Project-level IAM bindings (deploy SA)
 for role in run.admin iam.serviceAccountUser secretmanager.secretAccessor \
-            artifactregistry.writer cloudbuild.builds.editor storage.objectAdmin; do
+            artifactregistry.writer cloudbuild.editor storage.admin storage.objectAdmin; do
   tf "google_project_iam_member.deploy_roles[\"roles/${role}\"]" \
     "${PROJECT_ID} roles/${role} serviceAccount:freewhen-deploy@${PROJECT_ID}.iam.gserviceaccount.com"
 done
@@ -50,19 +48,20 @@ done
 tf 'google_project_iam_member.tf_plan_roles["roles/viewer"]' \
   "${PROJECT_ID} roles/viewer serviceAccount:freewhen-tf-plan@${PROJECT_ID}.iam.gserviceaccount.com"
 
-# Service-account-level bindings (WIF + actAs)
+# Service-account-level bindings (WIF + actAs on the compute default SA)
 tf google_service_account_iam_member.deploy_actas_runtime \
-  "projects/${PROJECT_ID}/serviceAccounts/freewhen-runtime@${PROJECT_ID}.iam.gserviceaccount.com roles/iam.serviceAccountUser serviceAccount:freewhen-deploy@${PROJECT_ID}.iam.gserviceaccount.com"
+  "projects/${PROJECT_ID}/serviceAccounts/${PROJECT_NUMBER}-compute@developer.gserviceaccount.com roles/iam.serviceAccountUser serviceAccount:freewhen-deploy@${PROJECT_ID}.iam.gserviceaccount.com"
 
 tf google_service_account_iam_member.deploy_wif_binding \
-  "projects/${PROJECT_ID}/serviceAccounts/freewhen-deploy@${PROJECT_ID}.iam.gserviceaccount.com roles/iam.workloadIdentityUser principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-pool/attribute.repository/${GITHUB_OWNER}/${GITHUB_REPO}"
+  "projects/${PROJECT_ID}/serviceAccounts/freewhen-deploy@${PROJECT_ID}.iam.gserviceaccount.com roles/iam.workloadIdentityUser principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github/attribute.repository/${GITHUB_OWNER}/${GITHUB_REPO}"
 
 tf google_service_account_iam_member.tf_plan_wif_binding \
-  "projects/${PROJECT_ID}/serviceAccounts/freewhen-tf-plan@${PROJECT_ID}.iam.gserviceaccount.com roles/iam.workloadIdentityUser principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-pool/attribute.repository/${GITHUB_OWNER}/${GITHUB_REPO}"
+  "projects/${PROJECT_ID}/serviceAccounts/freewhen-tf-plan@${PROJECT_ID}.iam.gserviceaccount.com roles/iam.workloadIdentityUser principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github/attribute.repository/${GITHUB_OWNER}/${GITHUB_REPO}"
 
-# State bucket admin (tf-plan SA — needs write for state lock objects)
+# State bucket admin (tf-plan SA — needs write for state lock objects
+# and bucket-IAM read for state refresh)
 tf google_storage_bucket_iam_member.tf_plan_state_admin \
-  "freewhen-tfstate roles/storage.objectAdmin serviceAccount:freewhen-tf-plan@${PROJECT_ID}.iam.gserviceaccount.com"
+  "freewhen-tfstate roles/storage.admin serviceAccount:freewhen-tf-plan@${PROJECT_ID}.iam.gserviceaccount.com"
 
 # Artifact Registry
 tf google_artifact_registry_repository.cloud_run_source_deploy \
@@ -82,7 +81,7 @@ done
 
 for sec in gcp_wif_provider gcp_deploy_sa gcp_tf_plan_sa; do
   upper=$(echo "$sec" | tr '[:lower:]' '[:upper:]')
-  tf "github_actions_secret.${sec}" "${GITHUB_REPO}/${upper}"
+  tf "github_actions_secret.${sec}" "${GITHUB_REPO}:${upper}"
 done
 
 echo

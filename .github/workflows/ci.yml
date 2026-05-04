@@ -123,10 +123,13 @@ jobs:
         id: plan
         env:
           # Variables consumed by the github provider + tfvars at plan time.
-          # GITHUB_TOKEN is the default workflow token — fine for plan, since
-          # nothing's been imported yet so plan proposes creates and doesn't
-          # need to read existing secret values.
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The github provider's token comes from var.github_token (set
+          # via TF_VAR_github_token) — kept distinct from $GITHUB_TOKEN so
+          # the gh CLI / other tooling don't fight over the same env var.
+          # Need a fine-grained PAT (not the default workflow token) because
+          # TF refreshes `github_actions_variable` / `github_actions_secret`
+          # state via API endpoints that require Variables/Secrets read scope.
+          TF_VAR_github_token: ${{ secrets.TF_GITHUB_TOKEN }}
           TF_VAR_gcp_wif_provider: ${{ secrets.GCP_WIF_PROVIDER }}
         run: |
           set +e

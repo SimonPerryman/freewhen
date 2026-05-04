@@ -27,3 +27,14 @@ variable "service_name" {
   description = "Cloud Run service name."
   type        = string
 }
+
+variable "gcp_wif_provider" {
+  description = "Full WIF provider resource name. Public — it's just an OIDC trust binding identifier, not a credential."
+  type        = string
+}
+
+variable "github_token" {
+  description = "GitHub PAT with Actions/Secrets/Variables read+write. Set via TF_VAR_github_token env var; never commit to tfvars."
+  type        = string
+  sensitive   = true
+}

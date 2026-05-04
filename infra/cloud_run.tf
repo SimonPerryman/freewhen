@@ -4,13 +4,13 @@ resource "google_cloud_run_v2_service" "api" {
   ingress  = "INGRESS_TRAFFIC_ALL"
 
   template {
-    service_account = google_service_account.runtime.email
+    service_account = local.runtime_sa_email
     timeout         = "300s"
     max_instance_request_concurrency = 80
 
     scaling {
       min_instance_count = 0
-      max_instance_count = 4
+      max_instance_count = 3
     }
 
     containers {
@@ -22,9 +22,9 @@ resource "google_cloud_run_v2_service" "api" {
       resources {
         limits = {
           cpu    = "1"
-          memory = "512Mi"
+          memory = "256Mi"
         }
-        cpu_idle          = false # equivalent to --cpu-boost / always-allocated CPU
+        cpu_idle          = true # CPU throttled when no requests (default for Cloud Run)
         startup_cpu_boost = true
       }
 
@@ -111,7 +111,19 @@ resource "google_cloud_run_v2_service" "api" {
 
   lifecycle {
     ignore_changes = [
+      # Image owned by the deploy workflow, not Terraform.
       template[0].containers[0].image,
+      # `--source .` deploys populate build_config with build IDs and source
+      # zip URIs that change on every deploy. Ignore the whole block.
+      build_config,
+      # Container name is auto-generated as <service>-<idx> by Cloud Run.
+      template[0].containers[0].name,
+      # Top-level scaling block (manual_instance_count etc) is set by the
+      # control plane; we manage scaling at template level.
+      scaling,
+      # gcloud sets execution_environment via annotation only; the v2 field
+      # reads back as null even though gen1 is in use.
+      template[0].execution_environment,
       client,
       client_version,
     ]

@@ -175,14 +175,69 @@ reality stable first.
   proposes `+ create` for ~20 resources because nothing's imported yet.
   PR is mergeable; steps 3 (imports), 4 (zero-diff verification), and 6
   (strip duplicated env config from deploy workflow) remain.
+- 2026-05-04 — PR #4 merged. Started step 3 on a fresh branch
+  (`infra/tf-imports`). Reality vs HCL findings:
+  - WIF pool ID is `github` (not `github-pool`); provider is `freewhen`
+    (not `github-provider`).
+  - There is no `freewhen-runtime` SA. Cloud Run runs as the default
+    Compute Engine SA (`<project_number>-compute@developer.gserviceaccount.com`).
+    Switched HCL from a managed `google_service_account.runtime` to a
+    `local.runtime_sa_email` (avoids needing the Compute Engine API
+    enabled just for a data-source lookup).
+  - Deploy SA roles live: `run.admin`, `iam.serviceAccountUser`,
+    `secretmanager.secretAccessor`, `artifactregistry.writer`,
+    `cloudbuild.editor` (not `.builds.editor`), `storage.admin`,
+    `storage.objectAdmin`. Both storage roles bound separately —
+    `storage.admin` includes `objectAdmin` but live IAM has both.
+  - Cloud Run `maxScale` is 3, memory is 256Mi, `cpu_idle` is true
+    (default; the deploy command doesn't pass `--no-cpu-throttling`).
+  - WIF provider `attribute_condition` uses single-quotes; mapping has
+    `attribute.repository_owner`, not `attribute.ref`.
+  - Two artifact registries exist (`europe-west1` active +
+    `europe-west3` orphan). HCL only manages the west1 one.
+  - github_actions_secret values can't be read back via API, so plan
+    always shows "would write value." Worked around via
+    `lifecycle.ignore_changes = [value]`.
+  - Cloud Run service has a `build_config` block populated by
+    `gcloud run deploy --source .`, plus auto-generated container
+    `name` and a control-plane-managed top-level `scaling` block.
+    All added to `ignore_changes` in `cloud_run.tf`.
+  - Switched github provider auth from `GITHUB_TOKEN` env var to
+    `var.github_token` so it doesn't collide with `gh` CLI's env var.
+    Local PAT lives in gitignored `infra/secrets.auto.tfvars`; CI
+    keeps using the workflow token via `TF_VAR_github_token`.
+  - Switched local Terraform from the homebrew/core MPL build (1.5.7)
+    to `hashicorp/tap/terraform` (1.15.1) to satisfy `required_version`.
+- 2026-05-04 — `terraform plan` shows zero diff. All 31 resources in
+  state, HCL matches reality field-for-field. Step 3 + step 4 done.
+- 2026-05-04 — Local plan is zero-diff but CI plan failed with three
+  privilege gaps (read-only `freewhen-tf-plan` SA + default workflow
+  GITHUB_TOKEN are more restricted than my user + PAT locally). Fixed:
+  - Enabled `cloudresourcemanager.googleapis.com` on the project (TF
+    needs it to refresh `google_project_iam_member` state; my local
+    ADC code path didn't hit the gate).
+  - Bumped the bucket binding from `roles/storage.objectAdmin` to
+    `roles/storage.admin`. `objectAdmin` doesn't include
+    `storage.buckets.getIamPolicy`, so TF couldn't refresh the
+    `google_storage_bucket_iam_member` state. Bucket-scoped admin
+    still preserves the read-only safety property — project-level
+    `roles/viewer` is what blocks `apply`.
+  - Added `TF_GITHUB_TOKEN` repo secret holding a fine-grained PAT.
+    The default workflow `GITHUB_TOKEN` returns 403 on
+    `/actions/variables/*` and `/actions/secrets/*` even with
+    `actions: read` — Variables/Secrets API endpoints require explicit
+    PAT scopes that the workflow token doesn't grant. Reused the
+    existing local PAT for now; rotate after the import phase.
 
 ## Status of plan steps
 
 - ✅ Step 1: Bootstrap state backend — `gs://freewhen-tfstate` created
 - ✅ Step 2: Scaffold `infra/` folder — all `.tf` files written
-- ⬜ Step 3: Import existing resources — `imports.sh` written but not run
-- ⬜ Step 4: Verify zero-diff state — first plan in CI shows 20+ creates
+- ✅ Step 3: Import existing resources — all 31 imported, HCL adjusted
+- ✅ Step 4: Verify zero-diff state — `terraform plan` reports
+  "No changes. Your infrastructure matches the configuration."
 - 🔄 Step 5: Move config drift checks into PR review — `make tf-plan`
   added; `plans/` requirement note still TBD
 - ⬜ Step 6: Remove duplicated env/secret config from `ci.yml` deploy job
 - ✅ Step 7: Run `terraform plan` in CI — done in PR #4
+- ⬜ Step 8: Run `terraform apply` in CI on main — now unblocked
