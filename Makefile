@@ -17,8 +17,9 @@ dev-backend-watch:
 dev-frontend:
 	cd frontend && pnpm dev
 
-# Linting
-lint: lint-backend lint-frontend lint-pii
+# Linting — three independent commands, run in parallel.
+lint:
+	$(MAKE) -j3 lint-backend lint-frontend lint-pii
 
 lint-backend:
 	cd backend && golangci-lint run ./...
@@ -39,8 +40,9 @@ lint-pii:
 fmt:
 	cd frontend && pnpm exec oxfmt --write src/
 
-# Testing
-test: test-backend test-frontend
+# Testing — backend and frontend run in parallel (same runner, lower wall-clock).
+test:
+	$(MAKE) -j2 test-backend test-frontend
 
 test-backend:
 	cd backend && go test ./...

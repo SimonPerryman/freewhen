@@ -1,0 +1,21 @@
+version: "2"
+
+# Curated linter set — faster than the default. Add linters here only if a real
+# bug slips through; don't bring back everything just because it's available.
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+  settings:
+    govet:
+      # fieldalignment is slow and pedantic — leave it off.
+      disable:
+        - fieldalignment
+
+run:
+  timeout: 3m

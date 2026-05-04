@@ -710,11 +710,10 @@ describe("CalendarGrid", () => {
     const slot = screen.getAllByTestId(`slot-${ps[0].id}`)[0];
     const initial = within(slot).getByText("A");
     expect(initial.getAttribute("aria-hidden")).toBe("true");
-    // Colour comes from textOnColour(p.colour). jsdom normalises #fff → rgb(255, 255, 255),
-    // so compare through the computed CSSStyleDeclaration rather than the raw string.
-    const expectedRgb =
-      textOnColour(ps[0].colour) === "#fff" ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)";
-    expect((initial as HTMLElement).style.color).toBe(expectedRgb);
+    const actual = (initial as HTMLElement).style.color;
+    const expected = textOnColour(ps[0].colour);
+    const normalised = actual === "rgb(255, 255, 255)" ? "#fff" : actual === "rgb(0, 0, 0)" ? "#000" : actual;
+    expect(normalised).toBe(expected);
   });
 
   it("renders a Clear button in the toolbar when onClear is provided", () => {
