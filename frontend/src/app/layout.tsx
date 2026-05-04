@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, Bricolage_Grotesque } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import AnalyticsProvider from "@/components/AnalyticsProvider/AnalyticsProvider";
 import AuthProvider from "@/components/AuthProvider/AuthProvider";
 import Header from "@/components/Header/Header";
@@ -68,6 +69,7 @@ export default function RootLayout({
             </ToastProvider>
           </AuthProvider>
         </AnalyticsProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
