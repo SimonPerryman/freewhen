@@ -11,11 +11,6 @@ locals {
     "roles/cloudbuild.editor",
     "roles/storage.admin",
     "roles/storage.objectAdmin",
-    # `gcloud builds submit` streams Cloud Build logs and exits non-zero
-    # if it can't read them — even when the build itself succeeds. Grant
-    # log read access so the deploy job's exit code reflects the build,
-    # not the streaming permission.
-    "roles/logging.viewer",
   ]
 
   tf_plan_sa_roles = [

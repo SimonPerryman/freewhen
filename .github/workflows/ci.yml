@@ -236,7 +236,11 @@ jobs:
         env:
           IMAGE: europe-west1-docker.pkg.dev/${{ steps.auth.outputs.project_id }}/cloud-run-source-deploy/${{ vars.GCP_SERVICE_NAME }}:${{ github.sha }}
         run: |
-          gcloud builds submit backend --tag "$IMAGE"
+          # --suppress-logs: gcloud's log-streaming requires project Viewer
+          # (resourcemanager.projects.get); the deploy SA only has scoped
+          # roles. Without this flag the build itself succeeds but gcloud
+          # exits non-zero trying to stream logs.
+          gcloud builds submit backend --tag "$IMAGE" --suppress-logs
           echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
 
       - name: Deploy image to Cloud Run

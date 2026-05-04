@@ -211,3 +211,16 @@ exactly the failure mode that motivated IaC in the first place.
   require `ci` status check, require up-to-date branches, require
   conversation resolution; force pushes + deletions disabled). Step 7
   done. Plan status flipped to `done`.
+- 2026-05-04 18:23 — Discovered a follow-up: `gcloud builds submit` (used
+  by `deploy-backend` to push the image) tries to stream Cloud Build
+  logs and exits non-zero if it can't read them — even when the build
+  itself succeeds. The check requires `resourcemanager.projects.get`
+  (project Viewer/Owner), which the scoped deploy SA doesn't have.
+  Three runs in a row failed identically (#13, #14, #14 rerun) with the
+  build succeeding but the job exiting on the streaming error, which
+  also skipped `deploy-frontend` due to its `needs: deploy-backend`
+  gate. Tried `roles/logging.viewer` first (#15) — not enough; gcloud
+  checks for project-level Viewer specifically. Settled on passing
+  `--suppress-logs` to `gcloud builds submit` (#16) and reverted the
+  `logging.viewer` binding. Added a short comment in the workflow next
+  to the flag explaining why.
