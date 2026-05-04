@@ -81,7 +81,10 @@ describe("WhosMissingPanel", () => {
 
   it("copies name to clipboard when chip is tapped", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.assign(navigator, { clipboard: { writeText } });
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
 
     mockedApi.getMissing.mockResolvedValue({
       invites: [
