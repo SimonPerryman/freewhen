@@ -62,6 +62,14 @@ Group availability coordination tool. Go backend + Next.js frontend + Postgres.
 - **Database:** Neon (managed Postgres)
 - Migrations run on boot — no separate migration step needed
 - See `docs/infra-notes.md` for first-time setup checklist
+- **GCP + GitHub Actions config is managed by Terraform in `infra/`.** Cloud
+  Run service config (env vars, secrets, scaling, IAM), the WIF pool/provider,
+  service accounts, the Artifact Registry repo, and GitHub Actions
+  variables/secrets all live in HCL. Do not edit these in the GCP or GitHub
+  console — the next `terraform apply` will revert console changes. Run
+  `make tf-plan` before merging infra edits; the `tf-plan` CI job posts the
+  plan as a PR comment. Emergency console hotfixes must be followed by a
+  matching HCL change before the next normal apply.
 
 ## Plans
 

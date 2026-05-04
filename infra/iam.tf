@@ -16,6 +16,22 @@ locals {
   tf_plan_sa_roles = [
     "roles/viewer",
   ]
+
+  # Roles for the tf-apply SA. Broader than tf-plan because it must mutate
+  # everything TF manages: project-level IAM bindings, service accounts, the
+  # WIF pool/provider, Cloud Run, Artifact Registry, and bucket-scoped IAM
+  # on the state bucket. `roles/viewer` is included so refresh paths that
+  # need read access outside an admin role (e.g. listing) keep working.
+  # GitHub Actions variables/secrets are managed via PAT, not this SA.
+  tf_apply_sa_roles = [
+    "roles/viewer",
+    "roles/iam.workloadIdentityPoolAdmin",
+    "roles/iam.serviceAccountAdmin",
+    "roles/resourcemanager.projectIamAdmin",
+    "roles/run.admin",
+    "roles/artifactregistry.admin",
+    "roles/secretmanager.viewer",
+  ]
 }
 
 # Workload Identity Federation: GitHub Actions OIDC -> GCP service accounts.
@@ -107,6 +123,45 @@ resource "google_storage_bucket_iam_member" "tf_plan_state_admin" {
 
 resource "google_service_account_iam_member" "tf_plan_wif_binding" {
   service_account_id = google_service_account.tf_plan.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/projects/${var.project_number}/locations/global/workloadIdentityPools/${google_iam_workload_identity_pool.github.workload_identity_pool_id}/attribute.repository/${var.github_owner}/${var.github_repo}"
+}
+
+# Service account for `terraform apply` in CI on pushes to main. Branch
+# scoping is enforced at the workflow level (`if: github.ref ==
+# 'refs/heads/main'`), matching the deploy SA pattern — same trust
+# boundary, same review surface.
+
+resource "google_service_account" "tf_apply" {
+  account_id   = "freewhen-tf-apply"
+  display_name = "FreeWhen Terraform apply"
+}
+
+resource "google_project_iam_member" "tf_apply_roles" {
+  for_each = toset(local.tf_apply_sa_roles)
+  project  = var.project_id
+  role     = each.value
+  member   = "serviceAccount:${google_service_account.tf_apply.email}"
+}
+
+# Setting `template.service_account` on the Cloud Run service requires
+# `iam.serviceAccountUser` on the runtime SA being assigned.
+resource "google_service_account_iam_member" "tf_apply_actas_runtime" {
+  service_account_id = local.runtime_sa_id
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.tf_apply.email}"
+}
+
+# Bucket-scoped admin so apply can read+write state, take the GCS lock,
+# and manage `google_storage_bucket_iam_member` bindings on the state bucket.
+resource "google_storage_bucket_iam_member" "tf_apply_state_admin" {
+  bucket = "freewhen-tfstate"
+  role   = "roles/storage.admin"
+  member = "serviceAccount:${google_service_account.tf_apply.email}"
+}
+
+resource "google_service_account_iam_member" "tf_apply_wif_binding" {
+  service_account_id = google_service_account.tf_apply.name
   role               = "roles/iam.workloadIdentityUser"
   member             = "principalSet://iam.googleapis.com/projects/${var.project_number}/locations/global/workloadIdentityPools/${google_iam_workload_identity_pool.github.workload_identity_pool_id}/attribute.repository/${var.github_owner}/${var.github_repo}"
 }

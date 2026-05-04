@@ -228,6 +228,31 @@ reality stable first.
     `actions: read` — Variables/Secrets API endpoints require explicit
     PAT scopes that the workflow token doesn't grant. Reused the
     existing local PAT for now; rotate after the import phase.
+- 2026-05-04 — Step 5 done: added an "infra is managed by Terraform" note
+  to AGENTS.md > Deployment so future edits don't go through the GCP/GitHub
+  console. `make tf-plan` already exists; CI `tf-plan` job posts plan output
+  on PRs.
+- 2026-05-04 — Step 6 done: deploy workflow no longer re-asserts Cloud Run
+  config. Replaced `gcloud run deploy --source . --set-env-vars …
+  --set-secrets … --memory … --max-instances … --concurrency …` with two
+  steps: `gcloud builds submit backend --tag <registry>:<sha>` then
+  `gcloud run services update --image=<registry>:<sha>`. Image tag is the
+  commit SHA (was build-id) so revisions trace to a commit. `vars.GCP_MEMORY`
+  and `vars.GCP_MAX_INSTANCES` are now vestigial in CI; left in
+  `infra/github.tf` for now to keep zero-diff and clean up alongside step 8.
+- 2026-05-04 — Step 8 wired up: added `freewhen-tf-apply` SA to `iam.tf`
+  with viewer + workloadIdentityPoolAdmin + serviceAccountAdmin +
+  projectIamAdmin + run.admin + artifactregistry.admin + secretmanager.viewer
+  at the project level, storage.admin on the state bucket, actAs on the
+  runtime SA (needed to set Cloud Run `template.service_account`), and a
+  WIF binding scoped to the repo. Added `GCP_TF_APPLY_SA` GitHub secret.
+  Removed `GCP_MEMORY` + `GCP_MAX_INSTANCES` from `github.tf` now that
+  step 6 stopped reading them. New `tf-apply` CI job: `needs: [ci, changes]`,
+  `if: ref==main && infra==true`. `deploy-backend` now also `needs:
+  tf-apply` so a combined infra+backend change applies service config
+  before the new image rolls. Branch scoping stays at the workflow level
+  (matches deploy SA pattern), not IAM. Bootstrap: first apply must be run
+  locally (creates the SA + GitHub secret); after that, CI takes over.
 
 ## Status of plan steps
 
@@ -236,8 +261,13 @@ reality stable first.
 - ✅ Step 3: Import existing resources — all 31 imported, HCL adjusted
 - ✅ Step 4: Verify zero-diff state — `terraform plan` reports
   "No changes. Your infrastructure matches the configuration."
-- 🔄 Step 5: Move config drift checks into PR review — `make tf-plan`
-  added; `plans/` requirement note still TBD
-- ⬜ Step 6: Remove duplicated env/secret config from `ci.yml` deploy job
+- ✅ Step 5: Move config drift checks into PR review — `make tf-plan`
+  + AGENTS.md note added
+- ✅ Step 6: Remove duplicated env/secret config from `ci.yml` deploy job
+  — workflow now does build-then-update-image only
 - ✅ Step 7: Run `terraform plan` in CI — done in PR #4
-- ⬜ Step 8: Run `terraform apply` in CI on main — now unblocked
+- ✅ Step 8: Run `terraform apply` in CI on main — `tf_apply` SA + 12
+  bindings created, `GCP_TF_APPLY_SA` GitHub secret populated, unused
+  `GCP_MEMORY` / `GCP_MAX_INSTANCES` GitHub vars destroyed. `terraform
+  plan` reports zero diff post-apply. CI `tf-apply` job will run on the
+  next push to main that touches `infra/**`.

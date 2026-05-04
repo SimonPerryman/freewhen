@@ -1,9 +1,7 @@
 locals {
   github_actions_variables = {
-    GCP_SERVICE_NAME  = var.service_name
-    GCP_REGION        = var.region
-    GCP_MEMORY        = "256Mi"
-    GCP_MAX_INSTANCES = "3"
+    GCP_SERVICE_NAME = var.service_name
+    GCP_REGION       = var.region
   }
 }
 
@@ -46,6 +44,15 @@ resource "github_actions_secret" "gcp_tf_plan_sa" {
   repository  = var.github_repo
   secret_name = "GCP_TF_PLAN_SA"
   value       = google_service_account.tf_plan.email
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
+
+resource "github_actions_secret" "gcp_tf_apply_sa" {
+  repository  = var.github_repo
+  secret_name = "GCP_TF_APPLY_SA"
+  value       = google_service_account.tf_apply.email
   lifecycle {
     ignore_changes = [value]
   }
