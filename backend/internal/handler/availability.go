@@ -111,7 +111,7 @@ func (h *Handler) SetAvailability(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusConflict, "already_finalised", "calendar is finalised")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to set availability")
+		respondInternalError(r, w, err, "internal_error", "failed to set availability")
 		return
 	}
 
@@ -175,7 +175,7 @@ func (h *Handler) ImportAvailability(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusConflict, "already_finalised", "calendar is finalised")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to import availability")
+		respondInternalError(r, w, err, "internal_error", "failed to import availability")
 		return
 	}
 

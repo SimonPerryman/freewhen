@@ -11,10 +11,6 @@ import (
 	"github.com/freewhen/backend/internal/model"
 )
 
-type contextKey string
-
-const requestIDKey contextKey = "request_id"
-
 type responseWriter struct {
 	http.ResponseWriter
 	statusCode int
@@ -112,7 +108,7 @@ func (s *Server) authenticateRequest(r *http.Request) *model.User {
 func (s *Server) requestLog(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := generateRequestID()
-		ctx := context.WithValue(r.Context(), requestIDKey, id)
+		ctx := context.WithValue(r.Context(), handler.RequestIDContextKey, id)
 		r = r.WithContext(ctx)
 
 		w.Header().Set("X-Request-ID", id)

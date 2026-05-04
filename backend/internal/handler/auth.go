@@ -120,7 +120,7 @@ func (h *AuthHandler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 
 	state, err := json.Marshal(oauthState{Nonce: nonce, ReturnURL: returnURL})
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to encode state")
+		respondInternalError(r, w, err, "internal_error", "failed to encode state")
 		return
 	}
 
@@ -188,8 +188,7 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 
 	token, err := h.oauth.Exchange(r.Context(), code)
 	if err != nil {
-		h.logger.Error("oauth exchange failed", "error", err)
-		respondError(w, http.StatusInternalServerError, "internal_error", "authentication failed")
+		respondInternalError(r, w, err, "internal_error", "authentication failed")
 		return
 	}
 
@@ -197,32 +196,28 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	client := h.oauth.Client(r.Context(), token)
 	resp, err := client.Get(h.userInfoURL)
 	if err != nil {
-		h.logger.Error("failed to fetch user info", "error", err)
-		respondError(w, http.StatusInternalServerError, "internal_error", "authentication failed")
+		respondInternalError(r, w, err, "internal_error", "authentication failed")
 		return
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	var info googleUserInfo
 	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
-		h.logger.Error("failed to decode user info", "error", err)
-		respondError(w, http.StatusInternalServerError, "internal_error", "authentication failed")
+		respondInternalError(r, w, err, "internal_error", "authentication failed")
 		return
 	}
 
 	// Create or find user
 	user, err := h.findOrCreateUser(r.Context(), info)
 	if err != nil {
-		h.logger.Error("failed to find or create user", "error", err)
-		respondError(w, http.StatusInternalServerError, "internal_error", "authentication failed")
+		respondInternalError(r, w, err, "internal_error", "authentication failed")
 		return
 	}
 
 	// Create session
 	sessionToken, err := h.store.CreateSession(r.Context(), user.ID)
 	if err != nil {
-		h.logger.Error("failed to create session", "error", err)
-		respondError(w, http.StatusInternalServerError, "internal_error", "authentication failed")
+		respondInternalError(r, w, err, "internal_error", "authentication failed")
 		return
 	}
 
@@ -295,8 +290,7 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 
 	updated, err := h.store.UpdateUserName(r.Context(), user.ID, name)
 	if err != nil {
-		h.logger.Error("update user name failed", "error", err)
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to update")
+		respondInternalError(r, w, err, "internal_error", "failed to update")
 		return
 	}
 
@@ -389,15 +383,13 @@ func (h *AuthHandler) MagicLinkCallback(w http.ResponseWriter, r *http.Request) 
 	// Create or find user with provider "email"
 	user, err := h.findOrCreateEmailUser(r.Context(), email)
 	if err != nil {
-		h.logger.Error("failed to find or create user", "error", err)
-		respondError(w, http.StatusInternalServerError, "internal_error", "authentication failed")
+		respondInternalError(r, w, err, "internal_error", "authentication failed")
 		return
 	}
 
 	sessionToken, err := h.store.CreateSession(r.Context(), user.ID)
 	if err != nil {
-		h.logger.Error("failed to create session", "error", err)
-		respondError(w, http.StatusInternalServerError, "internal_error", "authentication failed")
+		respondInternalError(r, w, err, "internal_error", "authentication failed")
 		return
 	}
 

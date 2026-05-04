@@ -24,7 +24,7 @@ func (h *Handler) requireCalendarOwner(w http.ResponseWriter, r *http.Request, c
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return false
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to load calendar")
+		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
 		return false
 	}
 	if cal.OwnerID != user.ID {
@@ -42,7 +42,7 @@ func (h *Handler) ListMissing(w http.ResponseWriter, r *http.Request) {
 	}
 	view, err := h.service.GetMissingView(r.Context(), calendarID)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to load missing view")
+		respondInternalError(r, w, err, "internal_error", "failed to load missing view")
 		return
 	}
 	respondJSON(w, http.StatusOK, view)
@@ -70,7 +70,7 @@ func (h *Handler) AddInvites(w http.ResponseWriter, r *http.Request) {
 
 	res, err := h.service.AddInvites(r.Context(), calendarID, req.Names)
 	if err != nil {
-		h.respondInviteError(w, err)
+		h.respondInviteError(r, w, err)
 		return
 	}
 	respondJSON(w, http.StatusCreated, res)
@@ -100,7 +100,7 @@ func (h *Handler) RenameInvite(w http.ResponseWriter, r *http.Request) {
 
 	inv, err := h.service.RenameInvite(r.Context(), inviteID, req.Name)
 	if err != nil {
-		h.respondInviteError(w, err)
+		h.respondInviteError(r, w, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, inv)
@@ -122,7 +122,7 @@ func (h *Handler) DeleteInvite(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to delete invite")
+		respondInternalError(r, w, err, "internal_error", "failed to delete invite")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -149,7 +149,7 @@ func (h *Handler) ManualMatchInvite(w http.ResponseWriter, r *http.Request) {
 
 	inv, err := h.service.ManualMatchInvite(r.Context(), calendarID, inviteID, req.ParticipantID)
 	if err != nil {
-		h.respondInviteError(w, err)
+		h.respondInviteError(r, w, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, inv)
@@ -162,7 +162,7 @@ func (h *Handler) checkInviteOnCalendar(w http.ResponseWriter, r *http.Request, 
 			respondError(w, http.StatusNotFound, "not_found", "invite not found")
 			return false
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to load invite")
+		respondInternalError(r, w, err, "internal_error", "failed to load invite")
 		return false
 	}
 	if inv.CalendarID != calendarID {
@@ -172,7 +172,7 @@ func (h *Handler) checkInviteOnCalendar(w http.ResponseWriter, r *http.Request, 
 	return true
 }
 
-func (h *Handler) respondInviteError(w http.ResponseWriter, err error) {
+func (h *Handler) respondInviteError(r *http.Request, w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, store.ErrInviteLimitReached):
 		respondError(w, http.StatusConflict, "invite_limit_reached", "invite list is full")
@@ -189,6 +189,6 @@ func (h *Handler) respondInviteError(w http.ResponseWriter, err error) {
 	case errors.Is(err, service.ErrParticipantNotOnCalendar):
 		respondError(w, http.StatusBadRequest, "participant_not_on_calendar", "participant does not belong to this calendar")
 	default:
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to process invite")
+		respondInternalError(r, w, err, "internal_error", "failed to process invite")
 	}
 }

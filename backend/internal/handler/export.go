@@ -22,7 +22,7 @@ func (h *Handler) ExportICS(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to load calendar")
+		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
 		return
 	}
 	if cal.FinalisedDate == nil {
@@ -32,7 +32,7 @@ func (h *Handler) ExportICS(w http.ResponseWriter, r *http.Request) {
 
 	date, err := time.Parse("2006-01-02", *cal.FinalisedDate)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "internal_error", "invalid finalised date")
+		respondInternalError(r, w, err, "internal_error", "invalid finalised date")
 		return
 	}
 
@@ -60,7 +60,7 @@ func (h *Handler) ExportGoogle(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to load calendar")
+		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
 		return
 	}
 	if cal.FinalisedDate == nil {
@@ -70,7 +70,7 @@ func (h *Handler) ExportGoogle(w http.ResponseWriter, r *http.Request) {
 
 	date, err := time.Parse("2006-01-02", *cal.FinalisedDate)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "internal_error", "invalid finalised date")
+		respondInternalError(r, w, err, "internal_error", "invalid finalised date")
 		return
 	}
 
