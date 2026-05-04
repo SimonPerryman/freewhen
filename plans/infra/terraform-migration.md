@@ -1,6 +1,6 @@
 # Migrate GCP + GitHub config to Terraform
 
-Status: pending
+Status: in-progress
 
 ## Goal
 
@@ -97,12 +97,26 @@ not worth the import overhead for a single DB).
      stay fast (no `terraform plan` on every push). Config drift caught
      by step 5's `make tf-plan`
 
-7. **Optional: run `terraform plan` in CI**
-   - GitHub Actions job that runs `terraform plan` on every PR touching
-     `infra/`, posts the plan output as a comment
-   - Same WIF auth as the deploy job, but with a *read-only* SA so a
-     malicious PR can't `apply` from CI
-   - Skip for now — solo project, not worth the second SA
+7. **Run `terraform plan` in CI on infra changes**
+   - Extend the existing `changes` job (`dorny/paths-filter`) with an
+     `infra` filter: `infra/**` + `.github/workflows/ci.yml`. Same
+     pattern as the existing `backend` / `frontend` filters added in
+     `plans/infra/gate-deploys-on-changed-paths.md`
+   - Add a `tf-plan` job: `needs: [changes]`,
+     `if: needs.changes.outputs.infra == 'true'`. Runs on PRs *and* main
+     (drift detection is most useful pre-merge — no `github.ref` gate)
+   - Auth via WIF, but with a **read-only** SA (`roles/viewer` on the
+     project + `roles/storage.objectAdmin` on the state bucket) so a
+     malicious PR can't elevate to `apply` from CI. Bucket-level admin
+     is required because the GCS backend writes a lock object even on
+     `init`/`plan`; the read-only safety property is preserved by the
+     project-level `roles/viewer`, which prevents the SA from mutating
+     any actual GCP resources regardless of state-file access. Add this
+     SA + WIF binding to `infra/iam.tf` alongside the deploy SA
+   - New GitHub repo secret: `GCP_TF_PLAN_SA` for the read-only SA email
+   - Job runs `terraform -chdir=infra plan -no-color -detailed-exitcode`
+     and posts plan output as a PR comment via `actions/github-script`
+     (or `hashicorp/setup-terraform`'s built-in `github_token` integration)
 
 ## Risks / things to watch
 
@@ -139,3 +153,36 @@ reality stable first.
 - 2026-05-03 — Created plan after debugging the third missing IAM binding
   in the gate-deploy-on-ci work made the case for IaC obvious. Sequenced
   to land *after* deploy gating is verified end-to-end.
+- 2026-05-03 — Scaffolded `infra/` (HCL only, no execution): main, variables,
+  tfvars, iam, secrets, cloud_run, artifact_registry, github, imports.sh.
+  Added `tf-plan` CI job behind a new `infra` paths-filter, plus `make tf-plan`.
+  Steps 1 (bucket creation) and 3–4 (imports + zero-diff verification) still
+  need to happen on a real machine before this is operational.
+- 2026-05-04 — Bucket created. Created `freewhen-tf-plan` SA with
+  `roles/viewer` on project, WIF binding, repo secret `GCP_TF_PLAN_SA`.
+  Filled in `project_number` + `github_owner` in tfvars.
+- 2026-05-04 — First CI run failed at `terraform init` because GCS backend
+  writes a lock file even on init/plan; `roles/storage.objectViewer` on the
+  bucket is insufficient. Upgraded to `roles/storage.objectAdmin` (in console
+  + in `iam.tf`/`imports.sh`). Read-only safety property is preserved by
+  project-level `roles/viewer`, not by bucket IAM.
+- 2026-05-04 — Second CI run failed because `var.gcp_wif_provider` had no
+  default and TF prompted interactively. Added `TF_VAR_gcp_wif_provider` +
+  `GITHUB_TOKEN` env vars to the tf-plan job (sourced from the existing
+  `GCP_WIF_PROVIDER` repo secret + the default workflow token).
+- 2026-05-04 — `tf-plan` job green on PR #4. Plan reads the five live
+  Secret Manager secrets via `data` sources (proves WIF auth works) and
+  proposes `+ create` for ~20 resources because nothing's imported yet.
+  PR is mergeable; steps 3 (imports), 4 (zero-diff verification), and 6
+  (strip duplicated env config from deploy workflow) remain.
+
+## Status of plan steps
+
+- ✅ Step 1: Bootstrap state backend — `gs://freewhen-tfstate` created
+- ✅ Step 2: Scaffold `infra/` folder — all `.tf` files written
+- ⬜ Step 3: Import existing resources — `imports.sh` written but not run
+- ⬜ Step 4: Verify zero-diff state — first plan in CI shows 20+ creates
+- 🔄 Step 5: Move config drift checks into PR review — `make tf-plan`
+  added; `plans/` requirement note still TBD
+- ⬜ Step 6: Remove duplicated env/secret config from `ci.yml` deploy job
+- ✅ Step 7: Run `terraform plan` in CI — done in PR #4

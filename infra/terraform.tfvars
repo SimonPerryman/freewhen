@@ -1,0 +1,6 @@
+project_id     = "freewhen-493819"
+project_number = "350910532607"
+region         = "europe-west1"
+github_owner   = "SimonPerryman"
+github_repo    = "freewhen"
+service_name   = "freewhen-api"

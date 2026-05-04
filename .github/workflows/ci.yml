@@ -15,6 +15,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
+      infra: ${{ steps.filter.outputs.infra }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -28,6 +29,9 @@ jobs:
             frontend:
               - 'frontend/**'
               - 'Makefile'
+              - '.github/workflows/ci.yml'
+            infra:
+              - 'infra/**'
               - '.github/workflows/ci.yml'
 
   # Single job for lint + test + build. Not worth splitting into parallel jobs
@@ -90,6 +94,75 @@ jobs:
 
       - name: Build frontend
         run: make build-frontend
+
+  tf-plan:
+    needs: [changes]
+    if: needs.changes.outputs.infra == 'true'
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_TF_PLAN_SA }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.x
+          terraform_wrapper: false
+
+      - name: Terraform init
+        run: terraform -chdir=infra init -input=false
+
+      - name: Terraform plan
+        id: plan
+        env:
+          # Variables consumed by the github provider + tfvars at plan time.
+          # GITHUB_TOKEN is the default workflow token — fine for plan, since
+          # nothing's been imported yet so plan proposes creates and doesn't
+          # need to read existing secret values.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TF_VAR_gcp_wif_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+        run: |
+          set +e
+          terraform -chdir=infra plan -no-color -detailed-exitcode -out=tfplan > plan.txt 2>&1
+          echo "exitcode=$?" >> "$GITHUB_OUTPUT"
+          {
+            echo 'plan<<EOF'
+            cat plan.txt
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Comment plan on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+          PLAN: ${{ steps.plan.outputs.plan }}
+          EXITCODE: ${{ steps.plan.outputs.exitcode }}
+        with:
+          script: |
+            const { PLAN, EXITCODE } = process.env;
+            const header = EXITCODE === '0'
+              ? '### Terraform plan: no changes'
+              : EXITCODE === '2'
+                ? '### Terraform plan: changes detected'
+                : '### Terraform plan: errored';
+            const body = `${header}\n\n<details><summary>plan output</summary>\n\n\`\`\`\n${PLAN.slice(0, 60000)}\n\`\`\`\n\n</details>`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      - name: Fail on plan error
+        if: steps.plan.outputs.exitcode == '1'
+        run: exit 1
 
   deploy-backend:
     needs: [ci, changes]

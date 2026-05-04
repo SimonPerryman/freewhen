@@ -1,4 +1,4 @@
-.PHONY: dev dev-backend dev-backend-watch dev-frontend lint lint-backend lint-frontend lint-pii fmt build test test-backend test-frontend test-integration
+.PHONY: dev dev-backend dev-backend-watch dev-frontend lint lint-backend lint-frontend lint-pii fmt build test test-backend test-frontend test-integration tf-plan
 
 # Run both backend and frontend in development mode
 dev:
@@ -59,3 +59,9 @@ build-backend:
 
 build-frontend:
 	cd frontend && pnpm build
+
+# Surface infra drift locally. Exits 2 if the plan has changes — useful in
+# pre-commit hooks or just as a manual check before merging infra edits.
+tf-plan:
+	terraform -chdir=infra init -input=false
+	terraform -chdir=infra plan -detailed-exitcode
