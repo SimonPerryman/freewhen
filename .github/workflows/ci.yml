@@ -131,6 +131,8 @@ jobs:
           # state via API endpoints that require Variables/Secrets read scope.
           TF_VAR_github_token: ${{ secrets.TF_GITHUB_TOKEN }}
           TF_VAR_gcp_wif_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          TF_VAR_billing_account_id: ${{ secrets.GCP_BILLING_ACCOUNT_ID }}
+          TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
         run: |
           set +e
           terraform -chdir=infra plan -no-color -detailed-exitcode -out=tfplan > plan.txt 2>&1
@@ -199,6 +201,8 @@ jobs:
         env:
           TF_VAR_github_token: ${{ secrets.TF_GITHUB_TOKEN }}
           TF_VAR_gcp_wif_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          TF_VAR_billing_account_id: ${{ secrets.GCP_BILLING_ACCOUNT_ID }}
+          TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
         run: terraform -chdir=infra apply -auto-approve -input=false
 
   deploy-backend:

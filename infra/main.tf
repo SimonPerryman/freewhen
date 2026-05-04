@@ -21,6 +21,12 @@ terraform {
 provider "google" {
   project = var.project_id
   region  = var.region
+
+  # billingbudgets.googleapis.com (and a handful of other "user project" APIs)
+  # require the x-goog-user-project header. Without these, calls fall back to
+  # GCP's default consumer project which doesn't have the API enabled.
+  user_project_override = true
+  billing_project       = var.project_id
 }
 
 provider "github" {

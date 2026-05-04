@@ -4,8 +4,8 @@ resource "google_cloud_run_v2_service" "api" {
   ingress  = "INGRESS_TRAFFIC_ALL"
 
   template {
-    service_account = local.runtime_sa_email
-    timeout         = "300s"
+    service_account                  = local.runtime_sa_email
+    timeout                          = "300s"
     max_instance_request_concurrency = 80
 
     scaling {

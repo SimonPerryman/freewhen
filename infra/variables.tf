@@ -38,3 +38,15 @@ variable "github_token" {
   type        = string
   sensitive   = true
 }
+
+variable "billing_account_id" {
+  description = "GCP billing account ID (e.g. AAAAAA-BBBBBB-CCCCCC) for the budget alert. Lives in secrets.auto.tfvars (gitignored) or TF_VAR_billing_account_id; mildly sensitive."
+  type        = string
+  sensitive   = true
+}
+
+variable "alert_email" {
+  description = "Email address that receives billing budget alerts. Lives in secrets.auto.tfvars (gitignored) or TF_VAR_alert_email."
+  type        = string
+  sensitive   = true
+}
