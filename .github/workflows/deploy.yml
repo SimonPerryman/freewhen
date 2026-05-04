@@ -12,7 +12,32 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Belt-and-braces on top of `concurrency` above: if a newer commit has
+  # already landed on main while this run was queued, short-circuit to a
+  # green no-op instead of redeploying a now-superseded SHA on top of the
+  # newer one. Concurrency keeps deploys serialised; this keeps them
+  # monotonic. Every downstream job gates on `is_head == 'true'`.
+  head-check:
+    runs-on: ubuntu-24.04-arm
+    outputs:
+      is_head: ${{ steps.check.outputs.is_head }}
+      head_sha: ${{ steps.check.outputs.head_sha }}
+    steps:
+      - id: check
+        run: |
+          HEAD_SHA=$(git ls-remote https://github.com/${{ github.repository }}.git refs/heads/main | awk '{print $1}')
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          if [ "$HEAD_SHA" = "${{ github.sha }}" ]; then
+            echo "is_head=true" >> "$GITHUB_OUTPUT"
+            echo "This run's SHA is current main HEAD — proceeding."
+          else
+            echo "is_head=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Superseded by $HEAD_SHA — skipping deploy for ${{ github.sha }}."
+          fi
+
   changes:
+    needs: [head-check]
+    if: needs.head-check.outputs.is_head == 'true'
     runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
