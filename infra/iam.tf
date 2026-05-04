@@ -31,6 +31,10 @@ locals {
     "roles/run.admin",
     "roles/artifactregistry.admin",
     "roles/secretmanager.viewer",
+    # Needed by `google_monitoring_notification_channel` (billing alert
+    # email channel in `billing.tf`). The first CI tf-apply on main hit a
+    # 403 trying to delete the channel during a botched destroy plan.
+    "roles/monitoring.editor",
   ]
 }
 
