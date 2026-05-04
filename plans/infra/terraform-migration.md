@@ -106,9 +106,13 @@ not worth the import overhead for a single DB).
      `if: needs.changes.outputs.infra == 'true'`. Runs on PRs *and* main
      (drift detection is most useful pre-merge — no `github.ref` gate)
    - Auth via WIF, but with a **read-only** SA (`roles/viewer` on the
-     project + `roles/storage.objectViewer` on the state bucket) so a
-     malicious PR can't elevate to `apply` from CI. Add this SA + WIF
-     binding to `infra/iam.tf` alongside the deploy SA
+     project + `roles/storage.objectAdmin` on the state bucket) so a
+     malicious PR can't elevate to `apply` from CI. Bucket-level admin
+     is required because the GCS backend writes a lock object even on
+     `init`/`plan`; the read-only safety property is preserved by the
+     project-level `roles/viewer`, which prevents the SA from mutating
+     any actual GCP resources regardless of state-file access. Add this
+     SA + WIF binding to `infra/iam.tf` alongside the deploy SA
    - New GitHub repo secret: `GCP_TF_PLAN_SA` for the read-only SA email
    - Job runs `terraform -chdir=infra plan -no-color -detailed-exitcode`
      and posts plan output as a PR comment via `actions/github-script`
@@ -154,3 +158,11 @@ reality stable first.
   Added `tf-plan` CI job behind a new `infra` paths-filter, plus `make tf-plan`.
   Steps 1 (bucket creation) and 3–4 (imports + zero-diff verification) still
   need to happen on a real machine before this is operational.
+- 2026-05-04 — Bucket created. Created `freewhen-tf-plan` SA with
+  `roles/viewer` on project, WIF binding, repo secret `GCP_TF_PLAN_SA`.
+  Filled in `project_number` + `github_owner` in tfvars.
+- 2026-05-04 — First CI run failed at `terraform init` because GCS backend
+  writes a lock file even on init/plan; `roles/storage.objectViewer` on the
+  bucket is insufficient. Upgraded to `roles/storage.objectAdmin` (in console
+  + in `iam.tf`/`imports.sh`). Read-only safety property is preserved by
+  project-level `roles/viewer`, not by bucket IAM.
