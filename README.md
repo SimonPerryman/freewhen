@@ -4,41 +4,59 @@ A dead-simple shared calendar for finding when a group is free.
 
 Create a calendar, share the link, mark your available days. See everyone's availability at a glance.
 
-## Quick Start
+## Stack
 
-### Prerequisites
+- **Backend:** Go (standard library `net/http`, `log/slog`)
+- **Frontend:** Next.js App Router, TypeScript, oxlint + oxfmt, vitest
+- **Database:** Postgres (Neon in production)
+- **Hosting:** Cloud Run (backend), Vercel (frontend)
+- **Infra:** Terraform in `infra/` (GCP + GitHub Actions config)
+
+## Prerequisites
 
 - Go 1.23+
-- Node.js 20+
-- A hosted Postgres database (Supabase, Neon, Railway, etc.)
+- Node 24 LTS (see `.nvmrc`) with pnpm via Corepack
+- A hosted Postgres database (Neon, Supabase, Railway, etc.)
 
-### Setup
+## Setup
 
 ```bash
 cp .env.example .env
 # Edit .env with your DATABASE_URL
+corepack enable
 ```
 
-### Run
+## Run
 
 ```bash
-# Backend (port 8080)
-make dev-backend
-
-# Frontend (port 3000)
-make dev-frontend
+make dev-backend          # :8080
+make dev-frontend         # :3000
+make dev-backend-watch    # auto-restart on .go/.sql changes (requires air)
 ```
 
-### Other Commands
+## Common commands
 
 ```bash
-make lint          # Lint both backend and frontend
-make fmt           # Format frontend code
-make build         # Build both for production
+make lint              # golangci-lint + oxlint
+make fmt               # oxfmt (frontend)
+make test              # backend + frontend tests
+make test-integration  # Go integration tests (embedded Postgres)
+make build             # production build
 ```
 
-## Project Structure
+Run `make lint` and `make test` before every commit. For changes that touch backend storage, handlers, or server wiring, also run `make test-integration`.
 
-- `backend/` - Go API server
-- `frontend/` - Next.js React app
-- `docs/` - Project documentation
+## Project structure
+
+- `backend/` — Go API server (see `backend/README.md`)
+- `frontend/` — Next.js app (see `frontend/README.md`)
+- `infra/` — Terraform for GCP + GitHub Actions (see `infra/README.md`)
+- `docs/` — API reference, infra notes, roadmap
+- `plans/` — every piece of work has a plan here before implementation
+
+## Documentation
+
+- `AGENTS.md` — conventions and principles (mobile-first, 12-factor config, no PII in logs)
+- `docs/api.md` — API endpoint reference
+- `docs/infra-notes.md` — hosting, deploy, first-time setup
+- `docs/v2-priorities.md`, `docs/v3-priorities.md` — roadmap
