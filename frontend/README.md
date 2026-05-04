@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FreeWhen frontend
 
-## Getting Started
+Next.js App Router app for FreeWhen. See the root `README.md` for the full stack overview and `AGENTS.md` for project conventions.
 
-First, run the development server:
+## Run
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+pnpm dev          # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Or from the repo root: `make dev-frontend`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The app expects the backend on `:8080` — start it with `make dev-backend` in another shell.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Tooling
 
-## Learn More
+- **Node 24 LTS** via `.nvmrc`; pnpm via Corepack (pinned in `package.json`)
+- **oxlint** for linting, **oxfmt** for formatting
+- **vitest** with jsdom for tests; `@/` alias maps to `src/`
+- Optional **bun** as a speedup (e.g. `bunx vitest`) — not a runtime dependency
 
-To learn more about Next.js, take a look at the following resources:
+## Commands
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+pnpm lint                              # oxlint
+pnpm test                              # vitest
+pnpm exec vitest run path/to/file      # single file
+pnpm build                             # production build
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Conventions
 
-## Deploy on Vercel
+- App Router under `src/app/`
+- Components: `src/components/<Name>/<Name>.tsx` — folder-per-component, no barrel files
+- Shared utilities and API client: `src/lib/` (flat)
+- Use `log.info`/`log.warn`/`log.error` from `src/lib/log.ts` instead of `console.*`
+- Mobile first — design at 375px, enhance with min-width breakpoints
+- For reversible actions, use the `Toast` primitive with an `Undo` action — never `window.confirm`
+- Error boundary lives in `src/app/error.tsx`; not-found in `src/app/not-found.tsx`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Deployment
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Auto-deploys to Vercel on push. See `docs/infra-notes.md`.
