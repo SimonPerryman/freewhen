@@ -210,6 +210,24 @@ reality stable first.
     to `hashicorp/tap/terraform` (1.15.1) to satisfy `required_version`.
 - 2026-05-04 — `terraform plan` shows zero diff. All 31 resources in
   state, HCL matches reality field-for-field. Step 3 + step 4 done.
+- 2026-05-04 — Local plan is zero-diff but CI plan failed with three
+  privilege gaps (read-only `freewhen-tf-plan` SA + default workflow
+  GITHUB_TOKEN are more restricted than my user + PAT locally). Fixed:
+  - Enabled `cloudresourcemanager.googleapis.com` on the project (TF
+    needs it to refresh `google_project_iam_member` state; my local
+    ADC code path didn't hit the gate).
+  - Bumped the bucket binding from `roles/storage.objectAdmin` to
+    `roles/storage.admin`. `objectAdmin` doesn't include
+    `storage.buckets.getIamPolicy`, so TF couldn't refresh the
+    `google_storage_bucket_iam_member` state. Bucket-scoped admin
+    still preserves the read-only safety property — project-level
+    `roles/viewer` is what blocks `apply`.
+  - Added `TF_GITHUB_TOKEN` repo secret holding a fine-grained PAT.
+    The default workflow `GITHUB_TOKEN` returns 403 on
+    `/actions/variables/*` and `/actions/secrets/*` even with
+    `actions: read` — Variables/Secrets API endpoints require explicit
+    PAT scopes that the workflow token doesn't grant. Reused the
+    existing local PAT for now; rotate after the import phase.
 
 ## Status of plan steps
 
