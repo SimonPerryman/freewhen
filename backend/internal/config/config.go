@@ -36,6 +36,10 @@ type Config struct {
 	// PostHogPersonalKey enables local polling of flag definitions for
 	// in-process evaluation. Optional.
 	PostHogPersonalKey string
+	// E2ETestMode enables a /test/login endpoint that mints sessions for an
+	// arbitrary email — used by the Playwright suite. Hard-refused when
+	// SECURE_COOKIES=true so it can never be enabled in a prod-shaped env.
+	E2ETestMode bool
 }
 
 func Load() (*Config, error) {
@@ -98,6 +102,14 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("COOKIE_DOMAIN is required when SECURE_COOKIES=true (set SECURE_COOKIES=false for local HTTP dev)")
 	}
 
+	e2eTestMode, err := parseBool(os.Getenv("E2E_TEST_MODE"), false)
+	if err != nil {
+		return nil, fmt.Errorf("E2E_TEST_MODE: %w", err)
+	}
+	if e2eTestMode && secureCookies {
+		return nil, fmt.Errorf("E2E_TEST_MODE=true is incompatible with SECURE_COOKIES=true (test-login must never be enabled in prod-shaped envs)")
+	}
+
 	return &Config{
 		DatabaseURL:               dbURL,
 		Port:                      port,
@@ -117,6 +129,7 @@ func Load() (*Config, error) {
 		PostHogKey:                os.Getenv("POSTHOG_KEY"),
 		PostHogHost:               os.Getenv("POSTHOG_HOST"),
 		PostHogPersonalKey:        os.Getenv("POSTHOG_PERSONAL_API_KEY"),
+		E2ETestMode:               e2eTestMode,
 	}, nil
 }
 
