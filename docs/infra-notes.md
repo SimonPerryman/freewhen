@@ -58,6 +58,20 @@ Frontend env vars:
 
 The backend handles `SIGTERM`/`SIGINT` with a 25-second graceful shutdown — Cloud Run traffic drains cleanly on new revisions.
 
+## Cost guardrails
+
+Two layers, both managed in `infra/`:
+
+- **Hard cap:** `cloud_run.tf` sets `max_instance_count = 3`. A runaway loop or traffic spike can't scale infinitely — Cloud Run sheds load instead of billing for it.
+- **Early warning:** `infra/billing.tf` defines a £5/month project-wide budget on the billing account, with email alerts at 50%, 90%, 100%, and 150% of the cap. Routed via an explicit `google_monitoring_notification_channel` so the recipient list stays in code, not implicit billing IAM. Console: Billing → Budgets & alerts → "FreeWhen monthly spend".
+
+The budget needs two things that aren't in TF state and have to be granted out-of-band on the billing account (TF can't bootstrap its own billing-account access without `billing.admin`, which is too broad to hand to CI):
+
+- `roles/billing.costsManager` on the tf-apply SA
+- `roles/billing.viewer` on the tf-plan SA
+
+Inputs (`billing_account_id`, `alert_email`) live in `secrets.auto.tfvars` locally and as `GCP_BILLING_ACCOUNT_ID` / `ALERT_EMAIL` GitHub secrets in CI — both seeded by the first local apply.
+
 ## Observability
 
 ### Admin metrics endpoint

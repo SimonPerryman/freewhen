@@ -15,6 +15,11 @@ locals {
 
   tf_plan_sa_roles = [
     "roles/viewer",
+    # `user_project_override = true` on the google provider (billing.tf
+    # needs it for billingbudgets) routes every API call through the
+    # quota project, which requires `serviceusage.services.use`. Without
+    # this, plan/refresh fails with a 403 on any IAM-policy read.
+    "roles/serviceusage.serviceUsageConsumer",
   ]
 
   # Roles for the tf-apply SA. Broader than tf-plan because it must mutate
@@ -31,6 +36,13 @@ locals {
     "roles/run.admin",
     "roles/artifactregistry.admin",
     "roles/secretmanager.viewer",
+    # Needed by `google_monitoring_notification_channel` (billing alert
+    # email channel in `billing.tf`). The first CI tf-apply on main hit a
+    # 403 trying to delete the channel during a botched destroy plan.
+    "roles/monitoring.editor",
+    # Same `user_project_override` / `serviceusage.services.use`
+    # requirement as tf-plan — see comment above.
+    "roles/serviceusage.serviceUsageConsumer",
   ]
 }
 

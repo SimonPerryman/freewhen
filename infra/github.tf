@@ -57,3 +57,24 @@ resource "github_actions_secret" "gcp_tf_apply_sa" {
     ignore_changes = [value]
   }
 }
+
+# Billing budget inputs — needed by CI so plan/apply can reconcile billing.tf.
+# Seeded from secrets.auto.tfvars (or TF_VAR_*) on the first local apply, then
+# read from GitHub secrets in CI.
+resource "github_actions_secret" "billing_account_id" {
+  repository  = var.github_repo
+  secret_name = "GCP_BILLING_ACCOUNT_ID"
+  value       = var.billing_account_id
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
+
+resource "github_actions_secret" "alert_email" {
+  repository  = var.github_repo
+  secret_name = "ALERT_EMAIL"
+  value       = var.alert_email
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
