@@ -115,6 +115,33 @@ a {
   text-decoration: none;
 }
 
+/* Global focus indicator. Any component that overrides outline must provide
+   its own visible :focus-visible style. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 10px 14px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  z-index: 10000;
+  transform: translateY(-200%);
+  transition: transform 0.15s;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 @media (prefers-color-scheme: dark) {
   html {
     color-scheme: dark;

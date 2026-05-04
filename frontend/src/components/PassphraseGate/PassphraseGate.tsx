@@ -62,13 +62,17 @@ export default function PassphraseGate({
           autoComplete="off"
           autoFocus
           disabled={submitting}
+          required
+          aria-required="true"
           aria-label="Passphrase"
+          aria-invalid={!!error}
+          aria-describedby={error ? "passphrase-gate-error" : undefined}
         />
         <button type="submit" className={styles.button} disabled={submitting || !value.trim()}>
           {submitting ? "Unlocking…" : "Unlock"}
         </button>
         {error ? (
-          <p className={styles.error} role="alert">
+          <p id="passphrase-gate-error" className={styles.error} role="alert">
             {error}
           </p>
         ) : null}

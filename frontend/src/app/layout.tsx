@@ -61,6 +61,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${body.variable} ${display.variable}`}>
       <body>
+        <a href="#main" className="skip-link">
+          Skip to content
+        </a>
         <AnalyticsProvider>
           <AuthProvider>
             <ToastProvider>

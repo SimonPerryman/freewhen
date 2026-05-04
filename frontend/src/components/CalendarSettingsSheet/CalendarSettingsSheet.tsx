@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 import styles from "./CalendarSettingsSheet.module.css";
 
 interface Props {
@@ -22,13 +22,7 @@ export default function CalendarSettingsSheet({
   onDuplicate,
   onClose,
 }: Props) {
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  const sheetRef = useFocusTrap<HTMLDivElement>({ onEscape: onClose });
 
   return (
     <div
@@ -38,13 +32,16 @@ export default function CalendarSettingsSheet({
       }}
     >
       <div
+        ref={sheetRef}
         className={styles.sheet}
         role="dialog"
         aria-modal="true"
-        aria-label="Calendar settings"
+        aria-labelledby="settings-sheet-title"
       >
         <div className={styles.header}>
-          <h2 className={styles.heading}>Settings</h2>
+          <h2 id="settings-sheet-title" className={styles.heading}>
+            Settings
+          </h2>
           <button
             type="button"
             className={styles.closeButton}

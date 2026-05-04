@@ -70,7 +70,7 @@ export default function FinalisedBanner({
   }
 
   return (
-    <div className={styles.banner} role="status">
+    <div className={styles.banner} role="status" aria-live="polite">
       <div className={styles.contents}>
         <span className={styles.emoji} aria-hidden="true">
           {emoji}
