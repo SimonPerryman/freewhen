@@ -68,7 +68,7 @@ export default function Home() {
 
   return (
     <div className={styles.page}>
-      <main className={styles.container}>
+      <main id="main" className={styles.container}>
         <h1 className={styles.heading}>FreeWhen</h1>
         <p className={styles.subheading}>Find when everyone&apos;s free.</p>
 

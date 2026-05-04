@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, duplicateCalendar } from "@/lib/api";
 import analytics from "@/lib/analytics";
 import { MAX_CALENDAR_NAME_LENGTH } from "@/lib/limits";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 import styles from "./DuplicateCalendarSheet.module.css";
 
 interface Props {
@@ -25,19 +26,17 @@ export default function DuplicateCalendarSheet({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const sheetRef = useFocusTrap<HTMLDivElement>({
+    enabled: !submitting,
+    onEscape: () => {
+      if (!submitting) onClose();
+    },
+    initialFocus: inputRef,
+  });
 
   useEffect(() => {
-    inputRef.current?.focus();
     inputRef.current?.select();
   }, []);
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && !submitting) onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, submitting]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -88,8 +87,16 @@ export default function DuplicateCalendarSheet({
         if (e.target === e.currentTarget && !submitting) onClose();
       }}
     >
-      <div className={styles.sheet} role="dialog" aria-modal="true" aria-label="Duplicate calendar">
-        <h2 className={styles.heading}>Duplicate this calendar</h2>
+      <div
+        ref={sheetRef}
+        className={styles.sheet}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="duplicate-sheet-title"
+      >
+        <h2 id="duplicate-sheet-title" className={styles.heading}>
+          Duplicate this calendar
+        </h2>
         <form onSubmit={handleSubmit} className={styles.form}>
           <label className={styles.label}>
             <span>Name</span>
@@ -101,6 +108,8 @@ export default function DuplicateCalendarSheet({
               onChange={(e) => setName(e.target.value)}
               maxLength={MAX_CALENDAR_NAME_LENGTH}
               disabled={submitting}
+              aria-invalid={!!error}
+              aria-describedby={error ? "duplicate-sheet-error" : undefined}
             />
           </label>
           <label className={styles.checkboxRow}>
@@ -119,7 +128,7 @@ export default function DuplicateCalendarSheet({
             </span>
           </label>
           {error ? (
-            <p className={styles.error} role="alert">
+            <p id="duplicate-sheet-error" className={styles.error} role="alert">
               {error}
             </p>
           ) : null}

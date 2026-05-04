@@ -43,7 +43,7 @@ export default function Toast({
   }, [onDismiss, durationMs, paused, toastKey]);
 
   return (
-    <div className={styles.root} role="status" aria-live="polite">
+    <div className={styles.root} role="status" aria-live="polite" aria-atomic="true">
       <div
         className={`${styles.toast} ${visible ? styles.visible : ""}`}
         data-testid="toast"

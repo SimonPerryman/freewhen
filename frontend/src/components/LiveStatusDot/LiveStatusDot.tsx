@@ -12,7 +12,7 @@ interface Props {
 export default function LiveStatusDot({ status }: Props) {
   if (status === "polling") {
     return (
-      <span className={styles.root} role="status" title="Updates every 15s">
+      <span className={styles.root} role="status" aria-live="polite" title="Updates every 15s">
         <span className={`${styles.dot} ${styles.polling}`} aria-hidden="true" />
         Polling
       </span>
@@ -20,7 +20,7 @@ export default function LiveStatusDot({ status }: Props) {
   }
   if (status === "closed") {
     return (
-      <span className={styles.root} role="status" title="Updates paused — refresh to retry">
+      <span className={styles.root} role="status" aria-live="polite" title="Updates paused — refresh to retry">
         <span className={`${styles.dot} ${styles.closed}`} aria-hidden="true" />
         Offline
       </span>

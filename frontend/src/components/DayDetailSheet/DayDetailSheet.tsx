@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Availability, Participant } from "@/lib/types";
 import { MAX_NOTE_LENGTH, codePointCount } from "@/lib/limits";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 import styles from "./DayDetailSheet.module.css";
 
 interface DayDetailSheetProps {
@@ -74,62 +75,27 @@ export default function DayDetailSheet({
 }: DayDetailSheetProps) {
   const [draft, setDraft] = useState(currentNote);
   const backdropRef = useRef<HTMLDivElement | null>(null);
-  const sheetRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const initialFocus = !finalised ? textareaRef : closeButtonRef;
+  const sheetRef = useFocusTrap<HTMLDivElement>({
+    onEscape: onClose,
+    initialFocus,
+  });
 
   useEffect(() => {
     setDraft(currentNote);
   }, [currentNote, date]);
 
-  // Esc-to-close + minimal focus trap. When the editor is shown, focus the
-  // textarea so the user can type immediately; otherwise fall back to the
-  // close button so keyboard users have an obvious escape.
+  // After the trap focuses the textarea, push the caret to the end so
+  // editing an existing note doesn't force the user to Ctrl-End first.
   useEffect(() => {
-    const prev = document.activeElement as HTMLElement | null;
-    if (!finalised && textareaRef.current) {
-      textareaRef.current.focus();
-      // Put the caret at the end so editing an existing note doesn't force
-      // the user to Ctrl-End before appending.
-      const len = textareaRef.current.value.length;
-      textareaRef.current.setSelectionRange(len, len);
-    } else {
-      closeButtonRef.current?.focus();
-    }
-
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
-      if (e.key === "Tab") {
-        // Trap focus within the sheet. We scope to focusable elements inside
-        // sheetRef and wrap at the boundaries.
-        const root = sheetRef.current;
-        if (!root) return;
-        const focusable = root.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-        );
-        if (focusable.length === 0) return;
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    }
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      // Restore focus to the triggering element so keyboard users land back
-      // on the cell they tapped.
-      prev?.focus?.();
-    };
-  }, [finalised, onClose]);
+    if (finalised) return;
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const len = ta.value.length;
+    ta.setSelectionRange(len, len);
+  }, [finalised]);
 
   // Build the "who's free" list with notes. We overlay current-participant
   // state from the parent so the list is consistent with their unsaved

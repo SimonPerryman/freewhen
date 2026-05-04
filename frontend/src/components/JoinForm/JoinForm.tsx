@@ -47,6 +47,10 @@ export default function JoinForm({ onJoin, error, defaultName = "" }: JoinFormPr
           autoComplete="off"
           disabled={submitting}
           maxLength={MAX_PARTICIPANT_NAME_LENGTH}
+          required
+          aria-required="true"
+          aria-invalid={!!error}
+          aria-describedby={error ? "participant-name-error" : undefined}
         />
         <button type="submit" className={styles.button} disabled={submitting || !name.trim()}>
           {submitting ? "Joining…" : "Join"}
@@ -58,7 +62,7 @@ export default function JoinForm({ onJoin, error, defaultName = "" }: JoinFormPr
         </p>
       ) : null}
       {error ? (
-        <p role="alert" className={styles.error}>
+        <p id="participant-name-error" role="alert" className={styles.error}>
           {error}
         </p>
       ) : null}

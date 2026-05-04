@@ -52,7 +52,7 @@ function LoginContent() {
 
   return (
     <div className={styles.page}>
-      <main className={styles.container}>
+      <main id="main" className={styles.container}>
         <h1 className={styles.heading}>Sign in</h1>
         <p className={styles.subheading}>Sign in to create and manage your calendars.</p>
 
@@ -83,7 +83,11 @@ function LoginContent() {
         </div>
 
         <form onSubmit={handleEmailSubmit} className={styles.emailForm}>
+          <label htmlFor="login-email" className={styles.emailLabel}>
+            Email address
+          </label>
           <input
+            id="login-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -91,11 +95,17 @@ function LoginContent() {
             className={styles.emailInput}
             required
             disabled={sending}
+            aria-invalid={!!error}
+            aria-describedby={error ? "login-email-error" : undefined}
           />
           <button type="submit" className={styles.emailButton} disabled={sending || !email}>
             {sending ? "Sending..." : "Send magic link"}
           </button>
-          {error && <p className={styles.error}>{error}</p>}
+          {error && (
+            <p id="login-email-error" className={styles.error} role="alert">
+              {error}
+            </p>
+          )}
         </form>
       </main>
     </div>

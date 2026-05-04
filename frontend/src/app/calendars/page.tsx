@@ -60,7 +60,7 @@ export default function MyCalendarsPage() {
   if (authLoading && !isAuthenticated) {
     return (
       <div className={styles.page}>
-        <main className={styles.container}>
+        <main id="main" className={styles.container}>
           <h1 className={styles.heading}>My calendars</h1>
           <MyCalendarsList status="loading" calendars={[]} hasMore={false} />
         </main>
@@ -74,7 +74,7 @@ export default function MyCalendarsPage() {
 
   return (
     <div className={styles.page}>
-      <main className={styles.container}>
+      <main id="main" className={styles.container}>
         <h1 className={styles.heading}>My calendars</h1>
         <MyCalendarsList
           status={status}

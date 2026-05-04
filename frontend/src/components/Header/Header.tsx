@@ -21,7 +21,7 @@ export default function Header() {
       <a href="/" className={styles.logo}>
         FreeWhen
       </a>
-      <div className={styles.actions}>
+      <nav aria-label="Primary" className={styles.actions}>
         {isLoading ? null : user ? (
           <>
             <a href="/calendars" className={styles.myCalendarsLink}>
@@ -41,7 +41,7 @@ export default function Header() {
             Sign in
           </a>
         )}
-      </div>
+      </nav>
     </header>
   );
 }
