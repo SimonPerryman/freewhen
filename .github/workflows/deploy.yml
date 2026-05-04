@@ -1,0 +1,167 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+# Don't cancel an in-flight rollout when a new merge lands — let the prior
+# Cloud Run / Vercel deploy finish, then run the next one. Different from CI's
+# cancel-in-progress: true because deploys aren't safe to interrupt mid-flight.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  changes:
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      infra: ${{ steps.filter.outputs.infra }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'Makefile'
+              - '.github/workflows/deploy.yml'
+            frontend:
+              - 'frontend/**'
+              - 'Makefile'
+              - '.github/workflows/deploy.yml'
+            infra:
+              - 'infra/**'
+              - '.github/workflows/deploy.yml'
+
+  tf-apply:
+    # Branch scoping is enforced by the workflow trigger (push to main only),
+    # which keeps the WIF binding symmetric with the deploy SA. Runs before
+    # `deploy-backend` so a combined infra+backend change lands the service
+    # config (env vars, secrets) before the new image rolls.
+    needs: [changes]
+    if: needs.changes.outputs.infra == 'true'
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_TF_APPLY_SA }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.x
+          terraform_wrapper: false
+
+      - name: Terraform init
+        run: terraform -chdir=infra init -input=false
+
+      - name: Terraform apply
+        env:
+          TF_VAR_github_token: ${{ secrets.TF_GITHUB_TOKEN }}
+          TF_VAR_gcp_wif_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          TF_VAR_billing_account_id: ${{ secrets.GCP_BILLING_ACCOUNT_ID }}
+          TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
+        run: terraform -chdir=infra apply -auto-approve -input=false
+
+  deploy-backend:
+    needs: [changes, tf-apply]
+    if: |
+      always() &&
+      (needs.tf-apply.result == 'success' || needs.tf-apply.result == 'skipped') &&
+      needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      # Image tag = commit SHA so Cloud Run revisions are traceable to a commit.
+      # Service config (env vars, secrets, scaling, concurrency, timeout, CPU,
+      # ingress, invoker IAM) is owned by Terraform — see infra/cloud_run.tf.
+      # This job only ships a new image; everything else flows through `tf apply`.
+      - name: Build and push image
+        env:
+          IMAGE: europe-west1-docker.pkg.dev/${{ steps.auth.outputs.project_id }}/cloud-run-source-deploy/${{ vars.GCP_SERVICE_NAME }}:${{ github.sha }}
+        run: |
+          # --suppress-logs: belt-and-braces; the load-bearing fix is
+          # roles/viewer on the deploy SA (gcloud's upfront check is for
+          # project Viewer/Owner and isn't satisfied by scoped roles).
+          gcloud builds submit backend --tag "$IMAGE" --suppress-logs
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Deploy image to Cloud Run
+        run: |
+          gcloud run services update "${{ vars.GCP_SERVICE_NAME }}" \
+            --region "${{ vars.GCP_REGION }}" \
+            --image "$IMAGE"
+
+  deploy-frontend:
+    # Runs after deploy-backend so a backend+frontend change ships the API
+    # before the UI that depends on it. Tolerates deploy-backend being skipped
+    # (frontend-only change) but not failed/cancelled.
+    needs: [changes, deploy-backend]
+    if: |
+      always() &&
+      (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') &&
+      needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-24.04-arm
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      # Vercel CLI uses cwd to find the linked project (`frontend/.vercel/`)
+      # and to write `.vercel/.env.production.local`. The dashboard's Root
+      # Directory setting only applies to git-integration builds, not CLI
+      # invocations — so these must run from `frontend/`.
+      - name: Pull Vercel environment
+        run: pnpm dlx vercel@latest pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: frontend/.next/cache
+          key: nextjs-vercel-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}-${{ hashFiles('frontend/**/*.[jt]s', 'frontend/**/*.[jt]sx') }}
+          restore-keys: |
+            nextjs-vercel-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}-
+            nextjs-vercel-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Build
+        run: pnpm dlx vercel@latest build --prod --token="${{ secrets.VERCEL_TOKEN }}"
+
+      - name: Deploy
+        run: pnpm dlx vercel@latest deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}"
