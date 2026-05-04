@@ -138,6 +138,7 @@ jobs:
           key: embedded-postgres-${{ runner.os }}-${{ runner.arch }}-v16
 
       - name: Cache Playwright browsers
+        id: playwright-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
@@ -145,8 +146,16 @@ jobs:
           restore-keys: |
             playwright-${{ runner.os }}-${{ runner.arch }}-
 
-      - name: Install Playwright Chromium + system deps
-        run: cd frontend && pnpm exec playwright install --with-deps chromium
+      # Split into browser-bytes (cacheable) and OS deps (apt, not cacheable
+      # via actions/cache). Skipping the browser download entirely on a cache
+      # hit shaves ~25s; the apt step still runs every time, but the browser
+      # binary alone is the bulk of `--with-deps`.
+      - name: Install Playwright Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: cd frontend && pnpm exec playwright install chromium
+
+      - name: Install Playwright system deps
+        run: cd frontend && pnpm exec playwright install-deps chromium
 
       - name: Run e2e suite
         env:
