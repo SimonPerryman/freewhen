@@ -11,7 +11,7 @@ import (
 
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/testdb"
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func setupTestStore(t *testing.T) *Store {
@@ -19,7 +19,7 @@ func setupTestStore(t *testing.T) *Store {
 
 	dsn := testdb.Start(t)
 
-	db, err := sql.Open("postgres", dsn)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}

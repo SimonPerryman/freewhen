@@ -13,7 +13,7 @@ import (
 	"os"
 	"testing"
 
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/freewhen/backend/internal/config"
 	"github.com/freewhen/backend/internal/model"
@@ -32,7 +32,7 @@ func setupTestServer(t *testing.T) *testServer {
 
 	dsn := testdb.Start(t)
 
-	db, err := sql.Open("postgres", dsn)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
@@ -414,7 +414,7 @@ func TestAdminMetrics_OK(t *testing.T) {
 
 	// Promote the test user to admin
 	dsn := testdb.Start(t)
-	db, err := sql.Open("postgres", dsn)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
@@ -565,7 +565,7 @@ func TestFinalise_NotOwner(t *testing.T) {
 
 	// Second user tries to finalise
 	dsn := testdb.Start(t)
-	db, err := sql.Open("postgres", dsn)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
@@ -607,7 +607,7 @@ func TestClaimParticipant(t *testing.T) {
 
 	// Create a second user to claim
 	dsn := testdb.Start(t)
-	db, err := sql.Open("postgres", dsn)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
@@ -662,7 +662,7 @@ func TestAddParticipant_AuthLinksUser(t *testing.T) {
 
 	// Create second user
 	dsn := testdb.Start(t)
-	db, err := sql.Open("postgres", dsn)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
@@ -739,7 +739,7 @@ func TestListUserCalendars(t *testing.T) {
 
 	// Create a second user who joins Alpha.
 	dsn := testdb.Start(t)
-	db, err := sql.Open("postgres", dsn)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}

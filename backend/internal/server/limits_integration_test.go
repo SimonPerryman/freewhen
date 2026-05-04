@@ -21,7 +21,7 @@ import (
 // below need their own handle for direct seeding.
 func openTestDB(t *testing.T) *sql.DB {
 	t.Helper()
-	db, err := sql.Open("postgres", testdb.Start(t))
+	db, err := sql.Open("pgx", testdb.Start(t))
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
