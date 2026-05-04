@@ -1,6 +1,6 @@
 # Migrate GCP + GitHub config to Terraform
 
-Status: in-progress
+Status: done
 
 ## Goal
 
@@ -269,5 +269,7 @@ reality stable first.
 - ✅ Step 8: Run `terraform apply` in CI on main — `tf_apply` SA + 12
   bindings created, `GCP_TF_APPLY_SA` GitHub secret populated, unused
   `GCP_MEMORY` / `GCP_MAX_INSTANCES` GitHub vars destroyed. `terraform
-  plan` reports zero diff post-apply. CI `tf-apply` job will run on the
-  next push to main that touches `infra/**`.
+  plan` reports zero diff post-apply. CI `tf-apply` job runs on pushes to
+  main touching `infra/**`. First run after PR #11 merge surfaced
+  uncommitted billing drift — see PR #12 + the gcp-billing-budget plan
+  for the followup.

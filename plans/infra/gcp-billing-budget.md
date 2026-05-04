@@ -50,3 +50,11 @@ Rejected alternative: leaving `disable_default_iam_recipients = false` and relyi
 - 2026-05-04 — Created plan.
 - 2026-05-04 — Implemented. Billing account `014708-03EC54-9D0D45` confirmed. Granted `roles/billing.costsManager` to `freewhen-tf-apply` and `roles/billing.viewer` to `freewhen-tf-plan` on the billing account (out-of-band — TF can't bootstrap this without billing.admin). Enabled `billingbudgets.googleapis.com` on the project. Added `infra/billing.tf` (notification channel + budget at 0.5/0.9/1.0/1.5 thresholds, £5/month, `disable_default_iam_recipients = true`), new `billing_account_id` + `alert_email` vars (sensitive, in `secrets.auto.tfvars`), matching `GCP_BILLING_ACCOUNT_ID` / `ALERT_EMAIL` GitHub Actions secrets, and `TF_VAR_*` wiring in CI plan + apply jobs. Added `user_project_override = true` + `billing_project = var.project_id` on the google provider — billingbudgets requires the `x-goog-user-project` header. Local apply succeeded; budget visible at Console → Billing → Budgets & alerts. `terraform plan` is zero-diff. Step 7 (smoke-test by setting budget to £0.01) deferred — not worth burning a day of alert quota for a routing path that's already exercised by the channel verification email.
 - 2026-05-04 — Documented under "Cost guardrails" in `docs/infra-notes.md`.
+- 2026-05-04 — Local apply had drifted from main: `billing.tf`,
+  `billing_account_id`/`alert_email` vars, and the matching `GCP_*` GitHub
+  secrets existed in real state but were never committed. When the
+  terraform-migration PR (#11) merged and ran `tf-apply` on main, it tried
+  to destroy the orphaned resources and 403'd on the notification channel
+  (tf-apply SA lacked `roles/monitoring.editor`). Fix in PR #12: ship the
+  billing files to main + add `roles/monitoring.editor` to the tf-apply
+  SA's project roles. Local plan zero-diff after the role grant.
