@@ -103,6 +103,81 @@ jobs:
       - name: Build frontend
         run: make build-frontend
 
+  # Playwright e2e suite. Boots embedded Postgres + Go backend (with
+  # E2E_TEST_MODE=true) and Next.js dev server, then drives Chromium.
+  # Skipped on infra-only PRs (no backend/frontend change).
+  e2e:
+    needs: [changes]
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache: true
+
+      - name: Install frontend dependencies
+        run: cd frontend && pnpm install --frozen-lockfile
+
+      - name: Cache embedded-postgres binary
+        uses: actions/cache@v4
+        with:
+          path: ~/.embedded-postgres-go
+          key: embedded-postgres-${{ runner.os }}-${{ runner.arch }}-v16
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-${{ runner.arch }}-
+
+      # Split into browser-bytes (cacheable) and OS deps (apt, not cacheable
+      # via actions/cache). Skipping the browser download entirely on a cache
+      # hit shaves ~25s; the apt step still runs every time, but the browser
+      # binary alone is the bulk of `--with-deps`.
+      - name: Install Playwright Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: cd frontend && pnpm exec playwright install chromium
+
+      - name: Install Playwright system deps
+        run: cd frontend && pnpm exec playwright install-deps chromium
+
+      - name: Run e2e suite
+        env:
+          CI: 'true'
+        run: make test-e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 14
+
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: frontend/test-results/
+          retention-days: 14
+
   tf-plan:
     needs: [changes]
     if: needs.changes.outputs.infra == 'true'
@@ -214,10 +289,11 @@ jobs:
         run: terraform -chdir=infra apply -auto-approve -input=false
 
   deploy-backend:
-    needs: [ci, changes, tf-apply]
+    needs: [ci, e2e, changes, tf-apply]
     if: |
       always() &&
       needs.ci.result == 'success' &&
+      (needs.e2e.result == 'success' || needs.e2e.result == 'skipped') &&
       (needs.tf-apply.result == 'success' || needs.tf-apply.result == 'skipped') &&
       github.ref == 'refs/heads/main' &&
       needs.changes.outputs.backend == 'true'
@@ -260,10 +336,11 @@ jobs:
     # Runs after deploy-backend so a backend+frontend change ships the API
     # before the UI that depends on it. Tolerates deploy-backend being skipped
     # (frontend-only change) but not failed/cancelled.
-    needs: [ci, changes, deploy-backend]
+    needs: [ci, e2e, changes, deploy-backend]
     if: |
       always() &&
       needs.ci.result == 'success' &&
+      (needs.e2e.result == 'success' || needs.e2e.result == 'skipped') &&
       (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') &&
       github.ref == 'refs/heads/main' &&
       needs.changes.outputs.frontend == 'true'

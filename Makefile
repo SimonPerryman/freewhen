@@ -1,4 +1,4 @@
-.PHONY: dev dev-backend dev-backend-watch dev-frontend lint lint-backend lint-frontend lint-pii fmt build test test-backend test-frontend test-integration tf-plan
+.PHONY: dev dev-backend dev-backend-watch dev-frontend lint lint-backend lint-frontend lint-pii fmt build test test-backend test-frontend test-integration test-e2e tf-plan
 
 # Run both backend and frontend in development mode
 dev:
@@ -52,6 +52,12 @@ test-frontend:
 
 test-integration:
 	cd backend && go test -tags=integration ./...
+
+# Playwright end-to-end suite. Boots embedded Postgres + the Go backend
+# (with E2E_TEST_MODE=true) and Next.js, then drives Chromium against them.
+# See plans/infra/e2e-tests.md and frontend/e2e/.
+test-e2e:
+	cd frontend && pnpm exec playwright test
 
 # Build
 build: build-backend build-frontend

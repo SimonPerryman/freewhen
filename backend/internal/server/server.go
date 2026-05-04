@@ -21,6 +21,8 @@ type Server struct {
 	auth           *handler.AuthHandler
 	metrics        *handler.MetricsHandler
 	calIntegration *handler.CalendarIntegrationHandler
+	testLogin      *handler.TestLoginHandler
+	testEmail      *handler.CapturingEmailSender
 	hub            *realtime.Hub
 	store          *store.Store
 	mux            *http.ServeMux
@@ -57,12 +59,25 @@ func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 	eh := handler.NewEvents(hub, svc, logger)
 
 	var emailSender handler.EmailSender
-	if !cfg.AuthEmailDisabled {
+	var capturedEmail *handler.CapturingEmailSender
+	if cfg.E2ETestMode {
+		// In E2E mode we always capture magic links to memory and expose
+		// them via /test/magic-link, regardless of AuthEmailDisabled. No
+		// outbound SMTP is performed.
+		capturedEmail = handler.NewCapturingEmailSender()
+		emailSender = capturedEmail
+	} else if !cfg.AuthEmailDisabled {
 		emailSender = email.NewSender(cfg.ResendAPIKey, cfg.MagicLinkFromEmail)
 	}
 	ah := handler.NewAuth(st, emailSender, cfg, logger)
 	mh := handler.NewMetrics(st, hub)
 	ch := handler.NewCalendarIntegration(st, svc, cfg, logger)
+
+	var tlh *handler.TestLoginHandler
+	if cfg.E2ETestMode {
+		logger.Warn("E2E_TEST_MODE enabled: /test/login will mint sessions without auth — must never run in prod")
+		tlh = handler.NewTestLogin(st, cfg.CookieDomain, cfg.SecureCookies, logger)
+	}
 
 	srv := &Server{
 		handler:        h,
@@ -70,6 +85,8 @@ func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 		auth:           ah,
 		metrics:        mh,
 		calIntegration: ch,
+		testLogin:      tlh,
+		testEmail:      capturedEmail,
 		hub:            hub,
 		store:          st,
 		mux:            http.NewServeMux(),
@@ -140,6 +157,13 @@ func (s *Server) routes() {
 
 	// Server-sent events stream for live updates.
 	s.mux.HandleFunc("GET /calendars/{id}/events", s.optionalAuth(s.events.Stream))
+
+	if s.testLogin != nil {
+		s.mux.HandleFunc("POST /test/login", s.testLogin.Login)
+	}
+	if s.testEmail != nil {
+		s.mux.HandleFunc("GET /test/magic-link", s.testEmail.LatestMagicLink)
+	}
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {

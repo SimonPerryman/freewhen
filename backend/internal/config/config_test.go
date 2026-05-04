@@ -17,7 +17,7 @@ func setMinimalEnv(t *testing.T) {
 		"GOOGLE_CALENDAR_REDIRECT_URL", "FRONTEND_URL", "COOKIE_DOMAIN",
 		"RESEND_API_KEY", "MAGIC_LINK_FROM_EMAIL", "AUTH_EMAIL_DISABLED",
 		"CALENDAR_ACCESS_SECRET", "POSTHOG_KEY", "POSTHOG_HOST",
-		"POSTHOG_PERSONAL_API_KEY",
+		"POSTHOG_PERSONAL_API_KEY", "E2E_TEST_MODE",
 	} {
 		t.Setenv(k, "")
 	}
@@ -244,5 +244,29 @@ func TestParseBool(t *testing.T) {
 		if got != c.want {
 			t.Errorf("parseBool(%q, %v) = %v, want %v", c.in, c.fallback, got, c.want)
 		}
+	}
+}
+
+func TestLoad_E2ETestMode_RefusesWithSecureCookies(t *testing.T) {
+	setMinimalEnv(t)
+	t.Setenv("SECURE_COOKIES", "true")
+	t.Setenv("COOKIE_DOMAIN", "example.com")
+	t.Setenv("E2E_TEST_MODE", "true")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("Load: expected error when E2E_TEST_MODE=true and SECURE_COOKIES=true")
+	}
+}
+
+func TestLoad_E2ETestMode_OKWithInsecureCookies(t *testing.T) {
+	setMinimalEnv(t)
+	t.Setenv("E2E_TEST_MODE", "true")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !cfg.E2ETestMode {
+		t.Error("E2ETestMode should be true")
 	}
 }
