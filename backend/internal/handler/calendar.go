@@ -41,7 +41,7 @@ func (h *Handler) CreateCalendar(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusConflict, "calendar_limit_reached", "you have reached the calendar limit")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to create calendar")
+		respondInternalError(r, w, err, "internal_error", "failed to create calendar")
 		return
 	}
 
@@ -110,7 +110,7 @@ func (h *Handler) DuplicateCalendar(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to load calendar")
+		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
 		return
 	}
 	if source.OwnerID != user.ID {
@@ -130,7 +130,7 @@ func (h *Handler) DuplicateCalendar(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, store.ErrNotFound):
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 		default:
-			respondError(w, http.StatusInternalServerError, "internal_error", "failed to duplicate calendar")
+			respondInternalError(r, w, err, "internal_error", "failed to duplicate calendar")
 		}
 		return
 	}
@@ -185,7 +185,7 @@ func (h *Handler) GetCalendar(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to get calendar")
+		respondInternalError(r, w, err, "internal_error", "failed to get calendar")
 		return
 	}
 
@@ -197,7 +197,7 @@ func (h *Handler) GetCalendar(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to authorize access")
+		respondInternalError(r, w, err, "internal_error", "failed to authorize access")
 		return
 	}
 
@@ -207,7 +207,7 @@ func (h *Handler) GetCalendar(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to get calendar")
+		respondInternalError(r, w, err, "internal_error", "failed to get calendar")
 		return
 	}
 
@@ -254,7 +254,7 @@ func (h *Handler) FinaliseCalendar(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to load calendar")
+		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
 		return
 	}
 	if existing.OwnerID != user.ID {
@@ -268,7 +268,7 @@ func (h *Handler) FinaliseCalendar(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to finalise calendar")
+		respondInternalError(r, w, err, "internal_error", "failed to finalise calendar")
 		return
 	}
 
@@ -313,7 +313,7 @@ func (h *Handler) UpdateCalendar(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to load calendar")
+		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
 		return
 	}
 	if existing.OwnerID != user.ID {
@@ -327,7 +327,7 @@ func (h *Handler) UpdateCalendar(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to rename calendar")
+		respondInternalError(r, w, err, "internal_error", "failed to rename calendar")
 		return
 	}
 	respondJSON(w, http.StatusOK, cal)
@@ -349,7 +349,7 @@ func (h *Handler) RemoveParticipant(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to load calendar")
+		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
 		return
 	}
 	if existing.OwnerID != user.ID {
@@ -362,7 +362,7 @@ func (h *Handler) RemoveParticipant(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusNotFound, "not_found", "participant not found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to remove participant")
+		respondInternalError(r, w, err, "internal_error", "failed to remove participant")
 		return
 	}
 
@@ -395,7 +395,7 @@ func (h *Handler) ListUserCalendars(w http.ResponseWriter, r *http.Request) {
 
 	items, hasMore, err := h.service.ListUserCalendars(r.Context(), user.ID)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to list calendars")
+		respondInternalError(r, w, err, "internal_error", "failed to list calendars")
 		return
 	}
 
@@ -439,7 +439,7 @@ func (h *Handler) UnfinaliseCalendar(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to load calendar")
+		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
 		return
 	}
 	if existing.OwnerID != user.ID {
@@ -453,7 +453,7 @@ func (h *Handler) UnfinaliseCalendar(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to unfinalise calendar")
+		respondInternalError(r, w, err, "internal_error", "failed to unfinalise calendar")
 		return
 	}
 

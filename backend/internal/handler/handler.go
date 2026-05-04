@@ -10,10 +10,19 @@ import (
 	"github.com/freewhen/backend/internal/store"
 )
 
-type contextKey struct{}
+type contextKey struct{ name string }
 
 // UserContextKey is used by the auth middleware to attach the user to the request context.
-var UserContextKey = contextKey{}
+var UserContextKey = contextKey{name: "user"}
+
+// RequestIDContextKey is used by the request-log middleware to attach the per-request id.
+var RequestIDContextKey = contextKey{name: "request_id"}
+
+// RequestIDFromContext returns the per-request id set by middleware, or "" if absent.
+func RequestIDFromContext(ctx context.Context) string {
+	id, _ := ctx.Value(RequestIDContextKey).(string)
+	return id
+}
 
 // CalendarService defines the operations the handler needs from the service layer.
 type CalendarService interface {

@@ -44,7 +44,7 @@ func (h *Handler) Unlock(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Retry-After", "60")
 			respondError(w, http.StatusTooManyRequests, "rate_limited", "too many attempts, try again shortly")
 		default:
-			respondError(w, http.StatusInternalServerError, "internal_error", "failed to unlock calendar")
+			respondInternalError(r, w, err, "internal_error", "failed to unlock calendar")
 		}
 		return
 	}
@@ -69,7 +69,7 @@ func (h *Handler) SetPassphrase(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to load calendar")
+		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
 		return
 	}
 	if cal.OwnerID != user.ID {
@@ -79,7 +79,7 @@ func (h *Handler) SetPassphrase(w http.ResponseWriter, r *http.Request) {
 
 	p, err := h.service.RotateCalendarPassphrase(r.Context(), id)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to set passphrase")
+		respondInternalError(r, w, err, "internal_error", "failed to set passphrase")
 		return
 	}
 
@@ -103,7 +103,7 @@ func (h *Handler) ClearPassphrase(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to load calendar")
+		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
 		return
 	}
 	if cal.OwnerID != user.ID {
@@ -112,7 +112,7 @@ func (h *Handler) ClearPassphrase(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.ClearCalendarPassphrase(r.Context(), id); err != nil {
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to clear passphrase")
+		respondInternalError(r, w, err, "internal_error", "failed to clear passphrase")
 		return
 	}
 
@@ -135,7 +135,7 @@ func (h *Handler) requireCalendarAccess(w http.ResponseWriter, r *http.Request, 
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return false, err
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to load calendar")
+		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
 		return false, err
 	}
 
@@ -144,7 +144,7 @@ func (h *Handler) requireCalendarAccess(w http.ResponseWriter, r *http.Request, 
 			respondError(w, http.StatusUnauthorized, "passphrase_required", "passphrase required")
 			return false, err
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to authorize access")
+		respondInternalError(r, w, err, "internal_error", "failed to authorize access")
 		return false, err
 	}
 	return true, nil

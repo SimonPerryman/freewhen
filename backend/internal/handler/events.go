@@ -67,7 +67,7 @@ func (h *EventsHandler) Stream(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to load calendar")
+		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
 		return
 	}
 
@@ -88,7 +88,7 @@ func (h *EventsHandler) Stream(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusUnauthorized, "passphrase_required", "passphrase required")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to authorize access")
+		respondInternalError(r, w, err, "internal_error", "failed to authorize access")
 		return
 	}
 
@@ -97,7 +97,7 @@ func (h *EventsHandler) Stream(w http.ResponseWriter, r *http.Request) {
 		// Streaming isn't supported by this ResponseWriter (e.g. a buffered
 		// test recorder). Fall through as a plain 500 — the client falls
 		// back to polling.
-		respondError(w, http.StatusInternalServerError, "internal_error", "streaming not supported")
+		respondInternalError(r, w, err, "internal_error", "streaming not supported")
 		return
 	}
 

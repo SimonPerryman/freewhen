@@ -69,7 +69,7 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusConflict, "calendar_full", "this calendar is full")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to add participant")
+		respondInternalError(r, w, err, "internal_error", "failed to add participant")
 		return
 	}
 
@@ -127,7 +127,7 @@ func (h *Handler) RenameParticipant(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, store.ErrCalendarFinalised):
 			respondError(w, http.StatusConflict, "already_finalised", "calendar is finalised")
 		default:
-			respondError(w, http.StatusInternalServerError, "internal_error", "failed to rename participant")
+			respondInternalError(r, w, err, "internal_error", "failed to rename participant")
 		}
 		return
 	}
@@ -159,7 +159,7 @@ func (h *Handler) ClaimParticipant(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusConflict, "already_joined", "you have already joined this calendar")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to claim participant")
+		respondInternalError(r, w, err, "internal_error", "failed to claim participant")
 		return
 	}
 

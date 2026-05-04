@@ -111,8 +111,7 @@ func (h *CalendarIntegrationHandler) ConsentAck(w http.ResponseWriter, r *http.R
 		return
 	}
 	if err := h.store.SetCalendarImportConsentAck(r.Context(), user.ID); err != nil {
-		h.logger.Error("set consent ack failed", "error", err)
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to record ack")
+		respondInternalError(r, w, err, "internal_error", "failed to record ack")
 		return
 	}
 	h.logger.Info("calendar_consent_given", "user_id", user.ID, "timestamp", time.Now().UTC())
@@ -169,7 +168,7 @@ func (h *CalendarIntegrationHandler) Connect(w http.ResponseWriter, r *http.Requ
 	}
 	raw, err := json.Marshal(state)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to encode state")
+		respondInternalError(r, w, err, "internal_error", "failed to encode state")
 		return
 	}
 	encoded := base64.RawURLEncoding.EncodeToString(raw)
@@ -242,8 +241,7 @@ func (h *CalendarIntegrationHandler) Callback(w http.ResponseWriter, r *http.Req
 
 	token, err := h.oauth.Exchange(r.Context(), code)
 	if err != nil {
-		h.logger.Error("calendar oauth exchange failed", "error", err)
-		respondError(w, http.StatusInternalServerError, "internal_error", "authentication failed")
+		respondInternalError(r, w, err, "internal_error", "authentication failed")
 		return
 	}
 
@@ -270,7 +268,7 @@ func (h *CalendarIntegrationHandler) Callback(w http.ResponseWriter, r *http.Req
 
 	suggestPayload, err := json.Marshal(classified)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to encode suggestions")
+		respondInternalError(r, w, err, "internal_error", "failed to encode suggestions")
 		return
 	}
 	cookieVal := base64.RawURLEncoding.EncodeToString(suggestPayload)
@@ -313,7 +311,7 @@ func (h *CalendarIntegrationHandler) GetSuggestions(w http.ResponseWriter, r *ht
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to load calendar")
+		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
 		return
 	}
 

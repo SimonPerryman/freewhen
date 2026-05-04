@@ -69,44 +69,44 @@ func (h *MetricsHandler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 
 	usersTotal, err := h.store.CountUsers(ctx)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to fetch metrics")
+		respondInternalError(r, w, err, "internal_error", "failed to fetch metrics")
 		return
 	}
 	users7d, err := h.store.CountUsersSince(ctx, d7)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to fetch metrics")
+		respondInternalError(r, w, err, "internal_error", "failed to fetch metrics")
 		return
 	}
 	users30d, err := h.store.CountUsersSince(ctx, d30)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to fetch metrics")
+		respondInternalError(r, w, err, "internal_error", "failed to fetch metrics")
 		return
 	}
 
 	calsTotal, err := h.store.CountCalendars(ctx)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to fetch metrics")
+		respondInternalError(r, w, err, "internal_error", "failed to fetch metrics")
 		return
 	}
 	cals7d, err := h.store.CountCalendarsSince(ctx, d7)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to fetch metrics")
+		respondInternalError(r, w, err, "internal_error", "failed to fetch metrics")
 		return
 	}
 	active30d, err := h.store.ActiveCalendars(ctx, 30)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to fetch metrics")
+		respondInternalError(r, w, err, "internal_error", "failed to fetch metrics")
 		return
 	}
 
 	partsTotal, err := h.store.CountParticipants(ctx)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to fetch metrics")
+		respondInternalError(r, w, err, "internal_error", "failed to fetch metrics")
 		return
 	}
 	avgPerCal, err := h.store.AvgParticipantsPerCalendar(ctx)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "internal_error", "failed to fetch metrics")
+		respondInternalError(r, w, err, "internal_error", "failed to fetch metrics")
 		return
 	}
 
