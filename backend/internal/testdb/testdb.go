@@ -18,7 +18,7 @@ import (
 	"time"
 
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 const dbName = "freewhen_test"
@@ -94,7 +94,7 @@ func freePort() (int, error) {
 }
 
 func waitReady(dsn string) error {
-	db, err := sql.Open("postgres", dsn)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return err
 	}
