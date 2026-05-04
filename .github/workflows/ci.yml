@@ -6,6 +6,14 @@ on:
   pull_request:
     branches: [main]
 
+# Dedup duplicate webhook deliveries (e.g. double-click on Merge) so we
+# don't burn CI minutes running the same SHA twice. Per-SHA group key
+# means PR pushes to a branch still cancel earlier in-progress runs of
+# that branch's prior SHA, but two pushes for the *same* SHA collapse.
+concurrency:
+  group: ci-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: true
+
 jobs:
   changes:
     runs-on: ubuntu-24.04-arm
@@ -236,10 +244,9 @@ jobs:
         env:
           IMAGE: europe-west1-docker.pkg.dev/${{ steps.auth.outputs.project_id }}/cloud-run-source-deploy/${{ vars.GCP_SERVICE_NAME }}:${{ github.sha }}
         run: |
-          # --suppress-logs: gcloud's log-streaming requires project Viewer
-          # (resourcemanager.projects.get); the deploy SA only has scoped
-          # roles. Without this flag the build itself succeeds but gcloud
-          # exits non-zero trying to stream logs.
+          # --suppress-logs: belt-and-braces; the load-bearing fix is
+          # roles/viewer on the deploy SA (gcloud's upfront check is for
+          # project Viewer/Owner and isn't satisfied by scoped roles).
           gcloud builds submit backend --tag "$IMAGE" --suppress-logs
           echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
 

@@ -224,3 +224,11 @@ exactly the failure mode that motivated IaC in the first place.
   `--suppress-logs` to `gcloud builds submit` (#16) and reverted the
   `logging.viewer` binding. Added a short comment in the workflow next
   to the flag explaining why.
+- 2026-05-04 18:36 — `--suppress-logs` (#16) wasn't enough either —
+  same error on the post-merge run. gcloud does its Viewer/Owner check
+  *before* honouring the flag. Granted `roles/viewer` to the deploy SA
+  (#17) — the only thing that satisfies the check. Kept
+  `--suppress-logs` as belt-and-braces. Also added a `concurrency:`
+  block to the workflow in the same PR after observing GitHub fire two
+  identical `push` webhooks for the same SHA on the previous merge,
+  causing duplicate full pipeline runs.
