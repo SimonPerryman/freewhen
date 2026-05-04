@@ -11,6 +11,15 @@ locals {
     "roles/cloudbuild.editor",
     "roles/storage.admin",
     "roles/storage.objectAdmin",
+    # `gcloud builds submit` does an upfront permission check for project
+    # Viewer/Owner before deciding whether to stream Cloud Build logs,
+    # and exits non-zero if neither is granted — even with --suppress-logs
+    # passed, and even when the build itself succeeds. Tried scoped fixes
+    # first (#15: roles/logging.viewer alone — not enough; #16:
+    # --suppress-logs alone — not enough). roles/viewer is the only thing
+    # that satisfies the check. Read-only and the SA is WIF-scoped to
+    # this repo, so this is a safe broadening.
+    "roles/viewer",
   ]
 
   tf_plan_sa_roles = [
