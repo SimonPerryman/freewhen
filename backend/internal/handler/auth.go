@@ -48,6 +48,7 @@ type AuthHandler struct {
 	cookieDomain string
 	secureCookie bool
 	logger       *slog.Logger
+	magicLimiter *magicLinkLimiter
 }
 
 const defaultGoogleUserInfoURL = "https://www.googleapis.com/oauth2/v3/userinfo"
@@ -92,6 +93,7 @@ func NewAuth(s AuthStore, emailSender EmailSender, cfg *config.Config, logger *s
 		cookieDomain: cfg.CookieDomain,
 		secureCookie: cfg.SecureCookies,
 		logger:       logger,
+		magicLimiter: newMagicLinkLimiter(),
 	}
 	for _, opt := range opts {
 		opt(h)
@@ -327,6 +329,13 @@ type magicLinkRequest struct {
 }
 
 // SendMagicLink generates a magic link token and emails it to the user.
+//
+// F6 invariant: this handler never branches on whether `req.Email` belongs to
+// a known user. `findOrCreateEmailUser` runs at callback time, not here. That
+// keeps the response time uniform between known and unknown emails so an
+// attacker can't enumerate accounts via timing. If you ever add a "skip if
+// user doesn't exist" optimization, you reopen the timing channel and must
+// add a constant-time floor to compensate.
 func (h *AuthHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
 	if h.email == nil {
 		respondError(w, http.StatusServiceUnavailable, "service_unavailable", "magic link not configured")
@@ -341,6 +350,12 @@ func (h *AuthHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
 
 	if !isValidEmail(req.Email) {
 		respondError(w, http.StatusBadRequest, "invalid_email", "invalid email address")
+		return
+	}
+
+	if !h.magicLimiter.allow(req.Email, remoteIP(r)) {
+		w.Header().Set("Retry-After", "900")
+		respondError(w, http.StatusTooManyRequests, "rate_limited", "too many requests, try again shortly")
 		return
 	}
 

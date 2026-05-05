@@ -14,18 +14,39 @@ const magicLinkExpiry = 15 * time.Minute
 
 // CreateMagicLinkToken generates a crypto-random token, stores its SHA-256 hash,
 // and returns the plain token to embed in the magic link URL.
+//
+// Any prior outstanding tokens for the same email are deleted first — only
+// the most recently issued link is valid at a time. This caps the concurrent
+// surface (an attacker can't fan out many parallel valid links by spamming
+// the endpoint) and shortens the lifetime of any link that's been
+// inadvertently shared (email forwarding, Slack unfurl, AV scanner cache).
 func (s *Store) CreateMagicLinkToken(ctx context.Context, email, returnURL string) (string, error) {
 	token := generateToken()
 	hash := hashToken(token)
 	expiresAt := time.Now().Add(magicLinkExpiry)
 
-	_, err := s.db.ExecContext(ctx,
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM magic_link_tokens WHERE email = $1`, email,
+	); err != nil {
+		return "", fmt.Errorf("invalidate prior magic link tokens: %w", err)
+	}
+
+	if _, err := tx.ExecContext(ctx,
 		`INSERT INTO magic_link_tokens (token_hash, email, return_url, expires_at)
 		 VALUES ($1, $2, $3, $4)`,
 		hash, email, returnURL, expiresAt,
-	)
-	if err != nil {
+	); err != nil {
 		return "", fmt.Errorf("insert magic link token: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return "", fmt.Errorf("commit magic link token: %w", err)
 	}
 	return token, nil
 }
