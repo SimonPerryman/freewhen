@@ -18,6 +18,7 @@ func setMinimalEnv(t *testing.T) {
 		"RESEND_API_KEY", "MAGIC_LINK_FROM_EMAIL", "AUTH_EMAIL_DISABLED",
 		"CALENDAR_ACCESS_SECRET", "POSTHOG_KEY", "POSTHOG_HOST",
 		"POSTHOG_PERSONAL_API_KEY", "E2E_TEST_MODE",
+		"ALLOW_PARENT_DOMAIN_COOKIE",
 	} {
 		t.Setenv(k, "")
 	}
@@ -244,6 +245,35 @@ func TestParseBool(t *testing.T) {
 		if got != c.want {
 			t.Errorf("parseBool(%q, %v) = %v, want %v", c.in, c.fallback, got, c.want)
 		}
+	}
+}
+
+func TestLoad_ParentDomainCookieRequiresOptIn(t *testing.T) {
+	setMinimalEnv(t)
+	t.Setenv("SECURE_COOKIES", "true")
+	t.Setenv("COOKIE_DOMAIN", ".example.com")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("expected error: leading-dot COOKIE_DOMAIN without ALLOW_PARENT_DOMAIN_COOKIE=true")
+	}
+
+	t.Setenv("ALLOW_PARENT_DOMAIN_COOKIE", "true")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load with opt-in: %v", err)
+	}
+	if cfg.CookieDomain != ".example.com" {
+		t.Errorf("CookieDomain = %q", cfg.CookieDomain)
+	}
+}
+
+func TestLoad_HostCookieDomainDoesNotRequireOptIn(t *testing.T) {
+	setMinimalEnv(t)
+	t.Setenv("SECURE_COOKIES", "true")
+	t.Setenv("COOKIE_DOMAIN", "example.com")
+
+	if _, err := Load(); err != nil {
+		t.Fatalf("Load with host-only COOKIE_DOMAIN: %v", err)
 	}
 }
 

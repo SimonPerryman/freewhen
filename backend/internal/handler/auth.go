@@ -301,7 +301,9 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("session")
 	if err == nil {
-		_ = h.store.DeleteSession(r.Context(), cookie.Value)
+		if delErr := h.store.DeleteSession(r.Context(), cookie.Value); delErr != nil {
+			h.logger.Error("failed to delete session on logout", "error", delErr)
+		}
 	}
 
 	http.SetCookie(w, &http.Cookie{

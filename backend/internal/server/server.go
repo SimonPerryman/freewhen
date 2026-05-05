@@ -31,6 +31,24 @@ type Server struct {
 	corsOrigin     string
 	cfg            *config.Config
 	flags          flags.Evaluator
+	// routes records each registered route's auth kind so the route-coverage
+	// test can detect handlers added without a requireAuth/requireAdmin wrap.
+	routeSpecs []routeSpec
+}
+
+// authKind classifies a route's auth wrapping for the route-coverage test.
+type authKind int
+
+const (
+	authPublic authKind = iota
+	authOptional
+	authRequired
+	authAdmin
+)
+
+type routeSpec struct {
+	pattern string
+	kind    authKind
 }
 
 func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
@@ -100,69 +118,94 @@ func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 	return srv
 }
 
+// handlePublic registers a route that does not require authentication.
+// Use sparingly — every public route is an attack surface.
+func (s *Server) handlePublic(pattern string, fn http.HandlerFunc) {
+	s.mux.HandleFunc(pattern, fn)
+	s.routeSpecs = append(s.routeSpecs, routeSpec{pattern, authPublic})
+}
+
+func (s *Server) handleAuth(pattern string, fn http.HandlerFunc) {
+	s.mux.HandleFunc(pattern, s.requireAuth(fn))
+	s.routeSpecs = append(s.routeSpecs, routeSpec{pattern, authRequired})
+}
+
+func (s *Server) handleAdmin(pattern string, fn http.HandlerFunc) {
+	s.mux.HandleFunc(pattern, s.requireAdmin(fn))
+	s.routeSpecs = append(s.routeSpecs, routeSpec{pattern, authAdmin})
+}
+
+// handleOptional registers a route where the session is loaded if present
+// but the handler must enforce its own access rules (passphrase, participant
+// token, etc.) when no session is attached.
+func (s *Server) handleOptional(pattern string, fn http.HandlerFunc) {
+	s.mux.HandleFunc(pattern, s.optionalAuth(fn))
+	s.routeSpecs = append(s.routeSpecs, routeSpec{pattern, authOptional})
+}
+
 func (s *Server) routes() {
-	s.mux.HandleFunc("GET /health", s.handleHealth)
+	s.handlePublic("GET /health", s.handleHealth)
 
 	// Auth routes
-	s.mux.HandleFunc("GET /auth/google", s.auth.GoogleLogin)
-	s.mux.HandleFunc("GET /auth/google/callback", s.auth.GoogleCallback)
-	s.mux.HandleFunc("GET /auth/me", s.auth.Me)
-	s.mux.HandleFunc("PATCH /auth/me", s.requireAuth(s.auth.UpdateMe))
-	s.mux.HandleFunc("POST /auth/logout", s.auth.Logout)
-	s.mux.HandleFunc("POST /auth/magic-link", s.auth.SendMagicLink)
-	s.mux.HandleFunc("GET /auth/magic-link/callback", s.auth.MagicLinkCallback)
+	s.handlePublic("GET /auth/google", s.auth.GoogleLogin)
+	s.handlePublic("GET /auth/google/callback", s.auth.GoogleCallback)
+	s.handlePublic("GET /auth/me", s.auth.Me)
+	s.handleAuth("PATCH /auth/me", s.auth.UpdateMe)
+	s.handlePublic("POST /auth/logout", s.auth.Logout)
+	s.handlePublic("POST /auth/magic-link", s.auth.SendMagicLink)
+	s.handlePublic("GET /auth/magic-link/callback", s.auth.MagicLinkCallback)
 
 	// User routes
-	s.mux.HandleFunc("GET /users/me/calendars", s.requireAuth(s.handler.ListUserCalendars))
+	s.handleAuth("GET /users/me/calendars", s.handler.ListUserCalendars)
 
 	// Admin routes
-	s.mux.HandleFunc("GET /admin/metrics", s.requireAdmin(s.metrics.GetMetrics))
+	s.handleAdmin("GET /admin/metrics", s.metrics.GetMetrics)
 
 	// Calendar routes — POST requires auth
-	s.mux.HandleFunc("POST /calendars", s.requireAuth(s.handler.CreateCalendar))
-	s.mux.HandleFunc("POST /calendars/{id}/duplicate", s.requireAuth(s.handler.DuplicateCalendar))
-	s.mux.HandleFunc("GET /calendars/{id}", s.optionalAuth(s.handler.GetCalendar))
-	s.mux.HandleFunc("PATCH /calendars/{id}", s.requireAuth(s.handler.UpdateCalendar))
-	s.mux.HandleFunc("POST /calendars/{id}/participants", s.optionalAuth(s.handler.AddParticipant))
-	s.mux.HandleFunc("POST /calendars/{id}/participants/{participantId}/claim", s.requireAuth(s.handler.ClaimParticipant))
-	s.mux.HandleFunc("DELETE /calendars/{id}/participants/{participantId}", s.requireAuth(s.handler.RemoveParticipant))
-	s.mux.HandleFunc("PATCH /calendars/{id}/participants/{participantId}", s.optionalAuth(s.handler.RenameParticipant))
-	s.mux.HandleFunc("PUT /calendars/{id}/availability", s.optionalAuth(s.handler.SetAvailability))
-	s.mux.HandleFunc("POST /calendars/{id}/finalise", s.requireAuth(s.handler.FinaliseCalendar))
-	s.mux.HandleFunc("DELETE /calendars/{id}/finalise", s.requireAuth(s.handler.UnfinaliseCalendar))
-	s.mux.HandleFunc("POST /calendars/{id}/unlock", s.optionalAuth(s.handler.Unlock))
-	s.mux.HandleFunc("POST /calendars/{id}/passphrase", s.requireAuth(s.handler.SetPassphrase))
-	s.mux.HandleFunc("DELETE /calendars/{id}/passphrase", s.requireAuth(s.handler.ClearPassphrase))
+	s.handleAuth("POST /calendars", s.handler.CreateCalendar)
+	s.handleAuth("POST /calendars/{id}/duplicate", s.handler.DuplicateCalendar)
+	s.handleOptional("GET /calendars/{id}", s.handler.GetCalendar)
+	s.handleAuth("PATCH /calendars/{id}", s.handler.UpdateCalendar)
+	s.handleOptional("POST /calendars/{id}/participants", s.handler.AddParticipant)
+	s.handleAuth("POST /calendars/{id}/participants/{participantId}/claim", s.handler.ClaimParticipant)
+	s.handleAuth("DELETE /calendars/{id}/participants/{participantId}", s.handler.RemoveParticipant)
+	s.handleOptional("PATCH /calendars/{id}/participants/{participantId}", s.handler.RenameParticipant)
+	s.handleOptional("PUT /calendars/{id}/availability", s.handler.SetAvailability)
+	s.handleAuth("POST /calendars/{id}/finalise", s.handler.FinaliseCalendar)
+	s.handleAuth("DELETE /calendars/{id}/finalise", s.handler.UnfinaliseCalendar)
+	s.handleOptional("POST /calendars/{id}/unlock", s.handler.Unlock)
+	s.handleAuth("POST /calendars/{id}/passphrase", s.handler.SetPassphrase)
+	s.handleAuth("DELETE /calendars/{id}/passphrase", s.handler.ClearPassphrase)
 
 	// "Who's missing?" invite list — owner-only.
-	s.mux.HandleFunc("GET /calendars/{id}/missing", s.requireAuth(s.handler.ListMissing))
-	s.mux.HandleFunc("POST /calendars/{id}/invites", s.requireAuth(s.handler.AddInvites))
-	s.mux.HandleFunc("PUT /calendars/{id}/invites/{inviteId}", s.requireAuth(s.handler.RenameInvite))
-	s.mux.HandleFunc("DELETE /calendars/{id}/invites/{inviteId}", s.requireAuth(s.handler.DeleteInvite))
-	s.mux.HandleFunc("POST /calendars/{id}/invites/{inviteId}/match", s.requireAuth(s.handler.ManualMatchInvite))
+	s.handleAuth("GET /calendars/{id}/missing", s.handler.ListMissing)
+	s.handleAuth("POST /calendars/{id}/invites", s.handler.AddInvites)
+	s.handleAuth("PUT /calendars/{id}/invites/{inviteId}", s.handler.RenameInvite)
+	s.handleAuth("DELETE /calendars/{id}/invites/{inviteId}", s.handler.DeleteInvite)
+	s.handleAuth("POST /calendars/{id}/invites/{inviteId}/match", s.handler.ManualMatchInvite)
 
 	// Calendar integrations — export (Phase 1) + Google Calendar import (Phase 2).
 	// Export endpoints are intentionally public — finalised calendars should be
 	// addable to anyone's calendar, including anonymous joiners.
-	s.mux.HandleFunc("GET /calendars/{id}/export.ics", s.handler.ExportICS)
-	s.mux.HandleFunc("GET /calendars/{id}/export/google", s.handler.ExportGoogle)
+	s.handlePublic("GET /calendars/{id}/export.ics", s.handler.ExportICS)
+	s.handlePublic("GET /calendars/{id}/export/google", s.handler.ExportGoogle)
 
 	// Incremental OAuth round-trip for Google Calendar import. All three
 	// endpoints require a signed-in session.
-	s.mux.HandleFunc("POST /auth/google/calendar/consent-ack", s.requireAuth(s.calIntegration.ConsentAck))
-	s.mux.HandleFunc("GET /auth/google/calendar/connect", s.requireAuth(s.calIntegration.Connect))
-	s.mux.HandleFunc("GET /auth/google/calendar/callback", s.requireAuth(s.calIntegration.Callback))
-	s.mux.HandleFunc("GET /calendars/{id}/import/suggestions", s.requireAuth(s.calIntegration.GetSuggestions))
-	s.mux.HandleFunc("POST /calendars/{id}/availability/import", s.requireAuth(s.handler.ImportAvailability))
+	s.handleAuth("POST /auth/google/calendar/consent-ack", s.calIntegration.ConsentAck)
+	s.handleAuth("GET /auth/google/calendar/connect", s.calIntegration.Connect)
+	s.handleAuth("GET /auth/google/calendar/callback", s.calIntegration.Callback)
+	s.handleAuth("GET /calendars/{id}/import/suggestions", s.calIntegration.GetSuggestions)
+	s.handleAuth("POST /calendars/{id}/availability/import", s.handler.ImportAvailability)
 
 	// Server-sent events stream for live updates.
-	s.mux.HandleFunc("GET /calendars/{id}/events", s.optionalAuth(s.events.Stream))
+	s.handleOptional("GET /calendars/{id}/events", s.events.Stream)
 
 	if s.testLogin != nil {
-		s.mux.HandleFunc("POST /test/login", s.testLogin.Login)
+		s.handlePublic("POST /test/login", s.testLogin.Login)
 	}
 	if s.testEmail != nil {
-		s.mux.HandleFunc("GET /test/magic-link", s.testEmail.LatestMagicLink)
+		s.handlePublic("GET /test/magic-link", s.testEmail.LatestMagicLink)
 	}
 }
 
