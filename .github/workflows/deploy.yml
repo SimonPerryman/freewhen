@@ -24,8 +24,14 @@ jobs:
       head_sha: ${{ steps.check.outputs.head_sha }}
     steps:
       - id: check
+        env:
+          # `gh api` uses GH_TOKEN; the workflow's default GITHUB_TOKEN has
+          # `contents: read`, which is enough to read main's HEAD SHA on a
+          # private repo. Plain `git ls-remote` would prompt for credentials
+          # and silently produce an empty SHA here.
+          GH_TOKEN: ${{ github.token }}
         run: |
-          HEAD_SHA=$(git ls-remote https://github.com/${{ github.repository }}.git refs/heads/main | awk '{print $1}')
+          HEAD_SHA=$(gh api "repos/${{ github.repository }}/commits/main" --jq .sha)
           echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
           if [ "$HEAD_SHA" = "${{ github.sha }}" ]; then
             echo "is_head=true" >> "$GITHUB_OUTPUT"
