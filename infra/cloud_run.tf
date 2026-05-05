@@ -40,6 +40,14 @@ resource "google_cloud_run_v2_service" "api" {
         name  = "COOKIE_DOMAIN"
         value = ".freewhen.simonperryman.co.uk"
       }
+      # Leading-dot COOKIE_DOMAIN scopes the session cookie to every subdomain
+      # of the parent. Required here because frontend (Vercel) and backend
+      # (Cloud Run) live on separate subdomains. Boot-time validation in
+      # internal/config refuses parent-domain cookies without this opt-in.
+      env {
+        name  = "ALLOW_PARENT_DOMAIN_COOKIE"
+        value = "true"
+      }
       env {
         name  = "FRONTEND_URL"
         value = "https://freewhen.simonperryman.co.uk"

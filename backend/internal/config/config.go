@@ -102,6 +102,18 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("COOKIE_DOMAIN is required when SECURE_COOKIES=true (set SECURE_COOKIES=false for local HTTP dev)")
 	}
 
+	allowParentDomainCookie, err := parseBool(os.Getenv("ALLOW_PARENT_DOMAIN_COOKIE"), false)
+	if err != nil {
+		return nil, fmt.Errorf("ALLOW_PARENT_DOMAIN_COOKIE: %w", err)
+	}
+	// A leading-dot COOKIE_DOMAIN scopes the session cookie to every subdomain
+	// of the parent domain. Anyone who can stand up a subdomain there can
+	// read/set the session cookie. Force an explicit opt-in so this dangerous
+	// shape is a deliberate decision, not a quiet default.
+	if len(cookieDomain) > 0 && cookieDomain[0] == '.' && !allowParentDomainCookie {
+		return nil, fmt.Errorf("COOKIE_DOMAIN=%q is a parent-domain cookie (leading dot); set ALLOW_PARENT_DOMAIN_COOKIE=true to confirm or scope COOKIE_DOMAIN to a single host", cookieDomain)
+	}
+
 	e2eTestMode, err := parseBool(os.Getenv("E2E_TEST_MODE"), false)
 	if err != nil {
 		return nil, fmt.Errorf("E2E_TEST_MODE: %w", err)
