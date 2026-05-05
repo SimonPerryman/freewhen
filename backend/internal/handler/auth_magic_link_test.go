@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -203,18 +204,15 @@ func TestSendMagicLink_HappyPath(t *testing.T) {
 		t.Fatalf("link prefix: got %q", sender.calls[0].link)
 	}
 
-	// Now drive the callback with the captured token.
+	// Now drive the verify endpoint with the captured token.
 	rawToken := strings.TrimPrefix(sender.calls[0].link, "https://app.test/auth/magic-link/callback?token=")
-	cbReq := httptest.NewRequest(http.MethodGet, "/auth/magic-link/callback?token="+rawToken, nil)
-	cbRec := httptest.NewRecorder()
-	h.MagicLinkCallback(cbRec, cbReq)
+	cbRec := postVerify(h, rawToken)
 
-	if cbRec.Code != http.StatusTemporaryRedirect {
-		t.Fatalf("callback status: got %d, want 307", cbRec.Code)
+	if cbRec.Code != http.StatusOK {
+		t.Fatalf("verify status: got %d, want 200", cbRec.Code)
 	}
-	loc := cbRec.Header().Get("Location")
-	if loc != "https://app.test/calendars/abc" {
-		t.Fatalf("redirect: got %q", loc)
+	if got := decodeReturnURL(t, cbRec); got != "/calendars/abc" {
+		t.Fatalf("return_url: got %q, want %q", got, "/calendars/abc")
 	}
 	// Session cookie should be set.
 	var sessCookie *http.Cookie
@@ -250,11 +248,9 @@ func TestSendMagicLink_ReturningUser_NoDuplicate(t *testing.T) {
 	}
 
 	rawToken := strings.TrimPrefix(sender.calls[0].link, "https://app.test/auth/magic-link/callback?token=")
-	cbReq := httptest.NewRequest(http.MethodGet, "/auth/magic-link/callback?token="+rawToken, nil)
-	cbRec := httptest.NewRecorder()
-	h.MagicLinkCallback(cbRec, cbReq)
-	if cbRec.Code != http.StatusTemporaryRedirect {
-		t.Fatalf("callback status: %d", cbRec.Code)
+	cbRec := postVerify(h, rawToken)
+	if cbRec.Code != http.StatusOK {
+		t.Fatalf("verify status: %d", cbRec.Code)
 	}
 	// Session belongs to the existing user, no duplicate insert.
 	var sessCookie *http.Cookie
@@ -326,11 +322,12 @@ func TestSendMagicLink_NonRelativeReturnURL_FallsBack(t *testing.T) {
 	}
 
 	rawToken := strings.TrimPrefix(sender.calls[0].link, "https://app.test/auth/magic-link/callback?token=")
-	cbReq := httptest.NewRequest(http.MethodGet, "/auth/magic-link/callback?token="+rawToken, nil)
-	cbRec := httptest.NewRecorder()
-	h.MagicLinkCallback(cbRec, cbReq)
-	if loc := cbRec.Header().Get("Location"); loc != "https://app.test/" {
-		t.Fatalf("redirect: got %q, want fallback to /", loc)
+	cbRec := postVerify(h, rawToken)
+	if cbRec.Code != http.StatusOK {
+		t.Fatalf("verify status: %d", cbRec.Code)
+	}
+	if got := decodeReturnURL(t, cbRec); got != "/" {
+		t.Fatalf("return_url: got %q, want fallback to /", got)
 	}
 }
 
@@ -350,21 +347,29 @@ func TestSendMagicLink_EmailSenderFailure_DoesNotLeak(t *testing.T) {
 	}
 }
 
-func TestMagicLinkCallback_MissingToken(t *testing.T) {
+func TestMagicLinkVerify_MissingToken(t *testing.T) {
 	h := newTestAuthHandler(t, newFakeAuthStore(), &fakeEmailSender{})
-	req := httptest.NewRequest(http.MethodGet, "/auth/magic-link/callback", nil)
+	req := httptest.NewRequest(http.MethodPost, "/auth/magic-link/verify", strings.NewReader(`{}`))
 	rec := httptest.NewRecorder()
-	h.MagicLinkCallback(rec, req)
+	h.MagicLinkVerify(rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status: %d", rec.Code)
 	}
 }
 
-func TestMagicLinkCallback_UnknownToken(t *testing.T) {
+func TestMagicLinkVerify_InvalidJSON(t *testing.T) {
 	h := newTestAuthHandler(t, newFakeAuthStore(), &fakeEmailSender{})
-	req := httptest.NewRequest(http.MethodGet, "/auth/magic-link/callback?token=nope", nil)
+	req := httptest.NewRequest(http.MethodPost, "/auth/magic-link/verify", strings.NewReader(`{not json`))
 	rec := httptest.NewRecorder()
-	h.MagicLinkCallback(rec, req)
+	h.MagicLinkVerify(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status: %d", rec.Code)
+	}
+}
+
+func TestMagicLinkVerify_UnknownToken(t *testing.T) {
+	h := newTestAuthHandler(t, newFakeAuthStore(), &fakeEmailSender{})
+	rec := postVerify(h, "nope")
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status: %d", rec.Code)
 	}
@@ -467,20 +472,36 @@ func TestSendMagicLink_AlwaysIssuesEvenForUnknownUser(t *testing.T) {
 	}
 }
 
-func TestMagicLinkCallback_NonRelativeReturnURL_FallsBack(t *testing.T) {
+func TestMagicLinkVerify_NonRelativeReturnURL_FallsBack(t *testing.T) {
 	st := newFakeAuthStore()
 	// Inject a token directly with a stored absolute return_url to confirm
-	// the callback re-validates rather than trusting whatever was stored.
+	// verify re-validates rather than trusting whatever was stored.
 	st.magicLinks["forged"] = magicLinkRecord{email: "x@example.com", returnURL: "https://evil/"}
 	h := newTestAuthHandler(t, st, &fakeEmailSender{})
 
-	req := httptest.NewRequest(http.MethodGet, "/auth/magic-link/callback?token=forged", nil)
-	rec := httptest.NewRecorder()
-	h.MagicLinkCallback(rec, req)
-	if rec.Code != http.StatusTemporaryRedirect {
+	rec := postVerify(h, "forged")
+	if rec.Code != http.StatusOK {
 		t.Fatalf("status: %d", rec.Code)
 	}
-	if loc := rec.Header().Get("Location"); loc != "https://app.test/" {
-		t.Fatalf("redirect: got %q, want https://app.test/", loc)
+	if got := decodeReturnURL(t, rec); got != "/" {
+		t.Fatalf("return_url: got %q, want fallback to /", got)
 	}
+}
+
+// postVerify drives MagicLinkVerify with the given token.
+func postVerify(h *AuthHandler, token string) *httptest.ResponseRecorder {
+	body := strings.NewReader(`{"token":"` + token + `"}`)
+	req := httptest.NewRequest(http.MethodPost, "/auth/magic-link/verify", body)
+	rec := httptest.NewRecorder()
+	h.MagicLinkVerify(rec, req)
+	return rec
+}
+
+func decodeReturnURL(t *testing.T, rec *httptest.ResponseRecorder) string {
+	t.Helper()
+	var resp magicLinkVerifyResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v (body=%q)", err, rec.Body.String())
+	}
+	return resp.ReturnURL
 }

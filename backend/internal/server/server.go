@@ -153,7 +153,7 @@ func (s *Server) routes() {
 	s.handleAuth("PATCH /auth/me", s.auth.UpdateMe)
 	s.handlePublic("POST /auth/logout", s.auth.Logout)
 	s.handlePublic("POST /auth/magic-link", s.auth.SendMagicLink)
-	s.handlePublic("GET /auth/magic-link/callback", s.auth.MagicLinkCallback)
+	s.handlePublic("POST /auth/magic-link/verify", s.auth.MagicLinkVerify)
 
 	// User routes
 	s.handleAuth("GET /users/me/calendars", s.handler.ListUserCalendars)

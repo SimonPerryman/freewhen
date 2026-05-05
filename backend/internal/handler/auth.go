@@ -381,23 +381,45 @@ func (h *AuthHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
-// MagicLinkCallback verifies the magic link token, creates/finds the user,
-// creates a session, and redirects to the return URL.
-func (h *AuthHandler) MagicLinkCallback(w http.ResponseWriter, r *http.Request) {
-	token := r.URL.Query().Get("token")
-	if token == "" {
+// magicLinkVerifyRequest is the JSON body for POST /auth/magic-link/verify.
+type magicLinkVerifyRequest struct {
+	Token string `json:"token"`
+}
+
+// magicLinkVerifyResponse is returned to the frontend interstitial after a
+// successful exchange. The frontend then navigates to ReturnURL.
+type magicLinkVerifyResponse struct {
+	ReturnURL string `json:"return_url"`
+}
+
+// MagicLinkVerify consumes a magic-link token, creates/finds the user, sets
+// the session cookie, and returns the validated return URL.
+//
+// F4 mitigation: the email link points at the frontend (`FRONTEND_URL/auth/
+// magic-link/callback?token=...`), which renders an interstitial page rather
+// than auto-redirecting. Token consumption only happens on this POST, which
+// link prefetchers (Outlook SafeLinks, Slack unfurl, AV scanners) don't
+// trigger because they neither execute JS nor follow user-initiated POSTs.
+// Do not add a GET variant of this endpoint — that re-opens the prefetcher
+// hole and is the bug this PR closed.
+func (h *AuthHandler) MagicLinkVerify(w http.ResponseWriter, r *http.Request) {
+	var req magicLinkVerifyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid_json", "invalid request body")
+		return
+	}
+	if req.Token == "" {
 		respondError(w, http.StatusBadRequest, "invalid_request", "missing token")
 		return
 	}
 
-	email, returnURL, err := h.store.VerifyMagicLinkToken(r.Context(), token)
+	email, returnURL, err := h.store.VerifyMagicLinkToken(r.Context(), req.Token)
 	if err != nil {
 		h.logger.Error("magic link verification failed", "error", err)
 		respondError(w, http.StatusBadRequest, "invalid_request", "invalid or expired link")
 		return
 	}
 
-	// Create or find user with provider "email"
 	user, err := h.findOrCreateEmailUser(r.Context(), email)
 	if err != nil {
 		respondInternalError(r, w, err, "internal_error", "authentication failed")
@@ -415,7 +437,7 @@ func (h *AuthHandler) MagicLinkCallback(w http.ResponseWriter, r *http.Request) 
 	if !isRelativePath(returnURL) {
 		returnURL = "/"
 	}
-	http.Redirect(w, r, h.frontendURL+returnURL, http.StatusTemporaryRedirect)
+	respondJSON(w, http.StatusOK, magicLinkVerifyResponse{ReturnURL: returnURL})
 }
 
 func (h *AuthHandler) findOrCreateEmailUser(ctx context.Context, emailAddr string) (model.User, error) {
