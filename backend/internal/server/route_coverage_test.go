@@ -34,7 +34,7 @@ func TestRouteCoverage_AuthClassMatchesAllowList(t *testing.T) {
 		"PATCH /auth/me":                  authRequired,
 		"POST /auth/logout":               authPublic, // no-op without session
 		"POST /auth/magic-link":           authPublic,
-		"GET /auth/magic-link/callback":   authPublic,
+		"POST /auth/magic-link/verify":    authPublic,
 
 		// User
 		"GET /users/me/calendars": authRequired,

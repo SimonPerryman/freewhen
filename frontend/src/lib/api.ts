@@ -356,6 +356,14 @@ export async function matchInvite(
   });
 }
 
-export function getMagicLinkCallbackUrl(token: string): string {
-  return `${BASE_URL}/auth/magic-link/callback?token=${encodeURIComponent(token)}`;
+// verifyMagicLink exchanges the magic-link token for a session. The frontend
+// interstitial page calls this on user confirmation (button click), not on
+// page load — that's what stops link prefetchers (Outlook SafeLinks, Slack
+// unfurl, AV scanners) from burning the one-time token before the user
+// clicks. Returns the validated server-side return URL to navigate to.
+export async function verifyMagicLink(token: string): Promise<{ returnUrl: string }> {
+  return request<{ returnUrl: string }>("/auth/magic-link/verify", {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  });
 }
