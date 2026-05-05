@@ -65,7 +65,6 @@ type Invite struct {
 }
 
 type Session struct {
-	Token     string
 	UserID    string
 	ExpiresAt time.Time
 	CreatedAt time.Time
