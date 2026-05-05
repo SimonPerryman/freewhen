@@ -86,4 +86,39 @@ describe("MyCalendarsList", () => {
     render(<MyCalendarsList status="ready" calendars={[item({ emoji: "" })]} hasMore={false} />);
     expect(screen.getByText("📅")).toBeTruthy();
   });
+
+  it("does not render an actions menu for non-owners", () => {
+    render(
+      <MyCalendarsList status="ready" calendars={[item({ myRole: "joiner" })]} hasMore={false} />,
+    );
+    expect(screen.queryByRole("button", { name: /actions for/i })).toBeNull();
+  });
+
+  it("opens a menu with Duplicate and Rename for owners", () => {
+    render(
+      <MyCalendarsList status="ready" calendars={[item({ myRole: "owner" })]} hasMore={false} />,
+    );
+    const trigger = screen.getByRole("button", { name: /actions for trip/i });
+    fireEvent.click(trigger);
+    expect(screen.getByRole("menuitem", { name: "Duplicate" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Rename" })).toBeTruthy();
+  });
+
+  it("opens the duplicate sheet when Duplicate is selected", () => {
+    render(
+      <MyCalendarsList status="ready" calendars={[item({ myRole: "owner" })]} hasMore={false} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /actions for trip/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
+    expect(screen.getByRole("dialog", { name: /duplicate this calendar/i })).toBeTruthy();
+  });
+
+  it("opens the rename sheet when Rename is selected", () => {
+    render(
+      <MyCalendarsList status="ready" calendars={[item({ myRole: "owner" })]} hasMore={false} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /actions for trip/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
+    expect(screen.getByRole("dialog", { name: /rename calendar/i })).toBeTruthy();
+  });
 });
