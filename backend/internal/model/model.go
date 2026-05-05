@@ -65,7 +65,8 @@ type Invite struct {
 }
 
 type Session struct {
-	UserID    string
-	ExpiresAt time.Time
-	CreatedAt time.Time
+	UserID            string
+	ExpiresAt         time.Time
+	AbsoluteExpiresAt time.Time
+	CreatedAt         time.Time
 }

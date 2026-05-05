@@ -211,6 +211,13 @@ Gaps to fold in before PR 1 starts (from review feedback on this plan):
 - 2026-05-05 12:05 — Confirmed prod `COOKIE_DOMAIN=.freewhen.simonperryman.co.uk` from `infra/cloud_run.tf:40-41` (parent-domain by design, frontend/backend share the cookie). Added "what's normal" guidance to F2 (recommend 30d sliding + 90d absolute), F4 (interstitial is the dominant pattern; grace window is the cheap retrofit), and F7 (sub-mux split + route-coverage test as the proportionate next step from opt-in middleware).
 - 2026-05-05 12:20 — F9 fix sharpened: presence is already enforced; add value-shape validation that requires an explicit `ALLOW_PARENT_DOMAIN_COOKIE=true` opt-in when `COOKIE_DOMAIN` starts with a leading dot.
 - 2026-05-05 21:00 — Added "Implementation order" section splitting findings into 5 PRs. Starting PR 1 (F3 + F7 + F9).
+- 2026-05-05 21:30 — PR 2 implemented (F2 — absolute session cap):
+  - Migration `020_session_absolute_expiry.sql` adds `absolute_expires_at TIMESTAMPTZ NOT NULL` to `sessions`; existing rows backfilled with `created_at + 90 days`.
+  - `store.CreateSession` sets `absolute_expires_at = now + 90d` alongside the 30d sliding `expires_at`.
+  - `store.RefreshSession` clamps with `expires_at = LEAST(now+30d, absolute_expires_at)`. Once the clamp pins, the next read sees a past `expires_at` and returns nil.
+  - `store.GetSession` also rejects on `now > absolute_expires_at` directly (defense in depth — covers the case where a row's sliding expiry hasn't refreshed since the absolute went past).
+  - `model.Session` gains `AbsoluteExpiresAt`.
+  - Tests: `TestSessionAbsoluteExpiryCap`, `TestRefreshSessionClampsToAbsolute`, `TestGetSessionRejectsPastAbsolute`. Backend unit + integration tests pass; `make lint` clean.
 - 2026-05-05 21:10 — PR 1 implemented:
   - F3: `auth.go` Logout now logs `DeleteSession` errors at error level (no token in fields).
   - F9: `config.go` rejects leading-dot `COOKIE_DOMAIN` unless `ALLOW_PARENT_DOMAIN_COOKIE=true`. Prod Terraform (`infra/cloud_run.tf`) sets the opt-in. Tests added (`config_test.go`).
