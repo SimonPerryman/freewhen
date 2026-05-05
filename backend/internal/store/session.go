@@ -22,13 +22,16 @@ func generateToken() string {
 	return hex.EncodeToString(b)
 }
 
+// CreateSession generates a crypto-random token, stores its SHA-256 hash,
+// and returns the plain token for the caller to set as a cookie.
 func (s *Store) CreateSession(ctx context.Context, userID string) (string, error) {
 	token := generateToken()
+	hash := hashToken(token)
 	expiresAt := time.Now().Add(sessionExpiry)
 
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, $3)`,
-		token, userID, expiresAt,
+		`INSERT INTO sessions (token_hash, user_id, expires_at) VALUES ($1, $2, $3)`,
+		hash, userID, expiresAt,
 	)
 	if err != nil {
 		return "", fmt.Errorf("insert session: %w", err)
@@ -37,11 +40,12 @@ func (s *Store) CreateSession(ctx context.Context, userID string) (string, error
 }
 
 func (s *Store) GetSession(ctx context.Context, token string) (*model.Session, error) {
+	hash := hashToken(token)
 	var sess model.Session
 	err := s.db.QueryRowContext(ctx,
-		`SELECT token, user_id, expires_at, created_at FROM sessions WHERE token = $1`,
-		token,
-	).Scan(&sess.Token, &sess.UserID, &sess.ExpiresAt, &sess.CreatedAt)
+		`SELECT user_id, expires_at, created_at FROM sessions WHERE token_hash = $1`,
+		hash,
+	).Scan(&sess.UserID, &sess.ExpiresAt, &sess.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -55,10 +59,11 @@ func (s *Store) GetSession(ctx context.Context, token string) (*model.Session, e
 }
 
 func (s *Store) RefreshSession(ctx context.Context, token string) error {
+	hash := hashToken(token)
 	expiresAt := time.Now().Add(sessionExpiry)
 	_, err := s.db.ExecContext(ctx,
-		`UPDATE sessions SET expires_at = $1 WHERE token = $2`,
-		expiresAt, token,
+		`UPDATE sessions SET expires_at = $1 WHERE token_hash = $2`,
+		expiresAt, hash,
 	)
 	if err != nil {
 		return fmt.Errorf("refresh session: %w", err)
@@ -67,8 +72,9 @@ func (s *Store) RefreshSession(ctx context.Context, token string) error {
 }
 
 func (s *Store) DeleteSession(ctx context.Context, token string) error {
+	hash := hashToken(token)
 	_, err := s.db.ExecContext(ctx,
-		`DELETE FROM sessions WHERE token = $1`, token,
+		`DELETE FROM sessions WHERE token_hash = $1`, hash,
 	)
 	if err != nil {
 		return fmt.Errorf("delete session: %w", err)

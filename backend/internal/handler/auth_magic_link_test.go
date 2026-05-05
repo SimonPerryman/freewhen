@@ -105,7 +105,7 @@ func (f *fakeAuthStore) CreateSession(_ context.Context, userID string) (string,
 		return "", f.createSessErr
 	}
 	tok := "sess_" + userID
-	f.sessions[tok] = &model.Session{Token: tok, UserID: userID, ExpiresAt: time.Now().Add(24 * time.Hour)}
+	f.sessions[tok] = &model.Session{UserID: userID, ExpiresAt: time.Now().Add(24 * time.Hour)}
 	return tok, nil
 }
 

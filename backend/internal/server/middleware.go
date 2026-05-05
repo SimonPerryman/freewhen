@@ -98,9 +98,12 @@ func (s *Server) authenticateRequest(r *http.Request) *model.User {
 	if err != nil {
 		return nil
 	}
-	// Refresh session expiry in the background
+	// Refresh session expiry in the background. Use the raw token from the
+	// cookie — the Session struct intentionally no longer carries it now
+	// that storage is hash-only.
+	rawToken := cookie.Value
 	go func() {
-		_ = s.store.RefreshSession(context.Background(), sess.Token)
+		_ = s.store.RefreshSession(context.Background(), rawToken)
 	}()
 	return &user
 }
