@@ -218,6 +218,12 @@ Gaps to fold in before PR 1 starts (from review feedback on this plan):
   - `store.GetSession` also rejects on `now > absolute_expires_at` directly (defense in depth — covers the case where a row's sliding expiry hasn't refreshed since the absolute went past).
   - `model.Session` gains `AbsoluteExpiresAt`.
   - Tests: `TestSessionAbsoluteExpiryCap`, `TestRefreshSessionClampsToAbsolute`, `TestGetSessionRejectsPastAbsolute`. Backend unit + integration tests pass; `make lint` clean.
+- 2026-05-05 22:00 — PR 3 implemented (F5 + F6 — magic-link abuse controls):
+  - Migration `021_magic_link_email_index.sql` adds `idx_magic_link_tokens_email` so per-email invalidate-on-issue is an index lookup, not a sequential scan.
+  - `store.CreateMagicLinkToken` now wraps DELETE-by-email + INSERT in a transaction. Issuing a new token for an email invalidates any prior outstanding token for that email — only the most recent link is ever valid. Caps the concurrent-token surface and shortens the window for any link inadvertently shared (forwarding, Slack unfurl, AV scan).
+  - `handler/magic_link_limiter.go` pairs two `internal/ratelimit` token buckets: per-email (5 / 15 min) and per-IP (30 / 15 min). Both must pass; both are debited on every attempt so neither acts as a side channel for the other's state.
+  - `auth.SendMagicLink` checks the limiter before issuing and returns `429 rate_limited` with `Retry-After: 900` on rejection. Docstring on `SendMagicLink` pins F6: handler must never branch on user existence — `findOrCreateEmailUser` runs at callback time so known/unknown timing stays uniform.
+  - Tests: `TestSendMagicLink_RateLimitedPerEmail`, `TestSendMagicLink_RateLimitedPerIP` (asserts `Retry-After`), `TestSendMagicLink_AlwaysIssuesEvenForUnknownUser` (F6 invariant pin); store integration tests `TestCreateMagicLinkToken_InvalidatesPriorTokensForEmail`, `TestCreateMagicLinkToken_DifferentEmailsIndependent`. Fake `AuthStore` updated to mirror the new invalidate-prior semantics. Backend unit + integration + frontend tests pass; `make lint` clean.
 - 2026-05-05 21:10 — PR 1 implemented:
   - F3: `auth.go` Logout now logs `DeleteSession` errors at error level (no token in fields).
   - F9: `config.go` rejects leading-dot `COOKIE_DOMAIN` unless `ALLOW_PARENT_DOMAIN_COOKIE=true`. Prod Terraform (`infra/cloud_run.tf`) sets the opt-in. Tests added (`config_test.go`).

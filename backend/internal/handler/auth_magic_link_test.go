@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -23,6 +24,7 @@ type fakeAuthStore struct {
 	usersByPID     map[string]model.User // key: provider+":"+providerID
 	sessions       map[string]*model.Session
 	magicLinks     map[string]magicLinkRecord // plain token -> record
+	magicLinkSeq   int
 	createUserErr  error
 	createSessErr  error
 	verifyMagicErr error
@@ -126,7 +128,15 @@ func (f *fakeAuthStore) CreateMagicLinkToken(_ context.Context, email, returnURL
 	if f.createMagicErr != nil {
 		return "", f.createMagicErr
 	}
-	tok := "mltok_" + email
+	// Mirror the real store: invalidate any prior outstanding tokens for this
+	// email before issuing a new one.
+	for k, rec := range f.magicLinks {
+		if rec.email == email {
+			delete(f.magicLinks, k)
+		}
+	}
+	f.magicLinkSeq++
+	tok := fmt.Sprintf("mltok_%s_%d", email, f.magicLinkSeq)
 	f.magicLinks[tok] = magicLinkRecord{email: email, returnURL: returnURL}
 	return tok, nil
 }
@@ -163,6 +173,7 @@ func newTestAuthHandler(t *testing.T, st AuthStore, sender EmailSender) *AuthHan
 		frontendURL:  "https://app.test",
 		secureCookie: false,
 		logger:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+		magicLimiter: newMagicLinkLimiter(),
 	}
 }
 
@@ -356,6 +367,103 @@ func TestMagicLinkCallback_UnknownToken(t *testing.T) {
 	h.MagicLinkCallback(rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status: %d", rec.Code)
+	}
+}
+
+// magicLinkRequest issues a SendMagicLink request with the given email and
+// optional override of the request remote IP via X-Forwarded-For.
+func sendMagicLinkRequest(t *testing.T, h *AuthHandler, email, ip string) *httptest.ResponseRecorder {
+	t.Helper()
+	body := strings.NewReader(`{"email":"` + email + `"}`)
+	req := httptest.NewRequest(http.MethodPost, "/auth/magic-link", body)
+	if ip != "" {
+		req.Header.Set("X-Forwarded-For", ip)
+	}
+	rec := httptest.NewRecorder()
+	h.SendMagicLink(rec, req)
+	return rec
+}
+
+func TestSendMagicLink_RateLimitedPerEmail(t *testing.T) {
+	st := newFakeAuthStore()
+	sender := &fakeEmailSender{}
+	h := newTestAuthHandler(t, st, sender)
+
+	// Use a different IP per request so the per-IP budget doesn't trip first.
+	for i := 0; i < magicLinkPerEmailMax; i++ {
+		ip := "10.0.0." + string(rune('1'+i))
+		rec := sendMagicLinkRequest(t, h, "victim@example.com", ip)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("attempt %d: got %d, want 200", i, rec.Code)
+		}
+	}
+
+	rec := sendMagicLinkRequest(t, h, "victim@example.com", "10.0.0.99")
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("over-limit attempt: got %d, want 429", rec.Code)
+	}
+	if len(sender.calls) != magicLinkPerEmailMax {
+		t.Fatalf("emails sent: got %d, want %d", len(sender.calls), magicLinkPerEmailMax)
+	}
+
+	// A different email from the same string of IPs is independent.
+	rec = sendMagicLinkRequest(t, h, "other@example.com", "10.0.0.50")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("different email blocked: got %d", rec.Code)
+	}
+}
+
+func TestSendMagicLink_RateLimitedPerIP(t *testing.T) {
+	st := newFakeAuthStore()
+	sender := &fakeEmailSender{}
+	h := newTestAuthHandler(t, st, sender)
+
+	// Different email each time so per-email budget never trips.
+	for i := 0; i < magicLinkPerIPMax; i++ {
+		email := "u" + string(rune('a'+i)) + "@example.com"
+		rec := sendMagicLinkRequest(t, h, email, "203.0.113.1")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("attempt %d (%s): got %d, want 200", i, email, rec.Code)
+		}
+	}
+
+	rec := sendMagicLinkRequest(t, h, "fresh@example.com", "203.0.113.1")
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("over-limit attempt: got %d, want 429", rec.Code)
+	}
+	if got := rec.Header().Get("Retry-After"); got == "" {
+		t.Fatalf("missing Retry-After header on 429")
+	}
+
+	// A request from a different IP (different email) is independent.
+	rec = sendMagicLinkRequest(t, h, "elsewhere@example.com", "198.51.100.7")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("different IP blocked: got %d", rec.Code)
+	}
+}
+
+// TestSendMagicLink_AlwaysIssuesEvenForUnknownUser pins the F6 invariant
+// (see the docstring on SendMagicLink). The handler must call
+// CreateMagicLinkToken regardless of whether the email maps to an existing
+// user — that's what keeps known-vs-unknown response timing uniform.
+func TestSendMagicLink_AlwaysIssuesEvenForUnknownUser(t *testing.T) {
+	st := newFakeAuthStore()
+	// No users seeded.
+	if len(st.usersByEmail) != 0 {
+		t.Fatalf("precondition: expected no users")
+	}
+	sender := &fakeEmailSender{}
+	h := newTestAuthHandler(t, st, sender)
+
+	rec := sendMagicLinkRequest(t, h, "ghost@example.com", "10.0.0.1")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status: %d", rec.Code)
+	}
+	if len(st.magicLinks) != 1 {
+		t.Fatalf("expected token issued for unknown email, got %d", len(st.magicLinks))
+	}
+	if len(sender.calls) != 1 {
+		t.Fatalf("expected email sent for unknown email, got %d", len(sender.calls))
 	}
 }
 
