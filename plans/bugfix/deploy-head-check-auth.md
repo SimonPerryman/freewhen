@@ -1,6 +1,6 @@
 # Fix Deploy head-check skipping every run on private repo
 
-Status: in-progress
+Status: done
 
 ## Goal
 
@@ -16,3 +16,4 @@ Symptom: PR #28 (`ui(calendars): replace Duplicate button with overflow menu`) m
 ## Log
 
 - 2026-05-05 07:30 — Created plan; diagnosed empty-SHA "superseded" skip caused by unauthenticated `git ls-remote` against a private repo.
+- 2026-05-05 10:10 — Shipped fix in PR #29 (squash-merged). Switched head-check to `gh api repos/<repo>/commits/main --jq .sha` with `GH_TOKEN: github.token`. Post-merge Deploy run now proceeds past head-check instead of 7s skip.
