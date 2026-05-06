@@ -24,6 +24,7 @@ type fakeAuthStore struct {
 	usersByID      map[string]model.User
 	usersByPID     map[string]model.User // key: provider+":"+providerID
 	sessions       map[string]*model.Session
+	sessionOrder   []string // creation order, oldest first
 	magicLinks     map[string]magicLinkRecord // plain token -> record
 	magicLinkSeq   int
 	createUserErr  error
@@ -108,8 +109,35 @@ func (f *fakeAuthStore) CreateSession(_ context.Context, userID string) (string,
 		return "", f.createSessErr
 	}
 	tok := "sess_" + userID
+	if _, exists := f.sessions[tok]; exists {
+		tok = fmt.Sprintf("sess_%s_%d", userID, len(f.sessionOrder))
+	}
 	f.sessions[tok] = &model.Session{UserID: userID, ExpiresAt: time.Now().Add(24 * time.Hour)}
+	f.sessionOrder = append(f.sessionOrder, tok)
 	return tok, nil
+}
+
+func (f *fakeAuthStore) PruneSessionsForUser(_ context.Context, userID string, keep int) error {
+	// Walk newest-first, keep the first `keep` sessions for this user, delete the rest.
+	seen := 0
+	kept := make([]string, 0, len(f.sessionOrder))
+	for i := len(f.sessionOrder) - 1; i >= 0; i-- {
+		tok := f.sessionOrder[i]
+		s, ok := f.sessions[tok]
+		if !ok {
+			continue
+		}
+		if s.UserID == userID {
+			if seen >= keep {
+				delete(f.sessions, tok)
+				continue
+			}
+			seen++
+		}
+		kept = append([]string{tok}, kept...)
+	}
+	f.sessionOrder = kept
+	return nil
 }
 
 func (f *fakeAuthStore) GetSession(_ context.Context, token string) (*model.Session, error) {
@@ -122,6 +150,12 @@ func (f *fakeAuthStore) GetSession(_ context.Context, token string) (*model.Sess
 
 func (f *fakeAuthStore) DeleteSession(_ context.Context, token string) error {
 	delete(f.sessions, token)
+	for i, t := range f.sessionOrder {
+		if t == token {
+			f.sessionOrder = append(f.sessionOrder[:i], f.sessionOrder[i+1:]...)
+			break
+		}
+	}
 	return nil
 }
 
@@ -485,6 +519,36 @@ func TestMagicLinkVerify_NonRelativeReturnURL_FallsBack(t *testing.T) {
 	}
 	if got := decodeReturnURL(t, rec); got != "/" {
 		t.Fatalf("return_url: got %q, want fallback to /", got)
+	}
+}
+
+// TestMagicLinkVerify_PrunesOldSessions asserts the login path caps the
+// per-user session count at maxConcurrentSessionsPerUser. Auth audit F11.
+func TestMagicLinkVerify_PrunesOldSessions(t *testing.T) {
+	st := newFakeAuthStore()
+	h := newTestAuthHandler(t, st, &fakeEmailSender{})
+
+	// Drive 12 logins for the same email by pre-seeding magic-link records
+	// directly (bypasses the per-email rate limit on SendMagicLink, which
+	// isn't what this test is exercising).
+	for i := 0; i < 12; i++ {
+		tok := fmt.Sprintf("preseed_%d", i)
+		st.magicLinks[tok] = magicLinkRecord{email: "carol@example.com", returnURL: "/"}
+		rec := postVerify(h, tok)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("login %d: status %d", i, rec.Code)
+		}
+	}
+
+	user := st.usersByEmail["carol@example.com"]
+	count := 0
+	for _, s := range st.sessions {
+		if s.UserID == user.ID {
+			count++
+		}
+	}
+	if count != maxConcurrentSessionsPerUser {
+		t.Fatalf("expected %d sessions after 12 logins, got %d", maxConcurrentSessionsPerUser, count)
 	}
 }
 

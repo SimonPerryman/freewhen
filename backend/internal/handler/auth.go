@@ -30,6 +30,7 @@ type AuthStore interface {
 	CreateSession(ctx context.Context, userID string) (string, error)
 	GetSession(ctx context.Context, token string) (*model.Session, error)
 	DeleteSession(ctx context.Context, token string) error
+	PruneSessionsForUser(ctx context.Context, userID string, keep int) error
 	CreateMagicLinkToken(ctx context.Context, email, returnURL string) (string, error)
 	VerifyMagicLinkToken(ctx context.Context, plainToken string) (email, returnURL string, err error)
 }
@@ -52,6 +53,12 @@ type AuthHandler struct {
 }
 
 const defaultGoogleUserInfoURL = "https://www.googleapis.com/oauth2/v3/userinfo"
+
+// maxConcurrentSessionsPerUser caps active sessions per user (auth audit F11).
+// Bounds attacker accumulation of parallel sessions within the F2 absolute
+// expiry window, while staying loose enough that a real user on phone +
+// laptop + work laptop + tablet doesn't get bumped on a fresh login.
+const maxConcurrentSessionsPerUser = 10
 
 // AuthOption configures optional AuthHandler fields. Production callers pass
 // none — these exist so tests can point the OAuth/userinfo URLs at an
@@ -221,6 +228,10 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		respondInternalError(r, w, err, "internal_error", "authentication failed")
 		return
+	}
+
+	if err := h.store.PruneSessionsForUser(r.Context(), user.ID, maxConcurrentSessionsPerUser); err != nil {
+		h.logger.Error("failed to prune sessions on google login", "error", err)
 	}
 
 	h.setSessionCookie(w, sessionToken)
@@ -430,6 +441,10 @@ func (h *AuthHandler) MagicLinkVerify(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		respondInternalError(r, w, err, "internal_error", "authentication failed")
 		return
+	}
+
+	if err := h.store.PruneSessionsForUser(r.Context(), user.ID, maxConcurrentSessionsPerUser); err != nil {
+		h.logger.Error("failed to prune sessions on magic link login", "error", err)
 	}
 
 	h.setSessionCookie(w, sessionToken)

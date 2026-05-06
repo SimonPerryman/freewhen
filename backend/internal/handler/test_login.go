@@ -61,6 +61,10 @@ func (h *TestLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := h.store.PruneSessionsForUser(r.Context(), user.ID, maxConcurrentSessionsPerUser); err != nil {
+		h.logger.Error("failed to prune sessions on test login", "error", err)
+	}
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session",
 		Value:    token,

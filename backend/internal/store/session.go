@@ -82,6 +82,38 @@ func (s *Store) RefreshSession(ctx context.Context, token string) error {
 	return nil
 }
 
+// PruneSessionsForUser keeps the most-recent `keep` sessions for the user
+// (by created_at DESC) and deletes any beyond that. Called after
+// CreateSession on login paths to bound the per-user session count.
+//
+// Rationale (auth audit F11): unbounded sessions let a token-theft attacker
+// hold a parallel session indefinitely within the absolute-expiry window
+// without colliding with the legitimate user. A cap of 10 is loose enough
+// that real users on phone + laptop + work laptop + tablet won't get bumped,
+// tight enough that attacker accumulation is bounded.
+//
+// Also closes F1's residual fixation row: a pre-set victim cookie that
+// matched an existing session row gets pruned alongside legitimate old rows
+// once enough fresh logins accumulate. The 90d absolute cap (F2) plus
+// cookie overwrite plus this prune together bound the residual-row threat.
+func (s *Store) PruneSessionsForUser(ctx context.Context, userID string, keep int) error {
+	_, err := s.db.ExecContext(ctx,
+		`DELETE FROM sessions
+		 WHERE user_id = $1
+		   AND token_hash NOT IN (
+		       SELECT token_hash FROM sessions
+		       WHERE user_id = $1
+		       ORDER BY created_at DESC
+		       LIMIT $2
+		   )`,
+		userID, keep,
+	)
+	if err != nil {
+		return fmt.Errorf("prune sessions: %w", err)
+	}
+	return nil
+}
+
 func (s *Store) DeleteSession(ctx context.Context, token string) error {
 	hash := hashToken(token)
 	_, err := s.db.ExecContext(ctx,

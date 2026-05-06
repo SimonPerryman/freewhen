@@ -162,6 +162,98 @@ func TestGetSessionRejectsPastAbsolute(t *testing.T) {
 	}
 }
 
+// TestPruneSessionsForUser asserts that after creating more than `keep`
+// sessions for a user, prune deletes the oldest and keeps the newest `keep`
+// rows. Other users' sessions are untouched.
+func TestPruneSessionsForUser(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	u := createTestUser(t, s, "Prune User")
+	other := createTestUser(t, s, "Other User")
+
+	// Other user's session must survive the prune of the first user.
+	otherToken, err := s.CreateSession(ctx, other.ID)
+	if err != nil {
+		t.Fatalf("create other session: %v", err)
+	}
+
+	// 12 sessions for u, separated by created_at so ORDER BY is stable.
+	tokens := make([]string, 0, 12)
+	for i := 0; i < 12; i++ {
+		tok, err := s.CreateSession(ctx, u.ID)
+		if err != nil {
+			t.Fatalf("create session %d: %v", i, err)
+		}
+		// Backdate older rows so created_at order matches creation order.
+		if _, err := s.db.ExecContext(ctx,
+			`UPDATE sessions SET created_at = $1 WHERE token_hash = $2`,
+			time.Now().Add(time.Duration(-12+i)*time.Minute), hashToken(tok),
+		); err != nil {
+			t.Fatalf("backdate %d: %v", i, err)
+		}
+		tokens = append(tokens, tok)
+	}
+
+	if err := s.PruneSessionsForUser(ctx, u.ID, 10); err != nil {
+		t.Fatalf("prune: %v", err)
+	}
+
+	var count int
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM sessions WHERE user_id = $1`, u.ID,
+	).Scan(&count); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if count != 10 {
+		t.Fatalf("expected 10 sessions kept, got %d", count)
+	}
+
+	// Newest 10 (indices 2..11) should still resolve; oldest 2 (0, 1) should not.
+	for i, tok := range tokens {
+		sess, err := s.GetSession(ctx, tok)
+		if err != nil {
+			t.Fatalf("get session %d: %v", i, err)
+		}
+		if i < 2 && sess != nil {
+			t.Fatalf("token %d (oldest) should have been pruned", i)
+		}
+		if i >= 2 && sess == nil {
+			t.Fatalf("token %d (newest 10) should have survived", i)
+		}
+	}
+
+	// Other user's session is untouched.
+	if sess, err := s.GetSession(ctx, otherToken); err != nil || sess == nil {
+		t.Fatalf("other user's session pruned unexpectedly: sess=%v err=%v", sess, err)
+	}
+}
+
+// TestPruneSessionsForUserBelowKeep is a no-op when the user has fewer
+// sessions than the cap.
+func TestPruneSessionsForUserBelowKeep(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	u := createTestUser(t, s, "Below Keep User")
+
+	for i := 0; i < 3; i++ {
+		if _, err := s.CreateSession(ctx, u.ID); err != nil {
+			t.Fatalf("create: %v", err)
+		}
+	}
+	if err := s.PruneSessionsForUser(ctx, u.ID, 10); err != nil {
+		t.Fatalf("prune: %v", err)
+	}
+	var count int
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM sessions WHERE user_id = $1`, u.ID,
+	).Scan(&count); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if count != 3 {
+		t.Fatalf("expected 3 sessions, got %d", count)
+	}
+}
+
 func TestSessionDeleteInvalidatesGet(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
