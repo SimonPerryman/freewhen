@@ -108,14 +108,14 @@ Findings are split into separate PRs so each is independently reviewable and rev
 - **PR 2 — absolute session cap (F2):** add `absolute_expires_at` column, migration `006`, clamp in `RefreshSession`, store + middleware tests. Contained; one new column, one query change.
 - **PR 3 — magic-link abuse controls (F5 + F6):** per-email + per-IP rate limit on `SendMagicLink`, cap concurrent unexpired tokens per email, invalidate prior outstanding tokens on new issue. Pin the constant-time-floor invariant on the response (F6) in the same PR since it lives next door.
 - **PR 4 — magic-link interstitial (F4):** GET callback renders an interstitial page; new POST endpoint runs the existing exchange logic. Touches both stacks. Largest piece; ship last so earlier hardening is in place first.
-- **PR 5 — session fixation residual (F1, reframed):** policy decision on concurrent sessions first (F11 — see "Gaps to add" below), then "invalidate other active sessions for this user-id on login" or chosen alternative.
+- **PR 5 — concurrent session cap + close F1 (F11 + F1):** add `pruneSessionsForUser(userID, keep=10)` in `store/session.go`; call from both login paths (`MagicLinkVerify`, Google callback) after `CreateSession`. Index on `sessions(user_id, created_at DESC)` if not already covered. Close F1 in the same PR — the original "invalidate all sessions on login" framing is dropped; cookie overwrite + F2's 90d absolute cap + the new prune-to-10 together bound the residual-row threat without bumping users off legitimate devices on every login. Document the decision in F1.
 
-Gaps to fold in before PR 1 starts (from review feedback on this plan):
+Gaps to fold in alongside PR 5:
 
-- Add **F11 — concurrent session policy** (currently unbounded; decide cap/prune/accept). Blocks PR 5.
-- Add an **email transport** checklist section: SMTP creds handling, DKIM/SPF alignment, bounce/complaint webhook spoofing as account-lockout vector.
-- Add **session cookie value format** to checklist (raw token vs signed envelope — tamper detection without a DB hit).
-- Set re-run trigger: re-walk this audit after PR 2 + PR 4 ship.
+- **F11 — concurrent session policy: DECIDED — cap at 10, prune oldest on login.** Single-session ("invalidate all on login") is too strict for a coordination tool people open infrequently from multiple devices (phone + laptop + work laptop + tablet); they'd get bumped on every fresh login. Unbounded is the current state and lets a token-theft attacker hoard parallel sessions invisibly across the 90d absolute window. 10 is loose enough to never bite a real user, tight enough to bound attacker accumulation. Implementation in PR 5 above.
+- **Email transport** checklist section to add before the re-walk: SMTP creds handling, DKIM/SPF alignment on the sender domain, bounce/complaint webhook auth (verify any inbound webhook isn't an unauthenticated POST that could be spoofed to mark accounts as bounced — account-lockout vector).
+- **Session cookie value format: DECIDED — raw token, no signed envelope.** Considered adding HMAC-signed envelope for tamper detection without a DB hit. Declined: the DB lookup already returns 401 for unknown tokens (tokens are now hashed at rest per #30), so signing adds complexity without a proportionate gain. Record in checklist as "considered, declined."
+- **Re-walk trigger:** re-run the audit checklist after PR 5 ships (covers the post-PR-2/PR-4 trigger too — they've already landed).
 - Renumber F8–F10 to be sequential before the formal walk.
 
 ## Findings (pre-seeded from plan-authoring pass — verify during walk)
@@ -168,11 +168,6 @@ Gaps to fold in before PR 1 starts (from review feedback on this plan):
 - **Detail:** Response shape is identical for known/unknown email (good), but the email-send path takes meaningfully longer than a no-op path. The code currently *always* creates a token and sends, regardless of whether the user exists (user is created at callback time via `findOrCreateEmailUser`), so the leak is muted — but if that ever changes to "only send for known users," the timing channel reopens. Pin this invariant in a test.
 - **Fix:** add a comment + test asserting the no-existence-check property, or add a constant-time floor on the response.
 
-### F10 — Return-URL validation: backslash/protocol-relative paths — assessed safe
-- **Severity:** none (recorded so future checklist walks don't re-flag)
-- **Location:** `backend/internal/handler/auth.go:462-467` (`isRelativePath`), `:231` and `:401` (redirect targets)
-- **Detail:** `isRelativePath` rejects empty, non-`/`-prefixed, and `//`-prefixed strings. It does NOT reject `/\evil.com` or `/\\evil.com`. Initially looked like an open-redirect bypass via browser backslash normalization. On closer reading the redirect target is built as `h.frontendURL + returnURL`, so the host is always fixed by `FRONTEND_URL`; backslash-in-path does not let a browser switch host. Safe as written. Add a unit test pinning these inputs (`/\evil.com`, `/\\evil.com`, `/%2f%2fevil.com`) to assert "host stays on frontend" so a future refactor can't regress this without a failing test.
-
 ### F7 — `optionalAuth` route surface is large; default-deny would be safer
 - **Severity:** low (architectural)
 - **Location:** `backend/internal/server/server.go:104-165`, `backend/internal/server/middleware.go:77-86`
@@ -202,6 +197,18 @@ Gaps to fold in before PR 1 starts (from review feedback on this plan):
   1. **Validate the shape, not just presence.** `COOKIE_DOMAIN` is already required (`config.go:100-102` errors when empty + `SECURE_COOKIES=true`), but any value is accepted. Add a check: if `COOKIE_DOMAIN` starts with `.` (parent-domain shape), require an explicit opt-in env var like `ALLOW_PARENT_DOMAIN_COOKIE=true`, otherwise refuse to boot. Makes the dangerous shape a deliberate, typed-out decision rather than a quiet default.
   2. Document the trust boundary in `docs/infra-notes.md`.
   3. Longer-term, consider proxying `api.*` under the frontend origin via Vercel rewrites so the cookie can be host-only / `__Host-`-prefixed and the parent-domain opt-in can be removed.
+
+### F10 — Return-URL validation: backslash/protocol-relative paths — assessed safe
+- **Severity:** none (recorded so future checklist walks don't re-flag)
+- **Location:** `backend/internal/handler/auth.go:462-467` (`isRelativePath`), `:231` and `:401` (redirect targets)
+- **Detail:** `isRelativePath` rejects empty, non-`/`-prefixed, and `//`-prefixed strings. It does NOT reject `/\evil.com` or `/\\evil.com`. Initially looked like an open-redirect bypass via browser backslash normalization. On closer reading the redirect target is built as `h.frontendURL + returnURL`, so the host is always fixed by `FRONTEND_URL`; backslash-in-path does not let a browser switch host. Safe as written. Add a unit test pinning these inputs (`/\evil.com`, `/\\evil.com`, `/%2f%2fevil.com`) to assert "host stays on frontend" so a future refactor can't regress this without a failing test.
+
+### F11 — Concurrent session policy
+- **Severity:** medium
+- **Location:** `backend/internal/store/session.go` (`CreateSession`), `backend/internal/handler/auth.go` (Google + magic-link login paths)
+- **Detail:** Every successful login inserts a new row in `sessions`; prior rows are untouched and live until their sliding/absolute expiry. A user accumulates one row per device per login event. A token-theft attacker can hold a parallel session indefinitely (within the 90d absolute cap from F2) without colliding with the legitimate user.
+- **Decision:** cap at 10 active sessions per user; prune oldest on login. Single-session would bump real users on every cross-device login (phone + laptop + work laptop + tablet) on a tool people open infrequently. Unbounded leaves attacker accumulation invisible across the F2 window. 10 is loose enough to never bite a real user, tight enough to bound the attacker case.
+- **Fix:** `pruneSessionsForUser(userID, keep=10)` deletes rows for the user beyond the most-recent 10 by `created_at`. Call after `CreateSession` in both login paths. Add index on `sessions(user_id, created_at DESC)` if not already covered.
 
 ## Log
 
@@ -234,3 +241,10 @@ Gaps to fold in before PR 1 starts (from review feedback on this plan):
   - F9: `config.go` rejects leading-dot `COOKIE_DOMAIN` unless `ALLOW_PARENT_DOMAIN_COOKIE=true`. Prod Terraform (`infra/cloud_run.tf`) sets the opt-in. Tests added (`config_test.go`).
   - F7: `server.go` `routes()` refactored to use `handlePublic`/`handleAuth`/`handleAdmin`/`handleOptional` registration helpers that record each route's auth class on the Server. New `route_coverage_test.go` asserts every registered route matches an explicit allow-list (kind change or new route fails the test) and that every required/admin route returns 401 without a session cookie.
   - All backend unit + integration + frontend tests pass; `make lint` clean.
+- 2026-05-06 — F11 decided (cap concurrent sessions at 10, prune oldest on login). PR 5 reframed: was "invalidate all on login" for F1 fixation residual; now "prune-to-10 + close F1" since cookie overwrite + F2's 90d absolute cap + the new prune already bound the residual-row threat. Cookie value format decision recorded: raw token, no signed envelope (DB lookup with hashed-at-rest tokens already covers tamper). Findings reordered F1–F11 sequentially; F11 added with severity medium and the cap-at-10 rationale.
+- 2026-05-06 — PR 5 implemented (F11 + F1 close):
+  - Migration `022_session_user_created_index.sql` drops the user_id-only `idx_sessions_user_id` and replaces it with composite `idx_sessions_user_id_created_at` on `(user_id, created_at DESC)` so the prune query is an index scan. Composite covers user_id equality lookups too, so the simple index is redundant.
+  - `store.PruneSessionsForUser(userID, keep)` deletes rows for the user beyond the most-recent `keep` by `created_at DESC`. Single statement (`DELETE … WHERE user_id = $1 AND token_hash NOT IN (SELECT … ORDER BY created_at DESC LIMIT $2)`) so concurrent logins can't race with each other to widen the cap.
+  - `maxConcurrentSessionsPerUser = 10` constant in `handler/auth.go`. Called after `CreateSession` in `GoogleCallback`, `MagicLinkVerify`, and `TestLoginHandler.Login`. Errors logged at error level and ignored — login still succeeds even if prune fails (the user has a working session; the worst case is one extra row that the next prune cleans up).
+  - F1 closed in this PR. Original framing was "invalidate all sessions on login" to kill any pre-set session fixation row. Reframed: cookie overwrite at login + F2's 90d absolute cap + the new prune-to-10 together bound the residual-row threat without bumping users off legitimate devices on every login. A pre-set row gets pruned alongside legitimate old rows once enough fresh logins accumulate, and at worst lives until the absolute cap.
+  - Tests: store integration `TestPruneSessionsForUser` (12 → 10, oldest 2 deleted, other user's session untouched), `TestPruneSessionsForUserBelowKeep` (no-op when below cap); handler unit `TestMagicLinkVerify_PrunesOldSessions` (12 logins for the same user → 10 sessions remain). Fake `AuthStore` updated with `sessionOrder` slice + `PruneSessionsForUser` mirror. Backend unit + integration + frontend tests pass; `make lint` clean.
