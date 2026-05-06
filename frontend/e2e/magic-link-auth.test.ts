@@ -26,8 +26,13 @@ test("magic-link: request a link, fetch it from the captured-email endpoint, cli
 
   await page.goto(link);
 
-  // After the bridge page + backend callback chain, we land back on "/" with
-  // a session cookie. /auth/me confirms.
+  // The callback page is an interstitial (audit F4) — token consumption
+  // only fires from the user-initiated POST behind this button, not on
+  // page load, so link prefetchers can't burn the token. Click through to
+  // finish the sign-in.
+  await page.getByRole("button", { name: "Continue" }).click();
+
+  // After verify the page navigates to "/" with a session cookie set.
   await expect(page).toHaveURL(/\/$/);
 
   const me = await api.get(`/auth/me`, {
