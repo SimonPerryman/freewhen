@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ApiError, verifyMagicLink } from "@/lib/api";
-import { log } from "@/lib/log";
+import log from "@/lib/log";
 
 export default function MagicLinkCallbackPage() {
   return (
