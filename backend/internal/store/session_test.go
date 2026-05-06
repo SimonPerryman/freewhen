@@ -254,6 +254,46 @@ func TestPruneSessionsForUserBelowKeep(t *testing.T) {
 	}
 }
 
+// TestDeleteSessionsForUser pins the F12 contract: every session row for the
+// targeted user is removed; other users' sessions are untouched.
+func TestDeleteSessionsForUser(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	u := createTestUser(t, s, "Logout-All User")
+	other := createTestUser(t, s, "Bystander User")
+
+	var uTokens []string
+	for i := 0; i < 4; i++ {
+		tok, err := s.CreateSession(ctx, u.ID)
+		if err != nil {
+			t.Fatalf("create session %d: %v", i, err)
+		}
+		uTokens = append(uTokens, tok)
+	}
+	otherToken, err := s.CreateSession(ctx, other.ID)
+	if err != nil {
+		t.Fatalf("create other session: %v", err)
+	}
+
+	if err := s.DeleteSessionsForUser(ctx, u.ID); err != nil {
+		t.Fatalf("delete sessions for user: %v", err)
+	}
+
+	for i, tok := range uTokens {
+		sess, err := s.GetSession(ctx, tok)
+		if err != nil {
+			t.Fatalf("get session %d: %v", i, err)
+		}
+		if sess != nil {
+			t.Fatalf("session %d should have been deleted", i)
+		}
+	}
+
+	if sess, err := s.GetSession(ctx, otherToken); err != nil || sess == nil {
+		t.Fatalf("other user's session deleted unexpectedly: sess=%v err=%v", sess, err)
+	}
+}
+
 func TestSessionDeleteInvalidatesGet(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()

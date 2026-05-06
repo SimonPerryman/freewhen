@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/freewhen/backend/internal/config"
 )
 
 func newTestServer(corsOrigin string, logBuf io.Writer) *Server {
@@ -197,6 +199,105 @@ func TestResponseWriter_CapturesStatusCode(t *testing.T) {
 	}
 	if rr.Code != http.StatusTeapot {
 		t.Errorf("underlying writer Code = %d, want 418", rr.Code)
+	}
+}
+
+func TestSecureHeaders_BaselineHeaders(t *testing.T) {
+	s := newTestServer("https://example.com", nil)
+	s.cfg = &config.Config{SecureCookies: false}
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	req := httptest.NewRequest(http.MethodGet, "/calendars/abc", nil)
+	rec := httptest.NewRecorder()
+	s.secureHeaders(next).ServeHTTP(rec, req)
+
+	if got := rec.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Fatalf("X-Content-Type-Options: %q", got)
+	}
+	if got := rec.Header().Get("Referrer-Policy"); got != "no-referrer" {
+		t.Fatalf("Referrer-Policy: %q", got)
+	}
+	// HSTS off when SecureCookies is false (dev / localhost).
+	if got := rec.Header().Get("Strict-Transport-Security"); got != "" {
+		t.Fatalf("HSTS leaked in dev: %q", got)
+	}
+	// Cache-Control only set on /auth/* paths.
+	if got := rec.Header().Get("Cache-Control"); got != "" {
+		t.Fatalf("non-auth path got Cache-Control: %q", got)
+	}
+}
+
+func TestSecureHeaders_HSTSWhenSecureCookiesEnabled(t *testing.T) {
+	s := newTestServer("https://example.com", nil)
+	s.cfg = &config.Config{SecureCookies: true}
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	rec := httptest.NewRecorder()
+	s.secureHeaders(next).ServeHTTP(rec, req)
+
+	if got := rec.Header().Get("Strict-Transport-Security"); got != "max-age=31536000; includeSubDomains" {
+		t.Fatalf("HSTS: %q", got)
+	}
+}
+
+func TestSecureHeaders_AuthPathCacheControl(t *testing.T) {
+	s := newTestServer("https://example.com", nil)
+	s.cfg = &config.Config{SecureCookies: true}
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	for _, path := range []string{"/auth/me", "/auth/magic-link/verify", "/auth/google/callback"} {
+		t.Run(path, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			rec := httptest.NewRecorder()
+			s.secureHeaders(next).ServeHTTP(rec, req)
+			if got := rec.Header().Get("Cache-Control"); got != "no-store, private" {
+				t.Fatalf("Cache-Control on %s: %q", path, got)
+			}
+		})
+	}
+}
+
+func TestRequireJSONContentType(t *testing.T) {
+	cases := []struct {
+		name        string
+		method      string
+		contentType string
+		want        int
+	}{
+		{"GET no content-type passes", http.MethodGet, "", http.StatusOK},
+		{"HEAD no content-type passes", http.MethodHead, "", http.StatusOK},
+		{"OPTIONS no content-type passes", http.MethodOptions, "", http.StatusOK},
+		{"POST application/json passes", http.MethodPost, "application/json", http.StatusOK},
+		{"POST application/json with charset passes", http.MethodPost, "application/json; charset=utf-8", http.StatusOK},
+		{"POST APPLICATION/JSON passes (case-insensitive)", http.MethodPost, "APPLICATION/JSON", http.StatusOK},
+		{"POST form-encoded rejected", http.MethodPost, "application/x-www-form-urlencoded", http.StatusUnsupportedMediaType},
+		{"POST text/plain rejected", http.MethodPost, "text/plain", http.StatusUnsupportedMediaType},
+		{"POST multipart rejected", http.MethodPost, "multipart/form-data; boundary=xx", http.StatusUnsupportedMediaType},
+		{"POST empty content-type rejected", http.MethodPost, "", http.StatusUnsupportedMediaType},
+		{"PATCH form-encoded rejected", http.MethodPatch, "application/x-www-form-urlencoded", http.StatusUnsupportedMediaType},
+		{"PUT empty rejected", http.MethodPut, "", http.StatusUnsupportedMediaType},
+		{"DELETE empty rejected", http.MethodDelete, "", http.StatusUnsupportedMediaType},
+		{"DELETE application/json passes", http.MethodDelete, "application/json", http.StatusOK},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			})
+			req := httptest.NewRequest(tc.method, "/x", nil)
+			if tc.contentType != "" {
+				req.Header.Set("Content-Type", tc.contentType)
+			}
+			rec := httptest.NewRecorder()
+			requireJSONContentType(next).ServeHTTP(rec, req)
+			if rec.Code != tc.want {
+				t.Fatalf("status: got %d, want %d (body=%s)", rec.Code, tc.want, rec.Body.String())
+			}
+		})
 	}
 }
 

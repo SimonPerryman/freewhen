@@ -38,6 +38,7 @@ test("anonymous joiner becomes a logged-in user; their participant row is claime
   //    leans on.
   const claim = await page.request.post(
     `${process.env.E2E_BACKEND_URL ?? "http://localhost:8090"}/calendars/${calendar.id}/participants/${before!.id}/claim`,
+    { headers: { "Content-Type": "application/json" } },
   );
   expect(claim.ok(), `claim: ${claim.status()} ${await claim.text()}`).toBeTruthy();
 

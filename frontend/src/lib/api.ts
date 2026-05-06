@@ -255,6 +255,13 @@ export async function logout(): Promise<void> {
   await request("/auth/logout", { method: "POST" });
 }
 
+// logoutEverywhere revokes every session for the user, then re-issues a
+// fresh session for the current device. The session cookie is rotated
+// transparently — the user stays logged in here. Audit F12.
+export async function logoutEverywhere(): Promise<void> {
+  await request("/auth/logout-all", { method: "POST" });
+}
+
 // ackCalendarImportConsent records that the user has seen the privacy
 // interstitial shown before the first Google Calendar import. Idempotent —
 // safe to call on every Continue click.
