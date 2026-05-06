@@ -30,6 +30,7 @@ type AuthStore interface {
 	CreateSession(ctx context.Context, userID string) (string, error)
 	GetSession(ctx context.Context, token string) (*model.Session, error)
 	DeleteSession(ctx context.Context, token string) error
+	DeleteSessionsForUser(ctx context.Context, userID string) error
 	PruneSessionsForUser(ctx context.Context, userID string, keep int) error
 	CreateMagicLinkToken(ctx context.Context, email, returnURL string) (string, error)
 	VerifyMagicLinkToken(ctx context.Context, plainToken string) (email, returnURL string, err error)
@@ -331,6 +332,40 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	})
 
 	respondJSON(w, http.StatusOK, map[string]string{"ok": "true"})
+}
+
+// LogoutAll deletes every session for the authenticated user and immediately
+// re-issues a fresh session for the current device, replacing the cookie.
+//
+// Audit F12 — gives a user with a suspected stolen token a self-service
+// revocation lever. PruneSessionsForUser already bounds attacker accumulation
+// to 10 parallel sessions, and the F2 absolute cap bounds them to 90 days,
+// but neither is user-triggerable. After this call returns, every session
+// row except the freshly-minted one is gone.
+func (h *AuthHandler) LogoutAll(w http.ResponseWriter, r *http.Request) {
+	user := UserFromContext(r)
+	if user == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized", "not authenticated")
+		return
+	}
+
+	if err := h.store.DeleteSessionsForUser(r.Context(), user.ID); err != nil {
+		respondInternalError(r, w, err, "internal_error", "failed to revoke sessions")
+		return
+	}
+
+	// Re-issue a fresh session for the current device so the user stays
+	// logged in here. Order matters: the delete above wiped the cookie's
+	// session row too, so this row is the only one that exists for the user
+	// once we return.
+	sessionToken, err := h.store.CreateSession(r.Context(), user.ID)
+	if err != nil {
+		respondInternalError(r, w, err, "internal_error", "failed to revoke sessions")
+		return
+	}
+	h.setSessionCookie(w, sessionToken)
+
+	respondJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 // magicLinkRequest is the JSON body for POST /auth/magic-link.

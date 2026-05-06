@@ -33,6 +33,7 @@ func TestRouteCoverage_AuthClassMatchesAllowList(t *testing.T) {
 		"GET /auth/me":                    authPublic, // returns null when unauth'd; safe
 		"PATCH /auth/me":                  authRequired,
 		"POST /auth/logout":               authPublic, // no-op without session
+		"POST /auth/logout-all":           authRequired,
 		"POST /auth/magic-link":           authPublic,
 		"POST /auth/magic-link/verify":    authPublic,
 

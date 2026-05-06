@@ -1,6 +1,6 @@
 # Auth subsystem security audit
 
-Status: pending
+Status: done (residual LOW findings tracked in `auth-audit-followups.md`)
 
 ## Goal
 
@@ -242,6 +242,7 @@ Gaps to fold in alongside PR 5:
   - F7: `server.go` `routes()` refactored to use `handlePublic`/`handleAuth`/`handleAdmin`/`handleOptional` registration helpers that record each route's auth class on the Server. New `route_coverage_test.go` asserts every registered route matches an explicit allow-list (kind change or new route fails the test) and that every required/admin route returns 401 without a session cookie.
   - All backend unit + integration + frontend tests pass; `make lint` clean.
 - 2026-05-06 — F11 decided (cap concurrent sessions at 10, prune oldest on login). PR 5 reframed: was "invalidate all on login" for F1 fixation residual; now "prune-to-10 + close F1" since cookie overwrite + F2's 90d absolute cap + the new prune already bound the residual-row threat. Cookie value format decision recorded: raw token, no signed envelope (DB lookup with hashed-at-rest tokens already covers tamper). Findings reordered F1–F11 sequentially; F11 added with severity medium and the cap-at-10 rationale.
+- 2026-05-06 — Re-walk completed against current main (PRs #30–#35 merged). No HIGH/MEDIUM findings. Six LOW findings surfaced (F12 logout-everywhere, F13 reject non-JSON Content-Type, F14 isRelativePath regression test, F15 email normalization, F16 security/transport headers + Referrer-Policy, F17 verify Cloud Run XFF behavior) plus the deferred email-transport section (Resend key handling, DKIM/SPF/DMARC, future bounce-webhook auth). All tracked in `plans/tech-debt/auth-audit-followups.md`. Audit status flipped to `done` — residual hardening work lives in the follow-up plan.
 - 2026-05-06 — PR 5 implemented (F11 + F1 close):
   - Migration `022_session_user_created_index.sql` drops the user_id-only `idx_sessions_user_id` and replaces it with composite `idx_sessions_user_id_created_at` on `(user_id, created_at DESC)` so the prune query is an index scan. Composite covers user_id equality lookups too, so the simple index is redundant.
   - `store.PruneSessionsForUser(userID, keep)` deletes rows for the user beyond the most-recent `keep` by `created_at DESC`. Single statement (`DELETE … WHERE user_id = $1 AND token_hash NOT IN (SELECT … ORDER BY created_at DESC LIMIT $2)`) so concurrent logins can't race with each other to widen the cap.

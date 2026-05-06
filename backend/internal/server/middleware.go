@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"mime"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/freewhen/backend/internal/handler"
@@ -132,6 +134,65 @@ func (s *Server) requestLog(next http.Handler) http.Handler {
 			"duration_ms", time.Since(start).Milliseconds(),
 			"request_id", id,
 		)
+	})
+}
+
+// secureHeaders sets baseline transport-hardening response headers on every
+// response.
+//
+// Audit F16:
+//   - X-Content-Type-Options: nosniff — disables MIME sniffing on all
+//     responses; the API only ever returns JSON / iCal / SSE, so sniffing
+//     adds attack surface with no upside.
+//   - Referrer-Policy: no-referrer — keeps any URL the API receives or
+//     redirects to from leaking via Referer to third-party assets. Most
+//     critical on /auth/* where the magic-link interstitial holds the token
+//     in `?token=...`; if any third-party asset (analytics, fonts) is ever
+//     added to that page the token would otherwise leak.
+//   - Strict-Transport-Security — only when SECURE_COOKIES=true (the same
+//     gate we use to assume "this is a public HTTPS deployment, not a local
+//     dev server"). Avoids accidentally pinning HSTS for `localhost`.
+//   - Cache-Control: no-store, private on /auth/* — token-bearing responses
+//     must never end up in a shared cache or browser back/forward cache.
+func (s *Server) secureHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Referrer-Policy", "no-referrer")
+		if s.cfg != nil && s.cfg.SecureCookies {
+			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+		if strings.HasPrefix(r.URL.Path, "/auth/") {
+			h.Set("Cache-Control", "no-store, private")
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// requireJSONContentType returns 415 for any mutating request (anything other
+// than GET / HEAD / OPTIONS) whose Content-Type isn't application/json.
+//
+// Audit F13 — defense-in-depth on top of SameSite=Lax. A `<form>` element can
+// only ever set Content-Type to application/x-www-form-urlencoded,
+// multipart/form-data, or text/plain, none of which pass this check. Any
+// cross-origin POST/PATCH/DELETE/PUT carrying JSON is therefore forced to
+// trigger a CORS preflight, which our `cors` middleware only honours from
+// the configured origin. It also makes the JSON-only contract on the API
+// explicit at the edge rather than implicit per handler.
+func requireJSONContentType(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet, http.MethodHead, http.MethodOptions:
+			next.ServeHTTP(w, r)
+			return
+		}
+		ct := r.Header.Get("Content-Type")
+		mediaType, _, err := mime.ParseMediaType(ct)
+		if err != nil || !strings.EqualFold(mediaType, "application/json") {
+			http.Error(w, `{"error":"unsupported_media_type","message":"Content-Type must be application/json"}`, http.StatusUnsupportedMediaType)
+			return
+		}
+		next.ServeHTTP(w, r)
 	})
 }
 

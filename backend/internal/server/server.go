@@ -152,6 +152,7 @@ func (s *Server) routes() {
 	s.handlePublic("GET /auth/me", s.auth.Me)
 	s.handleAuth("PATCH /auth/me", s.auth.UpdateMe)
 	s.handlePublic("POST /auth/logout", s.auth.Logout)
+	s.handleAuth("POST /auth/logout-all", s.auth.LogoutAll)
 	s.handlePublic("POST /auth/magic-link", s.auth.SendMagicLink)
 	s.handlePublic("POST /auth/magic-link/verify", s.auth.MagicLinkVerify)
 
@@ -210,5 +211,5 @@ func (s *Server) routes() {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.cors(s.requestLog(s.mux)).ServeHTTP(w, r)
+	s.secureHeaders(s.cors(s.requestLog(requireJSONContentType(s.mux)))).ServeHTTP(w, r)
 }

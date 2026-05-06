@@ -125,6 +125,20 @@ func (s *Store) DeleteSession(ctx context.Context, token string) error {
 	return nil
 }
 
+// DeleteSessionsForUser deletes every session row for a user. Used by the
+// "log out everywhere" flow (auth audit F12) so a user with a suspected
+// stolen token can self-revoke. The caller is expected to immediately
+// re-issue a fresh session for the current device after this returns.
+func (s *Store) DeleteSessionsForUser(ctx context.Context, userID string) error {
+	_, err := s.db.ExecContext(ctx,
+		`DELETE FROM sessions WHERE user_id = $1`, userID,
+	)
+	if err != nil {
+		return fmt.Errorf("delete sessions for user: %w", err)
+	}
+	return nil
+}
+
 func (s *Store) DeleteExpiredSessions(ctx context.Context) error {
 	_, err := s.db.ExecContext(ctx,
 		`DELETE FROM sessions WHERE expires_at < now()`,

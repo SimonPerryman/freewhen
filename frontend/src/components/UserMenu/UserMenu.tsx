@@ -10,9 +10,10 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useAuth } from "@/components/AuthProvider/AuthProvider";
-import { updateMe, ApiError } from "@/lib/api";
+import { updateMe, logoutEverywhere, ApiError } from "@/lib/api";
 import { MAX_USER_NAME_LENGTH } from "@/lib/limits";
 import log from "@/lib/log";
+import { useToast } from "@/lib/toast";
 import styles from "./UserMenu.module.css";
 
 const COUNTER_THRESHOLD = 10;
@@ -25,12 +26,14 @@ function initialFor(name: string | undefined, email: string): string {
 
 export default function UserMenu() {
   const { user, setUser, signOut } = useAuth();
+  const { showToast } = useToast();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+  const [revokingOthers, setRevokingOthers] = useState(false);
 
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -138,6 +141,27 @@ export default function UserMenu() {
       await signOut();
     } finally {
       setSigningOut(false);
+    }
+  }
+
+  async function handleSignOutEverywhere() {
+    setRevokingOthers(true);
+    try {
+      await logoutEverywhere();
+      showToast({ message: "Signed out everywhere else." });
+      close();
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.message || "Could not sign out other devices."
+          : "Could not sign out other devices.";
+      log.error(
+        "logout everywhere failed",
+        err instanceof Error ? err.message : String(err),
+      );
+      showToast({ message: msg });
+    } finally {
+      setRevokingOthers(false);
     }
   }
 
@@ -291,6 +315,31 @@ export default function UserMenu() {
               </svg>
               My calendars
             </a>
+
+            <button
+              type="button"
+              role="menuitem"
+              className={styles.menuItem}
+              onClick={handleSignOutEverywhere}
+              disabled={revokingOthers}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path
+                  d="M2 8C2 4.7 4.7 2 8 2C11.3 2 14 4.7 14 8C14 11.3 11.3 14 8 14"
+                  stroke="currentColor"
+                  strokeWidth="1.3"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M5 5L8 8L11 5"
+                  stroke="currentColor"
+                  strokeWidth="1.3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              {revokingOthers ? "Signing out other devices…" : "Sign out other devices"}
+            </button>
 
             <button
               type="button"

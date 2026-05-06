@@ -159,6 +159,23 @@ func (f *fakeAuthStore) DeleteSession(_ context.Context, token string) error {
 	return nil
 }
 
+func (f *fakeAuthStore) DeleteSessionsForUser(_ context.Context, userID string) error {
+	kept := make([]string, 0, len(f.sessionOrder))
+	for _, tok := range f.sessionOrder {
+		s, ok := f.sessions[tok]
+		if !ok {
+			continue
+		}
+		if s.UserID == userID {
+			delete(f.sessions, tok)
+			continue
+		}
+		kept = append(kept, tok)
+	}
+	f.sessionOrder = kept
+	return nil
+}
+
 func (f *fakeAuthStore) CreateMagicLinkToken(_ context.Context, email, returnURL string) (string, error) {
 	if f.createMagicErr != nil {
 		return "", f.createMagicErr
