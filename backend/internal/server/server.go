@@ -73,7 +73,7 @@ func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 		}
 	}
 
-	h := handler.New(svc).WithFlags(flagEval)
+	h := handler.New(svc).WithFlags(flagEval).WithTrustedProxyDepth(cfg.TrustedProxyDepth)
 	eh := handler.NewEvents(hub, svc, logger)
 
 	var emailSender handler.EmailSender

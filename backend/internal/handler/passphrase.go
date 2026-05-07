@@ -31,7 +31,7 @@ func (h *Handler) Unlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.service.UnlockCalendar(r.Context(), id, req.Passphrase, remoteIP(r))
+	token, err := h.service.UnlockCalendar(r.Context(), id, req.Passphrase, remoteIP(r, h.trustedProxyDepth))
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
@@ -150,15 +150,25 @@ func (h *Handler) requireCalendarAccess(w http.ResponseWriter, r *http.Request, 
 	return true, nil
 }
 
-// remoteIP extracts the client IP from the request. Trusts X-Forwarded-For's
-// left-most entry when present (Cloud Run / Vercel put the origin IP there),
-// otherwise falls back to r.RemoteAddr's host portion.
-func remoteIP(r *http.Request) string {
+// remoteIP extracts the client IP from the request, treating the rightmost
+// trustedProxyDepth entries of X-Forwarded-For as infrastructure hops we
+// control. The client IP is the entry immediately to the left of those
+// trusted hops; anything further left is attacker-supplied input and ignored.
+//
+// Cloud Run direct ingress appends only the actual client IP, so depth=0
+// (the default) reads the rightmost entry — the real client. With an external
+// HTTPS load balancer in front, set TRUSTED_PROXY_DEPTH=1 to skip the LB hop.
+//
+// If XFF is absent or has fewer entries than depth+1 (a misconfigured proxy
+// chain — fail safe rather than silently trusting attacker input), we fall
+// back to r.RemoteAddr's host portion.
+func remoteIP(r *http.Request, trustedProxyDepth int) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		if i := strings.IndexByte(xff, ','); i >= 0 {
-			return strings.TrimSpace(xff[:i])
+		parts := strings.Split(xff, ",")
+		idx := len(parts) - 1 - trustedProxyDepth
+		if idx >= 0 {
+			return strings.TrimSpace(parts[idx])
 		}
-		return strings.TrimSpace(xff)
 	}
 	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
 		return host

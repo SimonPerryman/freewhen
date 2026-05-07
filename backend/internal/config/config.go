@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -40,6 +41,15 @@ type Config struct {
 	// arbitrary email — used by the Playwright suite. Hard-refused when
 	// SECURE_COOKIES=true so it can never be enabled in a prod-shaped env.
 	E2ETestMode bool
+	// TrustedProxyDepth is the number of trailing X-Forwarded-For entries that
+	// belong to infrastructure we control (load balancers, ingress) and can
+	// trust. The client IP is read at index len-1-depth, so a malicious client
+	// supplying its own XFF header cannot poison rate-limit buckets — anything
+	// it injects appears further left and is discarded. Default 0 matches
+	// Cloud Run direct ingress, which appends only the actual client IP.
+	// Increase to 1 if running behind a Google external HTTPS load balancer
+	// (which appends an additional LB hop).
+	TrustedProxyDepth int
 }
 
 func Load() (*Config, error) {
@@ -114,6 +124,11 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("COOKIE_DOMAIN=%q is a parent-domain cookie (leading dot); set ALLOW_PARENT_DOMAIN_COOKIE=true to confirm or scope COOKIE_DOMAIN to a single host", cookieDomain)
 	}
 
+	trustedProxyDepth, err := parseNonNegativeInt(os.Getenv("TRUSTED_PROXY_DEPTH"), 0)
+	if err != nil {
+		return nil, fmt.Errorf("TRUSTED_PROXY_DEPTH: %w", err)
+	}
+
 	e2eTestMode, err := parseBool(os.Getenv("E2E_TEST_MODE"), false)
 	if err != nil {
 		return nil, fmt.Errorf("E2E_TEST_MODE: %w", err)
@@ -142,7 +157,22 @@ func Load() (*Config, error) {
 		PostHogHost:               os.Getenv("POSTHOG_HOST"),
 		PostHogPersonalKey:        os.Getenv("POSTHOG_PERSONAL_API_KEY"),
 		E2ETestMode:               e2eTestMode,
+		TrustedProxyDepth:         trustedProxyDepth,
 	}, nil
+}
+
+func parseNonNegativeInt(s string, fallback int) (int, error) {
+	if s == "" {
+		return fallback, nil
+	}
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, fmt.Errorf("invalid value %q (want non-negative integer)", s)
+	}
+	if n < 0 {
+		return 0, fmt.Errorf("invalid value %q (must be >= 0)", s)
+	}
+	return n, nil
 }
 
 func validateAuthEmail(disabled bool, resendKey, fromEmail, frontendURL string) error {

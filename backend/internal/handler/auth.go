@@ -42,15 +42,16 @@ type EmailSender interface {
 }
 
 type AuthHandler struct {
-	store        AuthStore
-	email        EmailSender
-	oauth        *oauth2.Config
-	userInfoURL  string // overridable for tests
-	frontendURL  string
-	cookieDomain string
-	secureCookie bool
-	logger       *slog.Logger
-	magicLimiter *magicLinkLimiter
+	store             AuthStore
+	email             EmailSender
+	oauth             *oauth2.Config
+	userInfoURL       string // overridable for tests
+	frontendURL       string
+	cookieDomain      string
+	secureCookie      bool
+	logger            *slog.Logger
+	magicLimiter      *magicLinkLimiter
+	trustedProxyDepth int
 }
 
 const defaultGoogleUserInfoURL = "https://www.googleapis.com/oauth2/v3/userinfo"
@@ -93,15 +94,16 @@ func NewAuth(s AuthStore, emailSender EmailSender, cfg *config.Config, logger *s
 	}
 
 	h := &AuthHandler{
-		store:        s,
-		email:        emailSender,
-		oauth:        oauthCfg,
-		userInfoURL:  defaultGoogleUserInfoURL,
-		frontendURL:  cfg.FrontendURL,
-		cookieDomain: cfg.CookieDomain,
-		secureCookie: cfg.SecureCookies,
-		logger:       logger,
-		magicLimiter: newMagicLinkLimiter(),
+		store:             s,
+		email:             emailSender,
+		oauth:             oauthCfg,
+		userInfoURL:       defaultGoogleUserInfoURL,
+		frontendURL:       cfg.FrontendURL,
+		cookieDomain:      cfg.CookieDomain,
+		secureCookie:      cfg.SecureCookies,
+		logger:            logger,
+		magicLimiter:      newMagicLinkLimiter(),
+		trustedProxyDepth: cfg.TrustedProxyDepth,
 	}
 	for _, opt := range opts {
 		opt(h)
@@ -399,7 +401,7 @@ func (h *AuthHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !h.magicLimiter.allow(req.Email, remoteIP(r)) {
+	if !h.magicLimiter.allow(req.Email, remoteIP(r, h.trustedProxyDepth)) {
 		w.Header().Set("Retry-After", "900")
 		respondError(w, http.StatusTooManyRequests, "rate_limited", "too many requests, try again shortly")
 		return
