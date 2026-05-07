@@ -53,8 +53,9 @@ type CalendarService interface {
 }
 
 type Handler struct {
-	service CalendarService
-	flags   flags.Evaluator
+	service           CalendarService
+	flags             flags.Evaluator
+	trustedProxyDepth int
 }
 
 func New(s CalendarService) *Handler {
@@ -66,6 +67,16 @@ func New(s CalendarService) *Handler {
 func (h *Handler) WithFlags(fe flags.Evaluator) *Handler {
 	if fe != nil {
 		h.flags = fe
+	}
+	return h
+}
+
+// WithTrustedProxyDepth sets the number of trailing X-Forwarded-For entries
+// to treat as infrastructure hops when extracting the client IP for
+// rate-limiting. Default 0 (Cloud Run direct).
+func (h *Handler) WithTrustedProxyDepth(n int) *Handler {
+	if n >= 0 {
+		h.trustedProxyDepth = n
 	}
 	return h
 }

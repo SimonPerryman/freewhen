@@ -43,6 +43,7 @@ Backend env vars (all read once at startup in `internal/config/config.go`):
 | `CORS_ORIGIN` | `http://localhost:3000` | |
 | `LOG_LEVEL` | `info` | `debug` \| `info` \| `warn` \| `error`. JSON to stdout always — pipe through `jq` locally if you want readability. |
 | `SECURE_COOKIES` | `true` | Set `false` for local HTTP dev. Prod / staging leave unset → defaults to secure. |
+| `TRUSTED_PROXY_DEPTH` | `0` | Number of trailing `X-Forwarded-For` entries that belong to trusted infrastructure. `0` is correct for Cloud Run direct ingress (GFE appends only the real client IP). Set `1` if running behind a Google external HTTPS load balancer. Used by per-IP rate limiters; getting it wrong lets clients spoof their IP and poison rate-limit buckets. |
 | `POSTHOG_KEY` | unset | PostHog project API key. If unset, backend flag evaluation no-ops (returns caller-supplied fallback). |
 | `POSTHOG_HOST` | unset | PostHog API host (e.g. `https://eu.i.posthog.com`). Leave unset to use the SDK default. |
 | `POSTHOG_PERSONAL_API_KEY` | unset | Optional. Enables local polling of flag definitions for fast in-process evaluation. Without it, the SDK still works but evaluates flags remotely. |
