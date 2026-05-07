@@ -569,6 +569,93 @@ func TestMagicLinkVerify_PrunesOldSessions(t *testing.T) {
 	}
 }
 
+// TestSendMagicLink_NormalizesEmail pins audit F15: case- and whitespace-
+// variant inputs must collapse onto the same canonical email everywhere
+// downstream — same rate-limit bucket, same magic-link record, same user row.
+// Otherwise `User@x.com` and `user@x.com` would silently fork the account.
+func TestSendMagicLink_NormalizesEmail(t *testing.T) {
+	st := newFakeAuthStore()
+	sender := &fakeEmailSender{}
+	h := newTestAuthHandler(t, st, sender)
+
+	for _, raw := range []string{
+		`alice@example.com`,
+		`  Alice@Example.COM  `,
+		`ALICE@EXAMPLE.COM`,
+	} {
+		body := strings.NewReader(`{"email":"` + raw + `"}`)
+		req := httptest.NewRequest(http.MethodPost, "/auth/magic-link", body)
+		req.Header.Set("X-Forwarded-For", "10.0.0.1")
+		rec := httptest.NewRecorder()
+		h.SendMagicLink(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("input %q: status %d", raw, rec.Code)
+		}
+	}
+
+	// Prior-token invalidation collapses three issues into one outstanding token.
+	if len(st.magicLinks) != 1 {
+		t.Fatalf("expected a single outstanding token after case-variant requests, got %d", len(st.magicLinks))
+	}
+	for _, rec := range st.magicLinks {
+		if rec.email != "alice@example.com" {
+			t.Fatalf("stored email not canonical: %q", rec.email)
+		}
+	}
+	// Recipient on every send is the canonical address (Resend dedupes by exact match).
+	for i, c := range sender.calls {
+		if c.to != "alice@example.com" {
+			t.Fatalf("send %d to %q, want canonical lower-case", i, c.to)
+		}
+	}
+
+	// Drive the verify exchange and confirm a single user row results.
+	var lastToken string
+	for k := range st.magicLinks {
+		lastToken = k
+	}
+	if rec := postVerify(h, lastToken); rec.Code != http.StatusOK {
+		t.Fatalf("verify status: %d", rec.Code)
+	}
+	if _, ok := st.usersByEmail["alice@example.com"]; !ok {
+		t.Fatalf("canonical user not created")
+	}
+	for k := range st.usersByEmail {
+		if k != "alice@example.com" {
+			t.Fatalf("found non-canonical user row %q — case-variant should have collapsed", k)
+		}
+	}
+}
+
+// TestSendMagicLink_NormalizesEmail_RateLimitBucket pins that per-email rate
+// limiting cannot be bypassed by toggling case. Without normalization an
+// attacker would get N tries per casing variant.
+func TestSendMagicLink_NormalizesEmail_RateLimitBucket(t *testing.T) {
+	st := newFakeAuthStore()
+	sender := &fakeEmailSender{}
+	h := newTestAuthHandler(t, st, sender)
+
+	variants := []string{
+		"victim@example.com",
+		"Victim@example.com",
+		"VICTIM@EXAMPLE.COM",
+		"victim@Example.COM",
+	}
+	// Each request from a unique IP so per-IP budget never trips.
+	for i := 0; i < magicLinkPerEmailMax; i++ {
+		ip := "10.0.0." + string(rune('1'+i))
+		rec := sendMagicLinkRequest(t, h, variants[i%len(variants)], ip)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("attempt %d (%s): %d", i, variants[i%len(variants)], rec.Code)
+		}
+	}
+	// The next request — with yet another casing — must trip the per-email cap.
+	rec := sendMagicLinkRequest(t, h, "ViCtIm@ExAmPlE.cOm", "10.0.0.99")
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("case-variant bypassed rate limit: %d", rec.Code)
+	}
+}
+
 // postVerify drives MagicLinkVerify with the given token.
 func postVerify(h *AuthHandler, token string) *httptest.ResponseRecorder {
 	body := strings.NewReader(`{"token":"` + token + `"}`)

@@ -44,6 +44,7 @@ func (h *TestLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusBadRequest, "invalid_json", "invalid request body")
 		return
 	}
+	req.Email = normalizeEmail(req.Email)
 	if !isValidEmail(req.Email) {
 		respondError(w, http.StatusBadRequest, "invalid_email", "invalid email address")
 		return

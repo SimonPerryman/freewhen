@@ -218,6 +218,7 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 		respondInternalError(r, w, err, "internal_error", "authentication failed")
 		return
 	}
+	info.Email = normalizeEmail(info.Email)
 
 	// Create or find user
 	user, err := h.findOrCreateUser(r.Context(), info)
@@ -396,6 +397,7 @@ func (h *AuthHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	req.Email = normalizeEmail(req.Email)
 	if !isValidEmail(req.Email) {
 		respondError(w, http.StatusBadRequest, "invalid_email", "invalid email address")
 		return
@@ -467,6 +469,7 @@ func (h *AuthHandler) MagicLinkVerify(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusBadRequest, "invalid_request", "invalid or expired link")
 		return
 	}
+	email = normalizeEmail(email)
 
 	user, err := h.findOrCreateEmailUser(r.Context(), email)
 	if err != nil {
@@ -555,6 +558,19 @@ func isRelativePath(s string) bool {
 		return false
 	}
 	return strings.HasPrefix(s, "/") && !strings.HasPrefix(s, "//")
+}
+
+// normalizeEmail lowercases and trims surrounding whitespace, producing the
+// canonical form used everywhere downstream.
+//
+// Audit F15: every email-shaped boundary input must be normalized before it
+// reaches the rate limiter, the magic-link store, or the users table.
+// Otherwise `User@x.com` and `user@x.com` get separate rate-limit buckets,
+// separate concurrent magic-link tokens, and (worst case) separate user rows
+// — an account split. Migration 023 lowercased every existing row, so all
+// stored values are already canonical; this keeps new writes consistent.
+func normalizeEmail(s string) string {
+	return strings.ToLower(strings.TrimSpace(s))
 }
 
 // isValidEmail does a basic check that the string looks like an email address.
