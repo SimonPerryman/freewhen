@@ -54,7 +54,7 @@ resource "google_cloud_run_v2_service" "api" {
       }
       env {
         name  = "MAGIC_LINK_FROM_EMAIL"
-        value = "onboarding@resend.dev"
+        value = "FreeWhen <no-reply@mail.freewhen.simonperryman.co.uk>"
       }
       env {
         name  = "AUTH_EMAIL_DISABLED"
