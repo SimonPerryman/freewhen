@@ -147,6 +147,23 @@ UPDATE users SET is_admin = true WHERE email = 'you@example.com';
    to the Cloud Run URL (or your custom domain). Update `CORS_ORIGIN` on the
    service to match the Vercel domain.
 
+## Secret rotation
+
+All runtime secrets live in Secret Manager and are referenced by `infra/secrets.tf` (data sources, never managed). Rotate by adding a new version — Cloud Run reads `version = "latest"`, so the new revision picks it up on next deploy or after a `gcloud run services update --clear-revision`-style nudge.
+
+### Resend API key (`freewhen-resend-api-key`)
+
+1. Generate a new key in the [Resend dashboard](https://resend.com/api-keys) with **send-only** scope. Note the key — Resend shows it once.
+2. Push the new value as a fresh version:
+   ```
+   echo -n "$NEW_KEY" | gcloud secrets versions add freewhen-resend-api-key --data-file=-
+   ```
+3. Trigger a deploy (push to main, or `gcloud run services update freewhen-api --region=europe-west1` no-op) so the running revision picks up `latest`.
+4. Smoke-test by requesting a magic link against prod and confirming receipt.
+5. Revoke the old key in the Resend dashboard.
+
+Same shape for `freewhen-database-url`, `freewhen-calendar-secret`, `freewhen-google-client-id`, `freewhen-google-client-secret` — the secret IDs are the only things that change. Local `.env.local` is gitignored; rotate that copy by editing the file, never by committing.
+
 ## Integration Tests
 
 `make test-integration` runs the Go integration suite against a real Postgres.
