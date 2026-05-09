@@ -24,7 +24,7 @@ type fakeAuthStore struct {
 	usersByID      map[string]model.User
 	usersByPID     map[string]model.User // key: provider+":"+providerID
 	sessions       map[string]*model.Session
-	sessionOrder   []string // creation order, oldest first
+	sessionOrder   []string                   // creation order, oldest first
 	magicLinks     map[string]magicLinkRecord // plain token -> record
 	magicLinkSeq   int
 	createUserErr  error

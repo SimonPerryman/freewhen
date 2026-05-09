@@ -14,10 +14,10 @@ const testSecret = "test-secret-at-least-32-bytes-long-x"
 
 type passphraseStore struct {
 	mockStore
-	cal       model.Calendar
+	cal        model.Calendar
 	getCalOnly func(ctx context.Context, id string) (model.Calendar, error)
-	setCalled int
-	setArg    *string
+	setCalled  int
+	setArg     *string
 }
 
 func (p *passphraseStore) GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error) {

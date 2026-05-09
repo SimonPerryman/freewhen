@@ -121,7 +121,9 @@ export function useImportFromGoogle({
       await importAvailabilityDays(calendarId, participantId, days);
       setSuggestions((prev) => ({ free: new Set(), busy: prev.busy }));
       onImportComplete?.();
-      toast.showToast({ message: `Imported ${days.length} free day${days.length === 1 ? "" : "s"}` });
+      toast.showToast({
+        message: `Imported ${days.length} free day${days.length === 1 ? "" : "s"}`,
+      });
     } catch (err) {
       log.error("accept-all import failed", { err });
       toast.showToast({ message: "Couldn't import — please try again" });
@@ -141,29 +143,35 @@ export function useImportFromGoogle({
     </button>
   ) : null;
 
-  const chrome = outstanding > 0 ? (
-    <div className={styles.chromeRow}>
-      <div className={styles.chip} role="status" aria-live="polite">
-        <span className={styles.chipDot} aria-hidden="true" />
-        <span className={styles.chipText}>
-          Google · {outstanding} of {outstanding} left
-        </span>
-        {participantId && suggestions.free.size > 0 ? (
-          <button type="button" className={styles.acceptAll} onClick={handleAcceptAll}>
-            Accept all
-          </button>
-        ) : null}
+  const chrome =
+    outstanding > 0 ? (
+      <div className={styles.chromeRow}>
+        <div className={styles.chip} role="status" aria-live="polite">
+          <span className={styles.chipDot} aria-hidden="true" />
+          <span className={styles.chipText}>
+            Google · {outstanding} of {outstanding} left
+          </span>
+          {participantId && suggestions.free.size > 0 ? (
+            <button type="button" className={styles.acceptAll} onClick={handleAcceptAll}>
+              Accept all
+            </button>
+          ) : null}
+        </div>
+        <p className={styles.keyStrip}>
+          <span>◌ Tap to confirm</span>
+          <span>▨ Tap to override</span>
+          <span>● Confirmed</span>
+        </p>
       </div>
-      <p className={styles.keyStrip}>
-        <span>◌ Tap to confirm</span>
-        <span>▨ Tap to override</span>
-        <span>● Confirmed</span>
-      </p>
-    </div>
-  ) : null;
+    ) : null;
 
   const interstitial = showInterstitial ? (
-    <div className={styles.interstitialBackdrop} role="dialog" aria-modal="true" aria-labelledby="fw-import-title">
+    <div
+      className={styles.interstitialBackdrop}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="fw-import-title"
+    >
       <div className={styles.interstitial}>
         <h2 id="fw-import-title" className={styles.interstitialTitle}>
           Reading your Google Calendar
@@ -179,11 +187,16 @@ export function useImportFromGoogle({
           </div>
           <div className={styles.interstitialItem}>
             <dt>Control</dt>
-            <dd>You confirm each day by tapping. Nothing joins the group calendar until you tap.</dd>
+            <dd>
+              You confirm each day by tapping. Nothing joins the group calendar until you tap.
+            </dd>
           </div>
           <div className={styles.interstitialItem}>
             <dt>Persistence</dt>
-            <dd>Tapping a suggestion makes it part of your availability — revoking Google access later won&apos;t undo it.</dd>
+            <dd>
+              Tapping a suggestion makes it part of your availability — revoking Google access later
+              won&apos;t undo it.
+            </dd>
           </div>
         </dl>
         <div className={styles.interstitialActions}>

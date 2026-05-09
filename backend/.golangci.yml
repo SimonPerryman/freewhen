@@ -17,5 +17,10 @@ linters:
       disable:
         - fieldalignment
 
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
 run:
   timeout: 3m

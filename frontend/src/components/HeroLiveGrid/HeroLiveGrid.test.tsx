@@ -11,8 +11,7 @@ function mockMatchMedia(reduced: boolean) {
     media: "(prefers-reduced-motion: reduce)",
     onchange: null,
     addEventListener: (_: string, cb: MediaQueryListener) => listeners.add(cb),
-    removeEventListener: (_: string, cb: MediaQueryListener) =>
-      listeners.delete(cb),
+    removeEventListener: (_: string, cb: MediaQueryListener) => listeners.delete(cb),
     addListener: (cb: MediaQueryListener) => listeners.add(cb),
     removeListener: (cb: MediaQueryListener) => listeners.delete(cb),
     dispatchEvent: () => true,

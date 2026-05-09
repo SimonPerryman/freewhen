@@ -1,4 +1,4 @@
-.PHONY: dev dev-backend dev-backend-watch dev-frontend lint lint-backend lint-frontend lint-pii fmt build test test-backend test-frontend test-integration test-e2e tf-plan
+.PHONY: dev dev-backend dev-backend-watch dev-frontend lint lint-backend lint-frontend lint-pii fmt fmt-check build test test-backend test-frontend test-integration test-e2e tf-plan
 
 # Run both backend and frontend in development mode
 dev:
@@ -17,9 +17,9 @@ dev-backend-watch:
 dev-frontend:
 	cd frontend && pnpm dev
 
-# Linting — three independent commands, run in parallel.
+# Linting — four independent commands, run in parallel.
 lint:
-	$(MAKE) -j3 lint-backend lint-frontend lint-pii
+	$(MAKE) -j4 lint-backend lint-frontend lint-pii fmt-check
 
 lint-backend:
 	cd backend && golangci-lint run ./...
@@ -36,9 +36,17 @@ lint-pii:
 		exit 1; \
 	fi
 
-# Formatting
+# Formatting. Backend uses `golangci-lint fmt` which applies the formatters
+# enabled in `backend/.golangci.yml` (gofmt + goimports), so the local fix
+# matches what CI checks.
 fmt:
 	cd frontend && pnpm exec oxfmt --write src/
+	cd backend && golangci-lint fmt
+
+# Verify the tree is formatted without modifying it. Run as part of `make
+# lint` (and therefore CI) so unformatted code can't land on main.
+fmt-check:
+	cd frontend && pnpm exec oxfmt --check src/
 
 # Testing — backend and frontend run in parallel (same runner, lower wall-clock).
 test:

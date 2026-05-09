@@ -80,7 +80,9 @@ export default function FinalisedBanner({
           <p className={styles.date}>{formatFullDate(date)}</p>
           {voteCount > 0 ? (
             <p className={styles.voteLine}>
-              {voteCount === 1 ? "1 person preferred this date" : `${voteCount} preferred this date`}
+              {voteCount === 1
+                ? "1 person preferred this date"
+                : `${voteCount} preferred this date`}
             </p>
           ) : null}
           {notes.length > 0 ? (

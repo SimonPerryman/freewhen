@@ -64,11 +64,7 @@ export default function PreferencePill({ voters, calendarId, date }: Props) {
     const v = voters[0];
     return (
       <span className={styles.pillStatic} title={v.name}>
-        <span
-          aria-hidden="true"
-          className={styles.swatch}
-          style={{ backgroundColor: v.colour }}
-        />
+        <span aria-hidden="true" className={styles.swatch} style={{ backgroundColor: v.colour }} />
         <span className={styles.label}>
           <span className={styles.name}>{v.name}</span> prefers
         </span>
@@ -112,11 +108,7 @@ export default function PreferencePill({ voters, calendarId, date }: Props) {
       >
         <span aria-hidden="true" className={styles.swatchStack}>
           {visible.map((v) => (
-            <span
-              key={v.id}
-              className={styles.swatch}
-              style={{ backgroundColor: v.colour }}
-            />
+            <span key={v.id} className={styles.swatch} style={{ backgroundColor: v.colour }} />
           ))}
         </span>
         <span className={styles.label}>

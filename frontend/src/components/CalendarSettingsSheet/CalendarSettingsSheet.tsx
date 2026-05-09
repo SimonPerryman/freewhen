@@ -55,11 +55,7 @@ export default function CalendarSettingsSheet({
         </div>
 
         <section className={styles.section}>
-          <button
-            type="button"
-            className={styles.primaryAction}
-            onClick={onRename}
-          >
+          <button type="button" className={styles.primaryAction} onClick={onRename}>
             Rename calendar →
           </button>
         </section>
@@ -68,12 +64,10 @@ export default function CalendarSettingsSheet({
           <p className={styles.sectionLabel}>Passphrase</p>
           {hasPassphrase ? (
             <div className={styles.passphrase}>
-              <code className={styles.passphraseValue}>
-                {passphrase ?? "••••••••"}
-              </code>
+              <code className={styles.passphraseValue}>{passphrase ?? "••••••••"}</code>
               <p className={styles.sectionHint}>
-                Anyone with the share link opens the calendar without typing
-                this. Give it out if you want someone to unlock by hand.
+                Anyone with the share link opens the calendar without typing this. Give it out if
+                you want someone to unlock by hand.
               </p>
               <div className={styles.destructiveRow}>
                 <button
@@ -96,22 +90,14 @@ export default function CalendarSettingsSheet({
               </div>
             </div>
           ) : (
-            <button
-              type="button"
-              className={styles.primaryAction}
-              onClick={onEnablePassphrase}
-            >
+            <button type="button" className={styles.primaryAction} onClick={onEnablePassphrase}>
               Require a passphrase →
             </button>
           )}
         </section>
 
         <section className={styles.section}>
-          <button
-            type="button"
-            className={styles.primaryAction}
-            onClick={onDuplicate}
-          >
+          <button type="button" className={styles.primaryAction} onClick={onDuplicate}>
             Duplicate this calendar →
           </button>
         </section>

@@ -84,9 +84,9 @@ func run() error {
 		// credentials below are inert. They exist only to satisfy
 		// validateAuthEmail; the magic-link spec retrieves the link via
 		// GET /test/magic-link.
-		"AUTH_EMAIL_DISABLED":   "false",
-		"RESEND_API_KEY":        "e2e-fake-key",
-		"MAGIC_LINK_FROM_EMAIL": "e2e@example.test",
+		"AUTH_EMAIL_DISABLED":          "false",
+		"RESEND_API_KEY":               "e2e-fake-key",
+		"MAGIC_LINK_FROM_EMAIL":        "e2e@example.test",
 		"GOOGLE_CLIENT_ID":             "",
 		"GOOGLE_CLIENT_SECRET":         "",
 		"GOOGLE_REDIRECT_URL":          "",

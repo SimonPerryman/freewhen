@@ -120,10 +120,7 @@ describe("ParticipantList", () => {
     await user.clear(input);
     await user.type(input, "Alicia  {Enter}");
 
-    expect(onRename).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "p1" }),
-      "Alicia",
-    );
+    expect(onRename).toHaveBeenCalledWith(expect.objectContaining({ id: "p1" }), "Alicia");
   });
 
   it("Escape cancels without calling onRename", async () => {

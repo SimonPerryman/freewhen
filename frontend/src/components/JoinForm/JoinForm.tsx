@@ -16,7 +16,12 @@ interface JoinFormProps {
   hideEmail?: boolean;
 }
 
-export default function JoinForm({ onJoin, error, defaultName = "", hideEmail = false }: JoinFormProps) {
+export default function JoinForm({
+  onJoin,
+  error,
+  defaultName = "",
+  hideEmail = false,
+}: JoinFormProps) {
   const [name, setName] = useState(defaultName);
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);

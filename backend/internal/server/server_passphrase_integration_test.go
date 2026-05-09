@@ -110,7 +110,7 @@ func TestPassphrase_SetGetUnlockFlow(t *testing.T) {
 		t.Fatalf("gated get with token: %d %s", resp.StatusCode, body)
 	}
 	var withToken struct {
-		RequiresPassphrase bool `json:"requires_passphrase"`
+		RequiresPassphrase bool  `json:"requires_passphrase"`
 		Participants       []any `json:"participants"`
 	}
 	decodeJSON(t, body, &withToken)
@@ -154,8 +154,8 @@ func TestPassphrase_SetGetUnlockFlow(t *testing.T) {
 		t.Fatalf("post-clear get: %d %s", resp.StatusCode, body)
 	}
 	var postClear struct {
-		RequiresPassphrase bool                `json:"requires_passphrase"`
-		Participants       []map[string]any    `json:"participants"`
+		RequiresPassphrase bool             `json:"requires_passphrase"`
+		Participants       []map[string]any `json:"participants"`
 	}
 	decodeJSON(t, body, &postClear)
 	if postClear.RequiresPassphrase {

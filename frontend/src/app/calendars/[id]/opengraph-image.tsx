@@ -151,7 +151,8 @@ function parseTitle(source: string): TitleSegment[] {
 async function loadFonts(): Promise<
   Array<{ name: string; data: ArrayBuffer; weight?: 400 | 500; style?: "normal" | "italic" }>
 > {
-  const fraunces = "https://fonts.gstatic.com/s/fraunces/v37/6NUh8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk.woff2";
+  const fraunces =
+    "https://fonts.gstatic.com/s/fraunces/v37/6NUh8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk.woff2";
   const instrument =
     "https://fonts.gstatic.com/s/instrumentserif/v3/jizDREVNn1dOx-zrZ2X3pZvkTi182zIZj1bIkNo.woff2";
   try {
@@ -170,26 +171,24 @@ async function loadFonts(): Promise<
 
 function GenericFallback() {
   return new ImageResponse(
-    (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: CREAM,
-          color: INK,
-          fontSize: 96,
-          fontFamily: "Fraunces",
-        }}
-      >
-        <span>Free</span>
-        <span style={{ color: TERRA, fontStyle: "italic", fontFamily: "Instrument Serif" }}>
-          When
-        </span>
-      </div>
-    ),
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: CREAM,
+        color: INK,
+        fontSize: 96,
+        fontFamily: "Fraunces",
+      }}
+    >
+      <span>Free</span>
+      <span style={{ color: TERRA, fontStyle: "italic", fontFamily: "Instrument Serif" }}>
+        When
+      </span>
+    </div>,
     { ...size },
   );
 }
@@ -229,158 +228,156 @@ export default async function Image({ params }: Props) {
   const fonts = await loadFonts();
 
   return new ImageResponse(
-    (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        padding: "56px 64px",
+        background: CREAM,
+        fontFamily: "Fraunces",
+        color: INK,
+        position: "relative",
+      }}
+    >
+      {/* Backdrop */}
       <div
         style={{
-          width: "100%",
-          height: "100%",
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(60% 80% at 100% 0%, rgba(224,100,73,0.18), transparent 60%), radial-gradient(40% 60% at 0% 100%, rgba(107,142,90,0.12), transparent 60%)",
+        }}
+      />
+
+      {/* Wordmark */}
+      <div
+        style={{
           display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          padding: "56px 64px",
-          background: CREAM,
-          fontFamily: "Fraunces",
-          color: INK,
+          fontSize: 32,
+          letterSpacing: "-0.01em",
           position: "relative",
         }}
       >
-        {/* Backdrop */}
-        <div
+        <span>Free</span>
+        <span
           style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "radial-gradient(60% 80% at 100% 0%, rgba(224,100,73,0.18), transparent 60%), radial-gradient(40% 60% at 0% 100%, rgba(107,142,90,0.12), transparent 60%)",
-          }}
-        />
-
-        {/* Wordmark */}
-        <div
-          style={{
-            display: "flex",
-            fontSize: 32,
-            letterSpacing: "-0.01em",
-            position: "relative",
+            color: TERRA,
+            fontStyle: "italic",
+            fontFamily: "Instrument Serif",
           }}
         >
-          <span>Free</span>
-          <span
-            style={{
-              color: TERRA,
-              fontStyle: "italic",
-              fontFamily: "Instrument Serif",
-            }}
-          >
-            When
-          </span>
-        </div>
+          When
+        </span>
+      </div>
 
-        {/* Body */}
+      {/* Body */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-end",
+          justifyContent: "space-between",
+          gap: 40,
+          position: "relative",
+        }}
+      >
         <div
           style={{
             display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "space-between",
-            gap: 40,
-            position: "relative",
+            flexDirection: "column",
+            flex: 1,
           }}
         >
           <div
             style={{
               display: "flex",
-              flexDirection: "column",
-              flex: 1,
+              flexWrap: "wrap",
+              fontSize: 84,
+              lineHeight: 0.98,
+              letterSpacing: "-0.025em",
+              marginBottom: 24,
             }}
+            aria-label={titleForAlt}
           >
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                fontSize: 84,
-                lineHeight: 0.98,
-                letterSpacing: "-0.025em",
-                marginBottom: 24,
-              }}
-              aria-label={titleForAlt}
-            >
-              {segments.map((seg, i) =>
-                seg.emphasis ? (
-                  <span
-                    key={i}
-                    style={{
-                      fontFamily: "Instrument Serif",
-                      fontStyle: "italic",
-                      color: TERRA,
-                    }}
-                  >
-                    {seg.text}
-                  </span>
-                ) : (
-                  <span key={i}>{seg.text}</span>
-                ),
-              )}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                gap: 28,
-                fontSize: 24,
-                color: INK_2,
-                fontFamily: "Fraunces",
-              }}
-            >
-              <span style={{ display: "flex", gap: 8 }}>
-                <b style={{ color: INK, fontWeight: 500 }}>{participantCount}</b>
-                <span>{participantCount === 1 ? "person" : "people"}</span>
-              </span>
-              <span style={{ display: "flex", gap: 8 }}>
-                <b style={{ color: INK, fontWeight: 500 }}>{weekends}</b>
-                <span>{weekends === 1 ? "weekend" : "weekends"}</span>
-              </span>
-              {bestLabel ? (
-                <span style={{ display: "flex", gap: 8 }}>
-                  <span>Best so far ·</span>
-                  <b style={{ color: INK, fontWeight: 500 }}>{bestLabel}</b>
-                </span>
-              ) : null}
-            </div>
-          </div>
-
-          {/* Heat-map */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              width: 460,
-              background: "rgba(255,255,255,0.6)",
-              border: `1px solid ${BORDER}`,
-              borderRadius: 18,
-              padding: 20,
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 6,
-              }}
-            >
-              {cells.map((bucket, i) => (
-                <div
+            {segments.map((seg, i) =>
+              seg.emphasis ? (
+                <span
                   key={i}
                   style={{
-                    width: 56,
-                    height: 36,
-                    borderRadius: 4,
-                    background: CELL_COLOURS[bucket],
+                    fontFamily: "Instrument Serif",
+                    fontStyle: "italic",
+                    color: TERRA,
                   }}
-                />
-              ))}
-            </div>
+                >
+                  {seg.text}
+                </span>
+              ) : (
+                <span key={i}>{seg.text}</span>
+              ),
+            )}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              gap: 28,
+              fontSize: 24,
+              color: INK_2,
+              fontFamily: "Fraunces",
+            }}
+          >
+            <span style={{ display: "flex", gap: 8 }}>
+              <b style={{ color: INK, fontWeight: 500 }}>{participantCount}</b>
+              <span>{participantCount === 1 ? "person" : "people"}</span>
+            </span>
+            <span style={{ display: "flex", gap: 8 }}>
+              <b style={{ color: INK, fontWeight: 500 }}>{weekends}</b>
+              <span>{weekends === 1 ? "weekend" : "weekends"}</span>
+            </span>
+            {bestLabel ? (
+              <span style={{ display: "flex", gap: 8 }}>
+                <span>Best so far ·</span>
+                <b style={{ color: INK, fontWeight: 500 }}>{bestLabel}</b>
+              </span>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Heat-map */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            width: 460,
+            background: "rgba(255,255,255,0.6)",
+            border: `1px solid ${BORDER}`,
+            borderRadius: 18,
+            padding: 20,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 6,
+            }}
+          >
+            {cells.map((bucket, i) => (
+              <div
+                key={i}
+                style={{
+                  width: 56,
+                  height: 36,
+                  borderRadius: 4,
+                  background: CELL_COLOURS[bucket],
+                }}
+              />
+            ))}
           </div>
         </div>
       </div>
-    ),
+    </div>,
     { ...size, fonts: fonts.length > 0 ? fonts : undefined },
   );
 }

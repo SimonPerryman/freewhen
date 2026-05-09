@@ -20,7 +20,12 @@ export default function LiveStatusDot({ status }: Props) {
   }
   if (status === "closed") {
     return (
-      <span className={styles.root} role="status" aria-live="polite" title="Updates paused — refresh to retry">
+      <span
+        className={styles.root}
+        role="status"
+        aria-live="polite"
+        title="Updates paused — refresh to retry"
+      >
         <span className={`${styles.dot} ${styles.closed}`} aria-hidden="true" />
         Offline
       </span>

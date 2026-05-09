@@ -69,10 +69,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${body.variable} ${display.variable} ${accent.variable}`}
-    >
+    <html lang="en" className={`${body.variable} ${display.variable} ${accent.variable}`}>
       <body>
         <a href="#main" className="skip-link">
           Skip to content

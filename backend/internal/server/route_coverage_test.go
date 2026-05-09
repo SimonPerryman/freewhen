@@ -28,14 +28,14 @@ func TestRouteCoverage_AuthClassMatchesAllowList(t *testing.T) {
 		"GET /health": authPublic,
 
 		// Auth — the login/session-mint paths are intentionally public.
-		"GET /auth/google":                authPublic,
-		"GET /auth/google/callback":       authPublic,
-		"GET /auth/me":                    authPublic, // returns null when unauth'd; safe
-		"PATCH /auth/me":                  authRequired,
-		"POST /auth/logout":               authPublic, // no-op without session
-		"POST /auth/logout-all":           authRequired,
-		"POST /auth/magic-link":           authPublic,
-		"POST /auth/magic-link/verify":    authPublic,
+		"GET /auth/google":             authPublic,
+		"GET /auth/google/callback":    authPublic,
+		"GET /auth/me":                 authPublic, // returns null when unauth'd; safe
+		"PATCH /auth/me":               authRequired,
+		"POST /auth/logout":            authPublic, // no-op without session
+		"POST /auth/logout-all":        authRequired,
+		"POST /auth/magic-link":        authPublic,
+		"POST /auth/magic-link/verify": authPublic,
 
 		// User
 		"GET /users/me/calendars": authRequired,
@@ -44,33 +44,33 @@ func TestRouteCoverage_AuthClassMatchesAllowList(t *testing.T) {
 		"GET /admin/metrics": authAdmin,
 
 		// Calendars
-		"POST /calendars":                                                 authRequired,
-		"POST /calendars/{id}/duplicate":                                  authRequired,
-		"GET /calendars/{id}":                                             authOptional,
-		"PATCH /calendars/{id}":                                           authRequired,
-		"POST /calendars/{id}/participants":                               authOptional,
-		"POST /calendars/{id}/participants/{participantId}/claim":         authRequired,
-		"DELETE /calendars/{id}/participants/{participantId}":             authRequired,
-		"PATCH /calendars/{id}/participants/{participantId}":              authOptional,
-		"PUT /calendars/{id}/availability":                                authOptional,
-		"POST /calendars/{id}/finalise":                                   authRequired,
-		"DELETE /calendars/{id}/finalise":                                 authRequired,
-		"POST /calendars/{id}/unlock":                                     authOptional,
-		"POST /calendars/{id}/passphrase":                                 authRequired,
-		"DELETE /calendars/{id}/passphrase":                               authRequired,
-		"GET /calendars/{id}/missing":                                     authRequired,
-		"POST /calendars/{id}/invites":                                    authRequired,
-		"PUT /calendars/{id}/invites/{inviteId}":                          authRequired,
-		"DELETE /calendars/{id}/invites/{inviteId}":                       authRequired,
-		"POST /calendars/{id}/invites/{inviteId}/match":                   authRequired,
-		"GET /calendars/{id}/export.ics":                                  authPublic,
-		"GET /calendars/{id}/export/google":                               authPublic,
-		"POST /auth/google/calendar/consent-ack":                          authRequired,
-		"GET /auth/google/calendar/connect":                               authRequired,
-		"GET /auth/google/calendar/callback":                              authRequired,
-		"GET /calendars/{id}/import/suggestions":                          authRequired,
-		"POST /calendars/{id}/availability/import":                        authRequired,
-		"GET /calendars/{id}/events":                                      authOptional,
+		"POST /calendars":                                         authRequired,
+		"POST /calendars/{id}/duplicate":                          authRequired,
+		"GET /calendars/{id}":                                     authOptional,
+		"PATCH /calendars/{id}":                                   authRequired,
+		"POST /calendars/{id}/participants":                       authOptional,
+		"POST /calendars/{id}/participants/{participantId}/claim": authRequired,
+		"DELETE /calendars/{id}/participants/{participantId}":     authRequired,
+		"PATCH /calendars/{id}/participants/{participantId}":      authOptional,
+		"PUT /calendars/{id}/availability":                        authOptional,
+		"POST /calendars/{id}/finalise":                           authRequired,
+		"DELETE /calendars/{id}/finalise":                         authRequired,
+		"POST /calendars/{id}/unlock":                             authOptional,
+		"POST /calendars/{id}/passphrase":                         authRequired,
+		"DELETE /calendars/{id}/passphrase":                       authRequired,
+		"GET /calendars/{id}/missing":                             authRequired,
+		"POST /calendars/{id}/invites":                            authRequired,
+		"PUT /calendars/{id}/invites/{inviteId}":                  authRequired,
+		"DELETE /calendars/{id}/invites/{inviteId}":               authRequired,
+		"POST /calendars/{id}/invites/{inviteId}/match":           authRequired,
+		"GET /calendars/{id}/export.ics":                          authPublic,
+		"GET /calendars/{id}/export/google":                       authPublic,
+		"POST /auth/google/calendar/consent-ack":                  authRequired,
+		"GET /auth/google/calendar/connect":                       authRequired,
+		"GET /auth/google/calendar/callback":                      authRequired,
+		"GET /calendars/{id}/import/suggestions":                  authRequired,
+		"POST /calendars/{id}/availability/import":                authRequired,
+		"GET /calendars/{id}/events":                              authOptional,
 	}
 
 	s := newRouteCoverageServer()
@@ -151,4 +151,3 @@ func splitPattern(p string) (method, path string) {
 	parts := strings.SplitN(p, " ", 2)
 	return parts[0], parts[1]
 }
-

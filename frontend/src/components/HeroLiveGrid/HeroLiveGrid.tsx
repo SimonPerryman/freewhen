@@ -174,15 +174,10 @@ export function HeroLiveGrid() {
       </div>
       <div className={styles.grid}>
         {cells.map((intensity, i) => {
-          const intensityClass =
-            intensity === 0 ? "" : INTENSITY_CLASS[intensity];
+          const intensityClass = intensity === 0 ? "" : INTENSITY_CLASS[intensity];
           const style: CellStyle = { "--i": i };
           return (
-            <div
-              key={i}
-              className={`${styles.cell} ${intensityClass}`.trim()}
-              style={style}
-            />
+            <div key={i} className={`${styles.cell} ${intensityClass}`.trim()} style={style} />
           );
         })}
       </div>
