@@ -144,14 +144,10 @@ export default function WhosMissingPanel({ calendarId, participants, refreshKey 
       });
       const notes: string[] = [];
       if (res.skipped.length > 0) {
-        notes.push(
-          `${res.skipped.length} already on the list`,
-        );
+        notes.push(`${res.skipped.length} already on the list`);
       }
       if (res.invalid.length > 0) {
-        notes.push(
-          `${res.invalid.length} invalid (${res.invalid[0].reason})`,
-        );
+        notes.push(`${res.invalid.length} invalid (${res.invalid[0].reason})`);
       }
       setSubmitNote(notes.length > 0 ? notes.join(" · ") : null);
       setInputValue("");
@@ -215,12 +211,7 @@ export default function WhosMissingPanel({ calendarId, participants, refreshKey 
 
   return (
     <section className={styles.panel} aria-label="Who's missing?">
-      <button
-        type="button"
-        className={styles.toggle}
-        onClick={toggleOpen}
-        aria-expanded={open}
-      >
+      <button type="button" className={styles.toggle} onClick={toggleOpen} aria-expanded={open}>
         <span className={styles.toggleLabel}>Who&apos;s missing?</span>
         {missingCount > 0 ? (
           <span className={styles.badge} aria-label={`${missingCount} missing`}>
@@ -241,12 +232,13 @@ export default function WhosMissingPanel({ calendarId, participants, refreshKey 
           ) : null}
 
           {view && view.invites.length === 0 && view.joinedNotResponded.length === 0 ? (
-            <p className={styles.hint}>
-              Add names to track who still needs to respond.
-            </p>
+            <p className={styles.hint}>Add names to track who still needs to respond.</p>
           ) : null}
 
-          {view && view.notJoined.length === 0 && view.joinedNotResponded.length === 0 && view.invites.length > 0 ? (
+          {view &&
+          view.notJoined.length === 0 &&
+          view.joinedNotResponded.length === 0 &&
+          view.invites.length > 0 ? (
             <p className={styles.hint}>No-one&apos;s missing 🎉</p>
           ) : null}
 

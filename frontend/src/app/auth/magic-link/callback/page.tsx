@@ -43,8 +43,7 @@ function MagicLinkCallbackContent() {
       const { returnUrl } = await verifyMagicLink(token);
       window.location.href = returnUrl || "/";
     } catch (err) {
-      const msg =
-        err instanceof ApiError ? err.message : "Could not sign you in. Try again.";
+      const msg = err instanceof ApiError ? err.message : "Could not sign you in. Try again.";
       log.warn("magic-link verify failed", { error: msg });
       setError(msg);
       setSubmitting(false);
@@ -54,9 +53,7 @@ function MagicLinkCallbackContent() {
   return (
     <main className="mx-auto max-w-sm px-4 py-12 text-center">
       <h1 className="text-lg font-semibold">Sign in to FreeWhen</h1>
-      <p className="mt-2 text-sm text-neutral-600">
-        Click below to finish signing in.
-      </p>
+      <p className="mt-2 text-sm text-neutral-600">Click below to finish signing in.</p>
       <button
         type="button"
         onClick={onContinue}

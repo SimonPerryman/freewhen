@@ -33,11 +33,9 @@ export function useTypewriterPlaceholder(
         ? window.matchMedia("(prefers-reduced-motion: reduce)")
         : null;
 
-    const isHidden = () =>
-      typeof document !== "undefined" && document.visibilityState === "hidden";
+    const isHidden = () => typeof document !== "undefined" && document.visibilityState === "hidden";
 
-    const shouldPause = () =>
-      paused || isHidden() || (reducedMotion?.matches ?? false);
+    const shouldPause = () => paused || isHidden() || (reducedMotion?.matches ?? false);
 
     const tick = () => {
       if (cancelled) return;

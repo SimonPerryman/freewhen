@@ -51,11 +51,7 @@ export default function ConfirmDialog({
           {message}
         </p>
         <div className={styles.actions}>
-          <button
-            type="button"
-            className={styles.button}
-            onClick={onCancel}
-          >
+          <button type="button" className={styles.button} onClick={onCancel}>
             {cancelLabel}
           </button>
           <button

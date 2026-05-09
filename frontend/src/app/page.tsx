@@ -80,11 +80,7 @@ export default function Home() {
     }
   }
 
-  const buttonLabel = submitting
-    ? "Creating…"
-    : user
-      ? "Create →"
-      : "Sign in to create →";
+  const buttonLabel = submitting ? "Creating…" : user ? "Create →" : "Sign in to create →";
 
   return (
     <div className={styles.page}>
@@ -95,9 +91,7 @@ export default function Home() {
           everyone&rsquo;s <em className="serif-accent">free.</em>
         </h1>
 
-        <p className={styles.subheading}>
-          Drop a name, share a link, watch availability fill in.
-        </p>
+        <p className={styles.subheading}>Drop a name, share a link, watch availability fill in.</p>
 
         <HeroLiveGrid />
 
@@ -119,11 +113,7 @@ export default function Home() {
               disabled={submitting}
               maxLength={MAX_CALENDAR_NAME_LENGTH}
             />
-            <button
-              type="submit"
-              className={styles.button}
-              disabled={submitting || isLoading}
-            >
+            <button type="submit" className={styles.button} disabled={submitting || isLoading}>
               {buttonLabel}
             </button>
           </div>

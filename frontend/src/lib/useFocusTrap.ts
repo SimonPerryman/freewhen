@@ -32,9 +32,7 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>({
     const previouslyFocused = document.activeElement as HTMLElement | null;
 
     const target =
-      initialFocus?.current ??
-      root.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ??
-      root;
+      initialFocus?.current ?? root.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ?? root;
     target.focus?.();
 
     function onKey(e: KeyboardEvent) {
@@ -46,9 +44,9 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>({
         return;
       }
       if (e.key !== "Tab" || !root) return;
-      const focusable = Array.from(
-        root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
-      ).filter((el) => !el.hasAttribute("aria-hidden"));
+      const focusable = Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+        (el) => !el.hasAttribute("aria-hidden"),
+      );
       if (focusable.length === 0) {
         e.preventDefault();
         return;

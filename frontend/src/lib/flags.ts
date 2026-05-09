@@ -12,10 +12,7 @@ export function isEnabled(flagKey: string, fallback = false): boolean {
   return value ?? fallback;
 }
 
-export function getVariant(
-  flagKey: string,
-  fallback: string | null = null,
-): string | null {
+export function getVariant(flagKey: string, fallback: string | null = null): string | null {
   if (!hasBackend()) return fallback;
   const value = posthog.getFeatureFlag(flagKey);
   if (typeof value === "string") return value;

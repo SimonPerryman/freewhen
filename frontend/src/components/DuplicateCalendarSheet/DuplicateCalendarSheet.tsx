@@ -122,8 +122,8 @@ export default function DuplicateCalendarSheet({
             <span>
               <strong>Copy participants</strong>
               <span className={styles.hint}>
-                Everyone on this calendar will be added to the new one. They&apos;ll need to
-                re-mark availability.
+                Everyone on this calendar will be added to the new one. They&apos;ll need to re-mark
+                availability.
               </span>
             </span>
           </label>
@@ -133,12 +133,7 @@ export default function DuplicateCalendarSheet({
             </p>
           ) : null}
           <div className={styles.actions}>
-            <button
-              type="button"
-              className={styles.cancel}
-              onClick={onClose}
-              disabled={submitting}
-            >
+            <button type="button" className={styles.cancel} onClick={onClose} disabled={submitting}>
               Cancel
             </button>
             <button type="submit" className={styles.submit} disabled={submitting}>

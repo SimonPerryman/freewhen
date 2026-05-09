@@ -11,10 +11,6 @@ export const metadata: Metadata = {
   referrer: "no-referrer",
 };
 
-export default function MagicLinkCallbackLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function MagicLinkCallbackLayout({ children }: { children: React.ReactNode }) {
   return children;
 }

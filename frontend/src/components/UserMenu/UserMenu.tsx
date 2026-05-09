@@ -155,10 +155,7 @@ export default function UserMenu() {
         err instanceof ApiError
           ? err.message || "Could not sign out other devices."
           : "Could not sign out other devices.";
-      log.error(
-        "logout everywhere failed",
-        err instanceof Error ? err.message : String(err),
-      );
+      log.error("logout everywhere failed", err instanceof Error ? err.message : String(err));
       showToast({ message: msg });
     } finally {
       setRevokingOthers(false);

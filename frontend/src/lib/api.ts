@@ -299,7 +299,9 @@ export async function ackCalendarImportConsent(): Promise<void> {
 // fetchImportSuggestions reads the single-use import-suggestions cookie the
 // backend writes after a successful OAuth round-trip. Returns null if the
 // cookie is missing (expired, never present, or already consumed).
-export async function fetchImportSuggestions(calendarId: string): Promise<ImportSuggestions | null> {
+export async function fetchImportSuggestions(
+  calendarId: string,
+): Promise<ImportSuggestions | null> {
   try {
     return await request<ImportSuggestions>(`/calendars/${calendarId}/import/suggestions`);
   } catch (err) {
@@ -324,7 +326,11 @@ export async function importAvailabilityDays(
 
 // googleCalendarConnectUrl builds the backend redirect that starts the
 // incremental OAuth round-trip for Google Calendar free/busy access.
-export function googleCalendarConnectUrl(calendarId: string, tz: string, returnUrl: string): string {
+export function googleCalendarConnectUrl(
+  calendarId: string,
+  tz: string,
+  returnUrl: string,
+): string {
   const qs = new URLSearchParams({ calendar_id: calendarId, tz, return_url: returnUrl });
   return `${BASE_URL}/auth/google/calendar/connect?${qs.toString()}`;
 }

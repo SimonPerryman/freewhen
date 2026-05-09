@@ -14,12 +14,7 @@ export default function ExportButtons({ calendarId }: ExportButtonsProps) {
 
   return (
     <div className={styles.buttons}>
-      <a
-        className={styles.button}
-        href={googleHref}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
+      <a className={styles.button} href={googleHref} target="_blank" rel="noopener noreferrer">
         Add to Google Calendar
       </a>
       <a className={styles.button} href={icsHref} download>
