@@ -62,8 +62,8 @@ func TestInvites_CRUDFlow(t *testing.T) {
 		t.Fatalf("missing: %d %s", resp.StatusCode, body)
 	}
 	var missing struct {
-		Invites            []model.Invite `json:"invites"`
-		NotJoined          []struct {
+		Invites   []model.Invite `json:"invites"`
+		NotJoined []struct {
 			InviteID string `json:"invite_id"`
 			Name     string `json:"name"`
 		} `json:"not_joined"`

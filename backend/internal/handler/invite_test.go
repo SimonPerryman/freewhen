@@ -17,12 +17,12 @@ import (
 // unrelated CalendarService methods retain their zero-value stubs.
 type inviteMock struct {
 	mockService
-	getMissingView   func(ctx context.Context, calendarID string) (service.MissingView, error)
-	addInvitesFn     func(ctx context.Context, calendarID string, names []string) (service.AddInvitesResult, error)
-	renameInviteFn   func(ctx context.Context, inviteID, name string) (model.Invite, error)
-	deleteInviteFn   func(ctx context.Context, inviteID string) error
-	manualMatchFn    func(ctx context.Context, calendarID, inviteID string, participantID *string) (model.Invite, error)
-	getInviteFn      func(ctx context.Context, inviteID string) (model.Invite, error)
+	getMissingView func(ctx context.Context, calendarID string) (service.MissingView, error)
+	addInvitesFn   func(ctx context.Context, calendarID string, names []string) (service.AddInvitesResult, error)
+	renameInviteFn func(ctx context.Context, inviteID, name string) (model.Invite, error)
+	deleteInviteFn func(ctx context.Context, inviteID string) error
+	manualMatchFn  func(ctx context.Context, calendarID, inviteID string, participantID *string) (model.Invite, error)
+	getInviteFn    func(ctx context.Context, inviteID string) (model.Invite, error)
 }
 
 func (m *inviteMock) GetMissingView(ctx context.Context, id string) (service.MissingView, error) {

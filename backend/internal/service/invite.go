@@ -13,8 +13,8 @@ import (
 
 // Invite validation / mutation errors.
 var (
-	ErrInviteNameRequired      = errors.New("invite name required")
-	ErrInviteNameTooLong       = errors.New("invite name too long")
+	ErrInviteNameRequired       = errors.New("invite name required")
+	ErrInviteNameTooLong        = errors.New("invite name too long")
 	ErrParticipantNotOnCalendar = errors.New("participant not on calendar")
 )
 
@@ -45,9 +45,9 @@ type InvalidName struct {
 
 // MissingView is the shape returned by GET /calendars/{id}/missing.
 type MissingView struct {
-	Invites            []model.Invite     `json:"invites"`
-	NotJoined          []NotJoinedEntry   `json:"not_joined"`
-	JoinedNotResponded []JoinedEntry      `json:"joined_not_responded"`
+	Invites            []model.Invite   `json:"invites"`
+	NotJoined          []NotJoinedEntry `json:"not_joined"`
+	JoinedNotResponded []JoinedEntry    `json:"joined_not_responded"`
 }
 
 type NotJoinedEntry struct {
@@ -108,7 +108,7 @@ func validateInviteName(name string) error {
 // lines are reported in Invalid; already-present names in Skipped; fresh rows
 // in Added. The whole operation goes through a single store tx so the cap is
 // enforced atomically.
-func (s *Service)AddInvites(ctx context.Context, calendarID string, rawNames []string) (AddInvitesResult, error) {
+func (s *Service) AddInvites(ctx context.Context, calendarID string, rawNames []string) (AddInvitesResult, error) {
 	res := AddInvitesResult{Added: []model.Invite{}, Skipped: []SkippedName{}, Invalid: []InvalidName{}}
 	parsed := ParseBulkNames(rawNames)
 
@@ -150,7 +150,7 @@ func (s *Service)AddInvites(ctx context.Context, calendarID string, rawNames []s
 }
 
 // RenameInvite renames an existing invite after server-side validation.
-func (s *Service)RenameInvite(ctx context.Context, inviteID, name string) (model.Invite, error) {
+func (s *Service) RenameInvite(ctx context.Context, inviteID, name string) (model.Invite, error) {
 	trimmed := strings.TrimSpace(name)
 	if err := validateInviteName(trimmed); err != nil {
 		return model.Invite{}, err
@@ -160,14 +160,14 @@ func (s *Service)RenameInvite(ctx context.Context, inviteID, name string) (model
 
 // DeleteInvite removes an invite. Matched participants are untouched (ON DELETE
 // SET NULL on matched_participant_id handles the reverse direction).
-func (s *Service)DeleteInvite(ctx context.Context, inviteID string) error {
+func (s *Service) DeleteInvite(ctx context.Context, inviteID string) error {
 	return s.store.DeleteInvite(ctx, inviteID)
 }
 
 // ManualMatchInvite links or unlinks (participantID == nil) an invite. If a
 // participant ID is supplied, it must belong to the same calendar as the
 // invite; otherwise ErrParticipantNotOnCalendar is returned.
-func (s *Service)ManualMatchInvite(ctx context.Context, calendarID, inviteID string, participantID *string) (model.Invite, error) {
+func (s *Service) ManualMatchInvite(ctx context.Context, calendarID, inviteID string, participantID *string) (model.Invite, error) {
 	inv, err := s.store.GetInvite(ctx, inviteID)
 	if err != nil {
 		return model.Invite{}, err
@@ -195,7 +195,7 @@ func (s *Service)ManualMatchInvite(ctx context.Context, calendarID, inviteID str
 // responded" = participants with zero availability rows. The same "has any
 // availability" signal powers submit-to-view, so this bucket stays in lockstep
 // with that reveal check.
-func (s *Service)GetMissingView(ctx context.Context, calendarID string) (MissingView, error) {
+func (s *Service) GetMissingView(ctx context.Context, calendarID string) (MissingView, error) {
 	view := MissingView{
 		Invites:            []model.Invite{},
 		NotJoined:          []NotJoinedEntry{},

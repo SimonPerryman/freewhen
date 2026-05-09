@@ -24,9 +24,9 @@ import (
 const dbName = "freewhen_test"
 
 var (
-	once     sync.Once
+	once      sync.Once
 	sharedDSN string
-	startErr error
+	startErr  error
 )
 
 // Start returns a DSN for a Postgres instance ready to run migrations against.

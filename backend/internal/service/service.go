@@ -374,7 +374,6 @@ func formatDate(date string) string {
 	return t.Format("Monday 2 January 2006")
 }
 
-
 func (s *Service) UnfinaliseCalendar(ctx context.Context, calendarID string) (model.Calendar, error) {
 	cal, err := s.store.ClearFinalisedDate(ctx, calendarID)
 	if err != nil {

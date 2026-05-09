@@ -13,24 +13,24 @@ import (
 // mockStore implements Store for testing. Only GetParticipant and SetAvailability
 // are exercised; the rest panic if called unexpectedly.
 type mockStore struct {
-	createCalendar             func(name, emoji, ownerID string) (model.Calendar, error)
-	duplicateCalendar          func(ctx context.Context, sourceID, newOwnerID, finalName, ownerParticipantName string, includeParticipants bool) (model.Calendar, model.Participant, error)
-	getCalendar                func(ctx context.Context, id string) (model.CalendarWithDetails, error)
-	getParticipant             func(ctx context.Context, id string) (model.Participant, error)
-	setAvailability            func(ctx context.Context, participantID string, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) error
-	touchCalendar              func(ctx context.Context, calendarID string) error
-	listCalendarsForUser       func(ctx context.Context, userID string, limit int) ([]store.CalendarListItem, error)
-	addParticipant             func(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
-	countCalendarParticipants  func(ctx context.Context, calendarID string) (int, error)
-	countCalendarsForOwner     func(ctx context.Context, ownerID string) (int, error)
-	getCalendarOnly            func(ctx context.Context, id string) (model.Calendar, error)
-	updateParticipantName      func(ctx context.Context, calendarID, participantID, name string) (model.Participant, error)
-	listInvites                func() ([]model.Invite, error)
-	getInvite                  func(id string) (model.Invite, error)
-	addInvites                 func(names []string) (store.AddInvitesResult, error)
-	updateInviteName           func(id, name string) (model.Invite, error)
-	deleteInvite               func() error
-	setInviteMatch             func(id string, pid *string) (model.Invite, error)
+	createCalendar                 func(name, emoji, ownerID string) (model.Calendar, error)
+	duplicateCalendar              func(ctx context.Context, sourceID, newOwnerID, finalName, ownerParticipantName string, includeParticipants bool) (model.Calendar, model.Participant, error)
+	getCalendar                    func(ctx context.Context, id string) (model.CalendarWithDetails, error)
+	getParticipant                 func(ctx context.Context, id string) (model.Participant, error)
+	setAvailability                func(ctx context.Context, participantID string, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) error
+	touchCalendar                  func(ctx context.Context, calendarID string) error
+	listCalendarsForUser           func(ctx context.Context, userID string, limit int) ([]store.CalendarListItem, error)
+	addParticipant                 func(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
+	countCalendarParticipants      func(ctx context.Context, calendarID string) (int, error)
+	countCalendarsForOwner         func(ctx context.Context, ownerID string) (int, error)
+	getCalendarOnly                func(ctx context.Context, id string) (model.Calendar, error)
+	updateParticipantName          func(ctx context.Context, calendarID, participantID, name string) (model.Participant, error)
+	listInvites                    func() ([]model.Invite, error)
+	getInvite                      func(id string) (model.Invite, error)
+	addInvites                     func(names []string) (store.AddInvitesResult, error)
+	updateInviteName               func(id, name string) (model.Invite, error)
+	deleteInvite                   func() error
+	setInviteMatch                 func(id string, pid *string) (model.Invite, error)
 	participantsWithNoAvailability func() ([]model.Participant, error)
 }
 
@@ -496,7 +496,9 @@ func TestSetAvailability_TouchesCalendar(t *testing.T) {
 		getParticipant: func(_ context.Context, id string) (model.Participant, error) {
 			return model.Participant{ID: id, CalendarID: "cal1"}, nil
 		},
-		setAvailability: func(_ context.Context, _ string, _ []string, _ map[string]string, _ map[string]bool) error { return nil },
+		setAvailability: func(_ context.Context, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
+			return nil
+		},
 		touchCalendar: func(_ context.Context, calendarID string) error {
 			if calendarID != "cal1" {
 				t.Fatalf("touchCalendar calendarID = %q, want cal1", calendarID)
@@ -712,7 +714,9 @@ func TestPublisher_SetAvailability_PublishesOnSuccess(t *testing.T) {
 		getParticipant: func(_ context.Context, id string) (model.Participant, error) {
 			return model.Participant{ID: id, CalendarID: "cal1"}, nil
 		},
-		setAvailability: func(_ context.Context, _ string, _ []string, _ map[string]string, _ map[string]bool) error { return nil },
+		setAvailability: func(_ context.Context, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
+			return nil
+		},
 	}
 	rp := &recordingPublisher{}
 	s := New(ms, rp, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})

@@ -14,11 +14,11 @@ func TestRemoteIPRejectsForgedXFF(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		xff       string
-		remote    string
-		depth     int
-		want      string
+		name   string
+		xff    string
+		remote string
+		depth  int
+		want   string
 	}{
 		// Cloud Run direct (no LB): GFE appends the real client IP.
 		{name: "direct: no xff falls back to RemoteAddr", xff: "", remote: "203.0.113.10:54321", depth: 0, want: "203.0.113.10"},

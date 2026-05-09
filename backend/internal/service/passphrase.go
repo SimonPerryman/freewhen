@@ -158,4 +158,3 @@ func (s *Service) AuthorizeAccessByID(ctx context.Context, calendarID string, vi
 	}
 	return cal, s.AuthorizeAccess(ctx, cal, viewer, tokenHeader)
 }
-
