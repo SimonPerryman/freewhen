@@ -132,6 +132,53 @@ describe("SummaryView", () => {
     expect(onFinalise).toHaveBeenCalledWith(date);
   });
 
+  it("renders a preference pill on rows with voters and not on rows without", () => {
+    const participants = [makeParticipant("a"), makeParticipant("b"), makeParticipant("c")];
+    const everyoneFree = futureDateStr(1); // Mon 16 Jun
+    const mostFree = futureDateStr(2); // Tue 17 Jun
+    const freeByDate = new Map([
+      [everyoneFree, new Set(["a", "b", "c"])],
+      [mostFree, new Set(["a", "b"])],
+    ]);
+    const preferredByDate = new Map<string, Set<string>>([
+      [mostFree, new Set(["a"])],
+    ]);
+
+    render(
+      <SummaryView
+        participants={participants}
+        freeByDate={freeByDate}
+        preferredByDate={preferredByDate}
+      />,
+    );
+
+    // Static n=1 pill on the most-free row carries the voter's name.
+    expect(screen.getByText("P-a")).toBeInTheDocument();
+    // No pill on the everyone-free row (no voters there).
+    expect(screen.queryByRole("button", { name: /prefer/ })).not.toBeInTheDocument();
+  });
+
+  it("renders a count-pill button when more than one voter prefers a date", () => {
+    const participants = [makeParticipant("a"), makeParticipant("b"), makeParticipant("c")];
+    const date = futureDateStr(1);
+    const freeByDate = new Map([[date, new Set(["a", "b", "c"])]]);
+    const preferredByDate = new Map<string, Set<string>>([
+      [date, new Set(["a", "b"])],
+    ]);
+
+    render(
+      <SummaryView
+        participants={participants}
+        freeByDate={freeByDate}
+        preferredByDate={preferredByDate}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "2 people prefer this day. Show who." }),
+    ).toBeInTheDocument();
+  });
+
   it("cancel reverts the confirmation without calling onFinalise", () => {
     const participants = [makeParticipant("a"), makeParticipant("b")];
     const date = futureDateStr(1);
