@@ -7,7 +7,16 @@ import { MAX_CALENDAR_NAME_LENGTH } from "@/lib/limits";
 import analytics from "@/lib/analytics";
 import { useAuth } from "@/components/AuthProvider/AuthProvider";
 import HeroLiveGrid from "@/components/HeroLiveGrid/HeroLiveGrid";
+import { useTypewriterPlaceholder } from "@/lib/useTypewriterPlaceholder";
 import styles from "./page.module.css";
+
+const PLACEHOLDER_PHRASES = [
+  "Weekend trip",
+  "Sarah's birthday",
+  "Team offsite",
+  "Ski week",
+  "Climbing weekend",
+] as const;
 
 export default function Home() {
   const router = useRouter();
@@ -15,6 +24,10 @@ export default function Home() {
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isFocused, setIsFocused] = useState(false);
+  const placeholder = useTypewriterPlaceholder(PLACEHOLDER_PHRASES, {
+    paused: name.length > 0 || isFocused,
+  });
 
   useEffect(() => {
     checkAuth();
@@ -99,7 +112,9 @@ export default function Home() {
               type="text"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Weekend trip"
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              placeholder={placeholder}
               autoComplete="off"
               disabled={submitting}
               maxLength={MAX_CALENDAR_NAME_LENGTH}
