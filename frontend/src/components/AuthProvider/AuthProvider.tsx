@@ -27,7 +27,7 @@ export function useAuth(): AuthContextValue {
 
 export default function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [checked, setChecked] = useState(false);
 
   const checkAuth = useCallback(async (): Promise<User | null> => {
