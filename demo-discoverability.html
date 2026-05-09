@@ -1,0 +1,1048 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>FreeWhen — discoverability demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Instrument+Serif:ital@0;1&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        /* Brand palette (lifted verbatim from frontend/src/app/globals.css) */
+        --cream: #faf9f7;
+        --ink: #1a1a1a;
+        --ink-2: #7a7168;
+        --terra: #e06449;
+        --terra-2: #c9553c;
+        --terra-soft: #fdf0ed;
+        --paper: #ffffff;
+
+        --background: var(--cream);
+        --foreground: var(--ink);
+        --card-bg: var(--paper);
+        --border: #e8e4df;
+        --text-primary: var(--ink);
+        --text-secondary: var(--ink-2);
+        --accent: var(--terra);
+        --accent-hover: var(--terra-2);
+        --accent-text: #fff;
+        --accent-subtle: var(--terra-soft);
+
+        --space-xs: 4px;
+        --space-sm: 8px;
+        --space-md: 12px;
+        --space-lg: 16px;
+        --space-xl: 24px;
+        --space-2xl: 32px;
+
+        --radius-sm: 6px;
+        --radius-md: 10px;
+        --radius-lg: 14px;
+
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+        --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
+        --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.1);
+
+        --font-stack-body: "DM Sans", system-ui, sans-serif;
+        --font-stack-display: "Fraunces", Georgia, serif;
+        --font-stack-accent: "Instrument Serif", Georgia, serif;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        font-family: var(--font-stack-body);
+        color: var(--foreground);
+        background: var(--background);
+        background-image:
+          radial-gradient(1200px 600px at 110% -10%, rgba(224, 100, 73, 0.08), transparent 60%),
+          radial-gradient(900px 500px at -10% 30%, rgba(107, 142, 90, 0.06), transparent 60%);
+        background-attachment: fixed;
+        -webkit-font-smoothing: antialiased;
+        min-height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: var(--space-xl) var(--space-lg) 80px;
+      }
+
+      .frame {
+        width: 100%;
+        max-width: 380px;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-xl);
+      }
+
+      /* ---- desktop: phone mock + side annotations ---- */
+      .annotations {
+        display: none;
+      }
+
+      @media (min-width: 880px) {
+        body {
+          padding: 56px 48px 96px;
+          align-items: flex-start;
+          justify-content: center;
+        }
+        .stage {
+          display: grid;
+          grid-template-columns: minmax(380px, 420px) minmax(280px, 360px);
+          gap: 64px;
+          align-items: start;
+          width: 100%;
+          max-width: 1080px;
+          margin: 0 auto;
+        }
+        .frame {
+          max-width: 420px;
+          margin: 0;
+        }
+        /* phone-frame chrome at desktop only */
+        .card {
+          position: relative;
+        }
+        .card::before {
+          content: "";
+          position: absolute;
+          inset: -14px;
+          border: 1px solid var(--border);
+          border-radius: 28px;
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), transparent 30%);
+          z-index: -1;
+          box-shadow: var(--shadow-lg);
+          pointer-events: none;
+        }
+        .annotations {
+          display: flex;
+          flex-direction: column;
+          gap: 28px;
+          padding-top: 96px;
+          position: sticky;
+          top: 56px;
+        }
+        .anno {
+          position: relative;
+          padding-left: 56px;
+        }
+        .anno .num {
+          position: absolute;
+          left: 0;
+          top: -2px;
+          width: 38px;
+          height: 38px;
+          border-radius: 50%;
+          background: var(--accent);
+          color: var(--accent-text);
+          font-family: var(--font-stack-display);
+          font-weight: 500;
+          font-size: 18px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: var(--shadow-md);
+        }
+        .anno h4 {
+          font-family: var(--font-stack-display);
+          font-weight: 500;
+          font-size: 20px;
+          letter-spacing: -0.015em;
+          color: var(--text-primary);
+          margin-bottom: 6px;
+          line-height: 1.2;
+        }
+        .anno h4 em {
+          font-family: var(--font-stack-accent);
+          font-style: italic;
+          color: var(--accent);
+          font-weight: 400;
+        }
+        .anno p {
+          font-size: 13.5px;
+          line-height: 1.55;
+          color: var(--text-secondary);
+        }
+        .anno .tag {
+          display: inline-block;
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--accent);
+          margin-bottom: 4px;
+        }
+        /* on desktop, keep sheet width matched to the phone frame */
+        .sheet {
+          max-width: 420px;
+        }
+      }
+
+      @media (min-width: 1120px) {
+        .stage {
+          grid-template-columns: minmax(420px, 460px) minmax(320px, 400px);
+          gap: 96px;
+        }
+        .frame {
+          max-width: 460px;
+        }
+      }
+
+      header.lede {
+        text-align: left;
+      }
+
+      .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-size: 11px;
+        color: var(--accent);
+        font-weight: 600;
+        margin-bottom: var(--space-sm);
+      }
+
+      h1 {
+        font-family: var(--font-stack-display);
+        font-weight: 500;
+        font-size: clamp(28px, 8vw, 36px);
+        line-height: 1.05;
+        letter-spacing: -0.02em;
+        color: var(--text-primary);
+      }
+      h1 em {
+        font-family: var(--font-stack-accent);
+        font-style: italic;
+        font-weight: 400;
+        color: var(--accent);
+      }
+
+      .lede p {
+        margin-top: var(--space-md);
+        color: var(--text-secondary);
+        font-size: 14.5px;
+        line-height: 1.55;
+        max-width: 34ch;
+      }
+
+      /* ---- the calendar card ---- */
+      .card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-md);
+        padding: var(--space-lg);
+        position: relative;
+      }
+
+      .card-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--space-md);
+        margin-bottom: var(--space-md);
+      }
+      .card-head h2 {
+        font-family: var(--font-stack-display);
+        font-weight: 500;
+        font-size: 20px;
+        letter-spacing: -0.015em;
+        color: var(--text-primary);
+      }
+      .card-head .month {
+        font-family: var(--font-stack-accent);
+        font-style: italic;
+        color: var(--accent);
+        font-size: 18px;
+      }
+
+      .grid-instr {
+        font-size: 12.5px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+        padding: var(--space-sm) var(--space-md);
+        background: linear-gradient(180deg, rgba(224, 100, 73, 0.04), transparent);
+        border-left: 2px solid var(--accent);
+        border-radius: 2px 8px 8px 2px;
+        margin-bottom: var(--space-lg);
+      }
+      .grid-instr strong {
+        color: var(--text-primary);
+        font-weight: 600;
+      }
+
+      .dow {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 4px;
+        text-align: center;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--text-secondary);
+        margin-bottom: 6px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 4px;
+      }
+
+      .cell {
+        aspect-ratio: 1;
+        border: 1px solid var(--border);
+        background: var(--paper);
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-primary);
+        cursor: pointer;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition:
+          background 140ms ease,
+          border-color 140ms ease,
+          transform 140ms ease;
+        font-family: var(--font-stack-body);
+      }
+      .cell:hover:not(.muted) {
+        border-color: color-mix(in oklab, var(--accent) 50%, var(--border));
+      }
+      .cell.muted {
+        color: color-mix(in oklab, var(--text-secondary) 60%, transparent);
+        background: transparent;
+        border-color: transparent;
+        cursor: default;
+      }
+      .cell.past {
+        color: color-mix(in oklab, var(--text-secondary) 80%, transparent);
+        background: color-mix(in oklab, var(--border) 30%, transparent);
+        cursor: default;
+      }
+
+      /* others' votes — small star badge top-left */
+      .cell .vote {
+        position: absolute;
+        top: 3px;
+        left: 4px;
+        font-size: 9px;
+        color: var(--text-secondary);
+        display: inline-flex;
+        align-items: center;
+        gap: 1px;
+      }
+      .cell .vote::before {
+        content: "★";
+        color: color-mix(in oklab, var(--accent) 60%, var(--text-secondary));
+      }
+
+      /* others' note dot */
+      .cell .note-dot {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: color-mix(in oklab, var(--accent) 50%, var(--text-secondary));
+      }
+
+      /* MINE — selected */
+      .cell.mine {
+        background: var(--accent);
+        color: var(--accent-text);
+        border-color: var(--accent);
+      }
+      .cell.mine .vote {
+        color: rgba(255, 255, 255, 0.85);
+      }
+      .cell.mine .vote::before {
+        color: rgba(255, 255, 255, 0.95);
+      }
+
+      /* AFFORDANCE: chevron in bottom-right of own selected cells.
+         Signals "there's more here — tap again". */
+      .cell.mine::after {
+        content: "";
+        position: absolute;
+        bottom: 4px;
+        right: 4px;
+        width: 10px;
+        height: 10px;
+        border-right: 1.5px solid rgba(255, 255, 255, 0.7);
+        border-bottom: 1.5px solid rgba(255, 255, 255, 0.7);
+        border-bottom-right-radius: 2px;
+        opacity: 0;
+        transform: translate(2px, 2px) rotate(-45deg);
+        transition:
+          opacity 200ms ease,
+          transform 200ms ease;
+      }
+      .cell.mine.revealed::after {
+        opacity: 0.85;
+        transform: translate(0, 0) rotate(-45deg);
+      }
+
+      /* MINE — preferred */
+      .cell.mine.preferred {
+        background: linear-gradient(
+          135deg,
+          var(--accent) 0%,
+          color-mix(in oklab, var(--accent) 75%, black) 100%
+        );
+        box-shadow:
+          inset 0 0 0 2px var(--paper),
+          inset 0 0 0 3px var(--accent);
+      }
+      .cell.mine.preferred .star-mark {
+        position: absolute;
+        top: 3px;
+        left: 4px;
+        font-size: 10px;
+        color: #fff;
+      }
+
+      /* MINE — has my own note */
+      .cell.mine.noted .my-note-dot {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: #fff;
+      }
+
+      /* ---- coachmark / hint ---- */
+      .coachmark {
+        position: absolute;
+        z-index: 30;
+        pointer-events: auto;
+        background: var(--ink);
+        color: var(--cream);
+        padding: 10px 12px 12px;
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-lg);
+        font-size: 12.5px;
+        line-height: 1.45;
+        max-width: 220px;
+        opacity: 0;
+        transform: translateY(-4px) scale(0.96);
+        transition:
+          opacity 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+          transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      .coachmark.show {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+      .coachmark::before {
+        content: "";
+        position: absolute;
+        top: -6px;
+        left: var(--arrow-x, 24px);
+        width: 12px;
+        height: 12px;
+        background: var(--ink);
+        transform: rotate(45deg);
+        border-radius: 2px;
+      }
+      .coachmark .ck-title {
+        font-family: var(--font-stack-display);
+        font-weight: 500;
+        font-size: 14px;
+        margin-bottom: 2px;
+        letter-spacing: -0.01em;
+      }
+      .coachmark .ck-title em {
+        font-family: var(--font-stack-accent);
+        font-style: italic;
+        color: var(--terra);
+      }
+      .coachmark .ck-body {
+        color: rgba(250, 249, 247, 0.82);
+      }
+      .coachmark .ck-dismiss {
+        margin-top: 8px;
+        background: transparent;
+        border: 0;
+        color: var(--terra);
+        font-family: var(--font-stack-body);
+        font-weight: 600;
+        font-size: 11.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        cursor: pointer;
+        padding: 0;
+      }
+      .coachmark .ck-dismiss:hover {
+        color: #fff;
+      }
+
+      /* ---- mini sheet (mock of DayDetailSheet) ---- */
+      .sheet-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(26, 26, 26, 0.4);
+        backdrop-filter: blur(2px);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 180ms ease;
+        z-index: 50;
+      }
+      .sheet-backdrop.show {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .sheet {
+        position: fixed;
+        left: 50%;
+        bottom: 0;
+        transform: translate(-50%, 100%);
+        width: 100%;
+        max-width: 380px;
+        background: var(--card-bg);
+        border-top-left-radius: 18px;
+        border-top-right-radius: 18px;
+        padding: var(--space-lg) var(--space-lg) calc(var(--space-xl) + env(safe-area-inset-bottom, 0px));
+        box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.18);
+        z-index: 51;
+        transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      .sheet.show {
+        transform: translate(-50%, 0);
+      }
+      .sheet .grabber {
+        width: 36px;
+        height: 4px;
+        background: var(--border);
+        border-radius: 2px;
+        margin: 0 auto var(--space-md);
+      }
+      .sheet h3 {
+        font-family: var(--font-stack-display);
+        font-weight: 500;
+        font-size: 18px;
+        letter-spacing: -0.015em;
+        margin-bottom: 2px;
+      }
+      .sheet h3 em {
+        font-family: var(--font-stack-accent);
+        font-style: italic;
+        color: var(--accent);
+      }
+      .sheet .sheet-sub {
+        font-size: 12.5px;
+        color: var(--text-secondary);
+        margin-bottom: var(--space-lg);
+      }
+
+      .toggle-row {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--space-md);
+        padding: var(--space-md);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        margin-bottom: var(--space-md);
+        cursor: pointer;
+        background: var(--paper);
+      }
+      .toggle-row:hover {
+        border-color: color-mix(in oklab, var(--accent) 40%, var(--border));
+      }
+      .toggle-row.active {
+        background: var(--accent-subtle);
+        border-color: color-mix(in oklab, var(--accent) 60%, var(--border));
+      }
+      .toggle-row .check {
+        flex: 0 0 18px;
+        width: 18px;
+        height: 18px;
+        border-radius: 5px;
+        border: 1.5px solid var(--text-secondary);
+        position: relative;
+        margin-top: 1px;
+      }
+      .toggle-row.active .check {
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+      .toggle-row.active .check::after {
+        content: "";
+        position: absolute;
+        left: 4px;
+        top: 1px;
+        width: 5px;
+        height: 9px;
+        border-right: 2px solid #fff;
+        border-bottom: 2px solid #fff;
+        transform: rotate(45deg);
+      }
+      .toggle-row .label {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+      .toggle-row .hint {
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-top: 2px;
+        line-height: 1.45;
+      }
+
+      .note-field label {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+      }
+      .note-field .note-hint {
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-bottom: var(--space-sm);
+      }
+      .note-field textarea {
+        width: 100%;
+        min-height: 64px;
+        resize: none;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--paper);
+        font-family: var(--font-stack-body);
+        font-size: 14px;
+        color: var(--text-primary);
+        outline: none;
+        transition: border-color 140ms ease;
+      }
+      .note-field textarea:focus {
+        border-color: var(--accent);
+      }
+
+      .sheet-actions {
+        display: flex;
+        gap: var(--space-sm);
+        margin-top: var(--space-lg);
+      }
+      .btn {
+        flex: 1;
+        height: 44px;
+        border-radius: var(--radius-md);
+        font-family: var(--font-stack-body);
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: background 140ms ease, border-color 140ms ease;
+      }
+      .btn-primary {
+        background: var(--accent);
+        color: var(--accent-text);
+      }
+      .btn-primary:hover {
+        background: var(--accent-hover);
+      }
+      .btn-ghost {
+        background: transparent;
+        border-color: var(--border);
+        color: var(--text-primary);
+      }
+      .btn-ghost:hover {
+        border-color: var(--text-secondary);
+      }
+
+      /* ---- caption ---- */
+      .caption {
+        font-size: 12px;
+        color: var(--text-secondary);
+        text-align: center;
+        line-height: 1.6;
+      }
+      .caption b {
+        color: var(--text-primary);
+        font-weight: 600;
+      }
+      .caption em {
+        font-family: var(--font-stack-accent);
+        font-style: italic;
+        color: var(--accent);
+      }
+
+      .reset {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+        font-family: var(--font-stack-body);
+        font-size: 12px;
+        font-weight: 500;
+        padding: 8px 14px;
+        border-radius: 99px;
+        cursor: pointer;
+        align-self: center;
+      }
+      .reset:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --background: #141210;
+          --card-bg: #2c2720;
+          --border: #4a443d;
+          --text-primary: #edebe8;
+          --text-secondary: #9e9688;
+          --accent: #e8755e;
+          --accent-hover: #f0917e;
+          --accent-text: #141210;
+          --accent-subtle: #3a2820;
+          --paper: #2c2720;
+        }
+        .cell {
+          background: color-mix(in oklab, var(--card-bg) 80%, var(--background));
+        }
+        .toggle-row {
+          background: color-mix(in oklab, var(--card-bg) 80%, var(--background));
+        }
+        body {
+          background-image:
+            radial-gradient(60% 80% at 100% 0%, rgba(232, 117, 94, 0.1), transparent 60%),
+            radial-gradient(40% 60% at 0% 100%, rgba(232, 117, 94, 0.06), transparent 60%);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="stage">
+    <div class="frame">
+      <header class="lede">
+        <div class="eyebrow">Discoverability demo</div>
+        <h1>
+          Surface what's <em>hidden</em>,<br />
+          skip the wizard.
+        </h1>
+        <p>
+          Tap a date to mark yourself free. Tap your own date again to prefer it or leave a note.
+          Try it — the first-mark hint and the chevron affordance only show on cells you own.
+        </p>
+      </header>
+
+      <section class="card" id="card">
+        <div class="card-head">
+          <h2>Friday dinner</h2>
+          <span class="month">November</span>
+        </div>
+
+        <div class="grid-instr" id="instr">
+          <strong>Tap once</strong> to mark a date free. <strong>Tap again</strong> to prefer it
+          or add a note.
+        </div>
+
+        <div class="dow" aria-hidden="true">
+          <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span
+          ><span>S</span>
+        </div>
+
+        <div class="grid" id="grid"></div>
+
+        <!-- coachmark anchored to first marked cell -->
+        <div class="coachmark" id="coach" role="status" aria-live="polite">
+          <div class="ck-title">Tap again to <em>prefer</em></div>
+          <div class="ck-body">
+            Mark top picks or leave a note (e.g. "after 6pm"). Helps the group land on a date
+            everyone actually wants.
+          </div>
+          <button class="ck-dismiss" type="button" id="coachDismiss">Got it</button>
+        </div>
+      </section>
+
+      <p class="caption">
+        Two changes, no wizard: an inline first-mark <em>hint</em>, plus a
+        <b>chevron affordance</b> in the corner of your own selected cells. Returning users don't
+        see the hint again — the chevron carries the signal forward.
+      </p>
+
+      <button class="reset" type="button" id="reset">Reset demo</button>
+
+    <!-- mini sheet (mock of DayDetailSheet). On desktop it anchors inside the phone frame. -->
+    <div class="sheet-backdrop" id="backdrop"></div>
+    <aside class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+      <div class="grabber" aria-hidden="true"></div>
+      <h3 id="sheetTitle">
+        Friday <em id="sheetDate">14 Nov</em>
+      </h3>
+      <div class="sheet-sub">You're marked free for this date.</div>
+
+      <button class="toggle-row" type="button" id="prefRow">
+        <span class="check" aria-hidden="true"></span>
+        <span>
+          <span class="label">Prefer this date</span>
+          <span class="hint">Top picks help the group converge faster.</span>
+        </span>
+      </button>
+
+      <div class="note-field">
+        <label for="note">Your note</label>
+        <div class="note-hint">Optional — 140 characters</div>
+        <textarea id="note" maxlength="140" placeholder="e.g. only after 6pm"></textarea>
+      </div>
+
+      <div class="sheet-actions">
+        <button class="btn btn-ghost" type="button" id="cancelBtn">Remove availability</button>
+        <button class="btn btn-primary" type="button" id="saveBtn">Save</button>
+      </div>
+    </aside>
+    </div><!-- /.frame -->
+
+      <aside class="annotations" aria-label="Design notes">
+        <div class="anno">
+          <div class="num">1</div>
+          <div class="tag">Always-visible</div>
+          <h4>An <em>instruction strip</em> at the top of the grid</h4>
+          <p>
+            Replaces the silent "tap days you're free" assumption. Now the grid header explicitly
+            tells you the second-tap exists — cheap, persistent, helps anyone landing mid-session.
+          </p>
+        </div>
+        <div class="anno">
+          <div class="num">2</div>
+          <div class="tag">First-mark only</div>
+          <h4>A one-time <em>coachmark</em> on first availability</h4>
+          <p>
+            The moment a participant marks their first cell, a tooltip points at it explaining
+            preferred &amp; notes. Dismisses on tap; never fires again for that participant
+            (localStorage in the real implementation).
+          </p>
+        </div>
+        <div class="anno">
+          <div class="num">3</div>
+          <div class="tag">Durable</div>
+          <h4>A subtle <em>chevron</em> on every cell you own</h4>
+          <p>
+            Selected cells used to look terminal. The corner chevron quietly says "there's more
+            here." Carries the signal forward after the coachmark is gone — including for returning
+            users.
+          </p>
+        </div>
+      </aside>
+    </div><!-- /.stage -->
+
+    <script>
+      // Build a simple month grid (Nov 2026 starts Sunday — we display Mon-first)
+      const grid = document.getElementById("grid");
+      const today = 9; // pretend today is Nov 9
+      const daysInMonth = 30;
+      // Nov 1 2026 is a Sunday. Mon-first grid → leading offset = 6
+      const leading = 6;
+      const cells = [];
+
+      // Pre-seed some social proof: votes & note dots from "others"
+      const otherVotes = { 6: 2, 7: 4, 13: 1, 14: 3, 20: 2, 21: 5, 27: 1, 28: 3 };
+      const otherNotes = new Set([7, 14, 21, 28]);
+
+      for (let i = 0; i < leading; i++) {
+        const c = document.createElement("div");
+        c.className = "cell muted";
+        grid.appendChild(c);
+      }
+      for (let d = 1; d <= daysInMonth; d++) {
+        const c = document.createElement("button");
+        c.type = "button";
+        c.className = "cell";
+        c.dataset.day = d;
+        c.textContent = d;
+
+        if (d < today) {
+          c.classList.add("past");
+          c.disabled = true;
+        }
+
+        if (otherVotes[d]) {
+          const v = document.createElement("span");
+          v.className = "vote";
+          v.textContent = otherVotes[d];
+          c.appendChild(v);
+        }
+        if (otherNotes.has(d)) {
+          const n = document.createElement("span");
+          n.className = "note-dot";
+          c.appendChild(n);
+        }
+
+        cells.push(c);
+        grid.appendChild(c);
+      }
+
+      // State
+      const state = {
+        marked: new Set(), // days I've marked free
+        preferred: new Set(),
+        notes: {},
+        seenCoach: false,
+        activeDay: null,
+      };
+
+      const coach = document.getElementById("coach");
+      const coachDismiss = document.getElementById("coachDismiss");
+      const sheet = document.getElementById("sheet");
+      const backdrop = document.getElementById("backdrop");
+      const prefRow = document.getElementById("prefRow");
+      const noteEl = document.getElementById("note");
+      const sheetDate = document.getElementById("sheetDate");
+
+      const MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ");
+      function fmtDate(d) {
+        return `${d} Nov`;
+      }
+
+      function render() {
+        cells.forEach((c) => {
+          const d = +c.dataset.day;
+          c.classList.toggle("mine", state.marked.has(d));
+          c.classList.toggle("preferred", state.preferred.has(d));
+          c.classList.toggle("noted", !!state.notes[d]);
+
+          // remove existing badges so we can re-render
+          c.querySelector(".star-mark")?.remove();
+          c.querySelector(".my-note-dot")?.remove();
+
+          if (state.preferred.has(d)) {
+            const s = document.createElement("span");
+            s.className = "star-mark";
+            s.textContent = "★";
+            c.appendChild(s);
+          }
+          if (state.notes[d]) {
+            const n = document.createElement("span");
+            n.className = "my-note-dot";
+            c.appendChild(n);
+          }
+        });
+
+        // Reveal chevrons after a beat (only on mine)
+        requestAnimationFrame(() => {
+          cells.forEach((c) => {
+            if (c.classList.contains("mine")) c.classList.add("revealed");
+            else c.classList.remove("revealed");
+          });
+        });
+      }
+
+      function showCoachFor(cell) {
+        const card = document.getElementById("card");
+        const cardRect = card.getBoundingClientRect();
+        const cellRect = cell.getBoundingClientRect();
+        const top = cellRect.bottom - cardRect.top + 10;
+        let left = cellRect.left - cardRect.left + cellRect.width / 2 - 110;
+        left = Math.max(8, Math.min(left, card.clientWidth - 228));
+        const arrowX =
+          cellRect.left - cardRect.left + cellRect.width / 2 - left - 6;
+        coach.style.top = `${top}px`;
+        coach.style.left = `${left}px`;
+        coach.style.setProperty("--arrow-x", `${arrowX}px`);
+        coach.classList.add("show");
+      }
+      function hideCoach() {
+        coach.classList.remove("show");
+      }
+
+      function openSheet(day) {
+        state.activeDay = day;
+        sheetDate.textContent = fmtDate(day);
+        prefRow.classList.toggle("active", state.preferred.has(day));
+        noteEl.value = state.notes[day] || "";
+        backdrop.classList.add("show");
+        sheet.classList.add("show");
+      }
+      function closeSheet() {
+        backdrop.classList.remove("show");
+        sheet.classList.remove("show");
+        state.activeDay = null;
+      }
+
+      // Cell click logic
+      grid.addEventListener("click", (e) => {
+        const cell = e.target.closest(".cell");
+        if (!cell || cell.classList.contains("muted") || cell.classList.contains("past")) return;
+        const d = +cell.dataset.day;
+
+        if (!state.marked.has(d)) {
+          // First tap → mark free
+          state.marked.add(d);
+          render();
+          if (!state.seenCoach) {
+            // small delay so the tile reveal lands first
+            setTimeout(() => showCoachFor(cell), 220);
+          }
+        } else {
+          // Second tap → open detail sheet
+          hideCoach();
+          openSheet(d);
+        }
+      });
+
+      coachDismiss.addEventListener("click", () => {
+        state.seenCoach = true;
+        hideCoach();
+      });
+
+      backdrop.addEventListener("click", closeSheet);
+
+      prefRow.addEventListener("click", () => {
+        if (state.activeDay == null) return;
+        const d = state.activeDay;
+        if (state.preferred.has(d)) state.preferred.delete(d);
+        else state.preferred.add(d);
+        prefRow.classList.toggle("active", state.preferred.has(d));
+      });
+
+      document.getElementById("saveBtn").addEventListener("click", () => {
+        if (state.activeDay == null) return;
+        const d = state.activeDay;
+        const v = noteEl.value.trim();
+        if (v) state.notes[d] = v;
+        else delete state.notes[d];
+        render();
+        closeSheet();
+      });
+
+      document.getElementById("cancelBtn").addEventListener("click", () => {
+        if (state.activeDay == null) return;
+        const d = state.activeDay;
+        state.marked.delete(d);
+        state.preferred.delete(d);
+        delete state.notes[d];
+        render();
+        closeSheet();
+      });
+
+      document.getElementById("reset").addEventListener("click", () => {
+        state.marked.clear();
+        state.preferred.clear();
+        state.notes = {};
+        state.seenCoach = false;
+        hideCoach();
+        closeSheet();
+        render();
+      });
+
+      render();
+    </script>
+  </body>
+</html>
