@@ -17,7 +17,7 @@ func TestSetAvailability(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
-	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestSetAvailabilityReplacesExisting(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
-	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestSetAvailabilityClearAll(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
-	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
@@ -112,11 +112,11 @@ func TestSetAvailabilityMultipleParticipants(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
-	alice, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	alice, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("add alice: %v", err)
 	}
-	bob, err := s.AddParticipant(ctx, cal.ID, "Bob", nil)
+	bob, err := s.AddParticipant(ctx, cal.ID, "Bob", nil, nil)
 	if err != nil {
 		t.Fatalf("add bob: %v", err)
 	}
@@ -155,7 +155,7 @@ func TestSetAvailabilityNoteRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
-	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
@@ -190,7 +190,7 @@ func TestSetAvailabilityPreservesNotesWhenNilOverrides(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
-	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
@@ -224,7 +224,7 @@ func TestSetAvailabilityEmptyStringClearsNote(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
-	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
@@ -253,7 +253,7 @@ func TestSetAvailabilityRemovingDateDropsNote(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
-	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
@@ -287,11 +287,11 @@ func TestSetAvailabilityParticipantIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
-	alice, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	alice, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("add alice: %v", err)
 	}
-	bob, err := s.AddParticipant(ctx, cal.ID, "Bob", nil)
+	bob, err := s.AddParticipant(ctx, cal.ID, "Bob", nil, nil)
 	if err != nil {
 		t.Fatalf("add bob: %v", err)
 	}
@@ -334,7 +334,7 @@ func TestSetAvailabilityPreferredRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
-	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
@@ -369,7 +369,7 @@ func TestSetAvailabilityPreferredClearedWhenDateRemoved(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
-	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
@@ -405,7 +405,7 @@ func TestSetAvailabilityPreferredPreservedWhenOverridesNil(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
-	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
@@ -436,7 +436,7 @@ func TestSetAvailabilityPreferredExplicitEmptyClears(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
-	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
@@ -467,11 +467,11 @@ func TestSetAvailabilityPreferredParticipantIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
-	alice, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	alice, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("add alice: %v", err)
 	}
-	bob, err := s.AddParticipant(ctx, cal.ID, "Bob", nil)
+	bob, err := s.AddParticipant(ctx, cal.ID, "Bob", nil, nil)
 	if err != nil {
 		t.Fatalf("add bob: %v", err)
 	}

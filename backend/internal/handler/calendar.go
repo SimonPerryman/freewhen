@@ -46,7 +46,7 @@ func (h *Handler) CreateCalendar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Auto-join the owner as a participant
-	participant, err := h.service.AddParticipant(r.Context(), cal.ID, user.Name, &user.ID)
+	participant, err := h.service.AddParticipant(r.Context(), cal.ID, user.Name, &user.ID, nil)
 	if err != nil {
 		// Calendar was created but participant failed — still return the calendar.
 		// The owner can join manually on the calendar page.
@@ -212,9 +212,18 @@ func (h *Handler) GetCalendar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	isOwner := user != nil && user.ID == cal.OwnerID
+	// Strip participant emails before serialising — this endpoint is read by
+	// every viewer of the calendar, and the email is private metadata that
+	// should never leak to other participants. Participants edit their own
+	// email by re-submitting it through PATCH /participants/{id}.
+	scrubbed := make([]model.Participant, len(details.Participants))
+	for i, p := range details.Participants {
+		p.Email = nil
+		scrubbed[i] = p
+	}
 	resp := calendarResponseDTO{
 		Calendar:     toCalendarDTO(details.Calendar, isOwner),
-		Participants: details.Participants,
+		Participants: scrubbed,
 		Availability: details.Availability,
 	}
 	respondJSON(w, http.StatusOK, resp)

@@ -8,22 +8,27 @@ import styles from "./JoinForm.module.css";
 const COUNTER_THRESHOLD = 10;
 
 interface JoinFormProps {
-  onJoin: (name: string) => Promise<void>;
+  onJoin: (name: string, email?: string | null) => Promise<void>;
   error: string | null;
   defaultName?: string;
+  // hideEmail skips the optional email field entirely. Set for signed-in
+  // joiners (we already have their account email — no need to re-ask).
+  hideEmail?: boolean;
 }
 
-export default function JoinForm({ onJoin, error, defaultName = "" }: JoinFormProps) {
+export default function JoinForm({ onJoin, error, defaultName = "", hideEmail = false }: JoinFormProps) {
   const [name, setName] = useState(defaultName);
+  const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const trimmed = name.trim();
-    if (!trimmed) return;
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+    const trimmedEmail = email.trim();
     setSubmitting(true);
     try {
-      await onJoin(trimmed);
+      await onJoin(trimmedName, hideEmail ? null : trimmedEmail || null);
     } finally {
       setSubmitting(false);
     }
@@ -60,6 +65,28 @@ export default function JoinForm({ onJoin, error, defaultName = "" }: JoinFormPr
         <p className={styles.counter} aria-live="polite">
           {name.length} / {MAX_PARTICIPANT_NAME_LENGTH}
         </p>
+      ) : null}
+      {!hideEmail ? (
+        <div className={styles.emailField}>
+          <label className={styles.label} htmlFor="participant-email">
+            Email (optional)
+          </label>
+          <input
+            id="participant-email"
+            className={styles.input}
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            disabled={submitting}
+            aria-describedby="participant-email-helper"
+          />
+          <p id="participant-email-helper" className={styles.helper}>
+            Only used to tell you when a date&apos;s picked.
+          </p>
+        </div>
       ) : null}
       {error ? (
         <p id="participant-name-error" role="alert" className={styles.error}>

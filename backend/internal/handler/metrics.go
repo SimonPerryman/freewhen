@@ -23,20 +23,35 @@ type RealtimeMetrics interface {
 	ActiveCalendars() int
 }
 
+// NotificationCounters reports per-kind transactional email counts for the
+// admin metrics endpoint. Implemented by *notifications.Counters.
+type NotificationCounters interface {
+	Snapshot() map[string]uint64
+}
+
 type MetricsHandler struct {
 	store    MetricsStore
 	realtime RealtimeMetrics
+	notif    NotificationCounters
 }
 
 func NewMetrics(s MetricsStore, rt RealtimeMetrics) *MetricsHandler {
 	return &MetricsHandler{store: s, realtime: rt}
 }
 
+// WithNotificationCounters wires the notifications counter snapshotter so
+// the /admin/metrics response includes notification send/fail totals.
+func (h *MetricsHandler) WithNotificationCounters(c NotificationCounters) *MetricsHandler {
+	h.notif = c
+	return h
+}
+
 type metricsResponse struct {
-	Users        userMetrics        `json:"users"`
-	Calendars    calendarMetrics    `json:"calendars"`
-	Participants participantMetrics `json:"participants"`
-	Realtime     realtimeMetrics    `json:"realtime"`
+	Users         userMetrics        `json:"users"`
+	Calendars     calendarMetrics    `json:"calendars"`
+	Participants  participantMetrics `json:"participants"`
+	Realtime      realtimeMetrics    `json:"realtime"`
+	Notifications map[string]uint64  `json:"notifications,omitempty"`
 }
 
 type userMetrics struct {
@@ -135,5 +150,13 @@ func (h *MetricsHandler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 			ActiveSubscribers: rtSubs,
 			ActiveCalendars:   rtCals,
 		},
+		Notifications: notificationsSnapshot(h.notif),
 	})
+}
+
+func notificationsSnapshot(c NotificationCounters) map[string]uint64 {
+	if c == nil {
+		return nil
+	}
+	return c.Snapshot()
 }

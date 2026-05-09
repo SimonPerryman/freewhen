@@ -21,7 +21,8 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Name string `json:"name"`
+		Name  string  `json:"name"`
+		Email *string `json:"email"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
@@ -37,13 +38,17 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Auto-link to user if signed in (optionalAuth middleware)
+	// Auto-link to user if signed in (optionalAuth middleware). Signed-in
+	// joiners reuse their account email; ignore any client-supplied address
+	// rather than splitting state across users.email and participants.email.
 	var userID *string
+	email := req.Email
 	if user := UserFromContext(r); user != nil {
 		userID = &user.ID
+		email = nil
 	}
 
-	p, err := h.service.AddParticipant(r.Context(), calendarID, req.Name, userID)
+	p, err := h.service.AddParticipant(r.Context(), calendarID, req.Name, userID, email)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
@@ -69,6 +74,10 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusConflict, "calendar_full", "this calendar is full")
 			return
 		}
+		if errors.Is(err, service.ErrInvalidEmail) {
+			respondError(w, http.StatusBadRequest, "invalid_email", "email is invalid")
+			return
+		}
 		respondInternalError(r, w, err, "internal_error", "failed to add participant")
 		return
 	}
@@ -90,15 +99,53 @@ func (h *Handler) RenameParticipant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Name          string `json:"name"`
-		ParticipantID string `json:"participant_id"`
+		Name          *string `json:"name"`
+		Email         *string `json:"email"`
+		ParticipantID string  `json:"participant_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
 		return
 	}
 
-	name := strings.TrimSpace(req.Name)
+	var userID *string
+	if user := UserFromContext(r); user != nil {
+		userID = &user.ID
+	}
+
+	// Email-only updates skip the rename / finalise guards — clearing or
+	// setting your contact address is allowed even after the calendar locks.
+	emailOnly := req.Name == nil && req.Email != nil
+	if emailOnly {
+		// Signed-in participants resolve email via users.email at send time;
+		// disallow editing the per-participant override they don't have.
+		if userID != nil {
+			respondError(w, http.StatusBadRequest, "invalid_request", "signed-in users edit their email under account settings")
+			return
+		}
+		p, err := h.service.UpdateParticipantEmail(r.Context(), calendarID, participantID, userID, req.ParticipantID, req.Email)
+		if err != nil {
+			switch {
+			case errors.Is(err, store.ErrNotFound):
+				respondError(w, http.StatusNotFound, "not_found", "participant not found")
+			case errors.Is(err, service.ErrForbidden):
+				respondError(w, http.StatusForbidden, "forbidden", "not allowed to edit this participant")
+			case errors.Is(err, service.ErrInvalidEmail):
+				respondError(w, http.StatusBadRequest, "invalid_email", "email is invalid")
+			default:
+				respondInternalError(r, w, err, "internal_error", "failed to update participant")
+			}
+			return
+		}
+		respondJSON(w, http.StatusOK, p)
+		return
+	}
+
+	if req.Name == nil {
+		respondError(w, http.StatusBadRequest, "invalid_request", "name is required")
+		return
+	}
+	name := strings.TrimSpace(*req.Name)
 	if name == "" {
 		respondError(w, http.StatusBadRequest, "invalid_request", "name is required")
 		return
@@ -106,11 +153,6 @@ func (h *Handler) RenameParticipant(w http.ResponseWriter, r *http.Request) {
 	if len(name) > limits.MaxParticipantNameLength {
 		respondError(w, http.StatusBadRequest, "name_too_long", "participant name is too long")
 		return
-	}
-
-	var userID *string
-	if user := UserFromContext(r); user != nil {
-		userID = &user.ID
 	}
 
 	p, err := h.service.RenameParticipant(r.Context(), calendarID, participantID, userID, req.ParticipantID, name)
@@ -130,6 +172,20 @@ func (h *Handler) RenameParticipant(w http.ResponseWriter, r *http.Request) {
 			respondInternalError(r, w, err, "internal_error", "failed to rename participant")
 		}
 		return
+	}
+
+	// If the caller also supplied an email, apply it as a follow-up update.
+	if req.Email != nil && userID == nil {
+		updated, err := h.service.UpdateParticipantEmail(r.Context(), calendarID, participantID, userID, req.ParticipantID, req.Email)
+		if err != nil {
+			if errors.Is(err, service.ErrInvalidEmail) {
+				respondError(w, http.StatusBadRequest, "invalid_email", "email is invalid")
+				return
+			}
+			respondInternalError(r, w, err, "internal_error", "failed to update participant email")
+			return
+		}
+		p = updated
 	}
 
 	respondJSON(w, http.StatusOK, p)

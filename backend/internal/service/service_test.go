@@ -62,11 +62,23 @@ func (m *mockStore) GetCalendarOnly(ctx context.Context, id string) (model.Calen
 	return m.getCalendarOnly(ctx, id)
 }
 
-func (m *mockStore) AddParticipant(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error) {
+func (m *mockStore) AddParticipant(ctx context.Context, calendarID, name string, userID *string, _ *string) (model.Participant, error) {
 	if m.addParticipant == nil {
 		panic("unexpected call to AddParticipant")
 	}
 	return m.addParticipant(ctx, calendarID, name, userID)
+}
+
+func (m *mockStore) UpdateParticipantEmail(_ context.Context, _, _ string, _ *string) (model.Participant, error) {
+	panic("unexpected call to UpdateParticipantEmail")
+}
+
+func (m *mockStore) ClearParticipantEmailByID(_ context.Context, _ string) error {
+	panic("unexpected call to ClearParticipantEmailByID")
+}
+
+func (m *mockStore) GetUser(_ context.Context, _ string) (model.User, error) {
+	return model.User{}, store.ErrNotFound
 }
 
 func (m *mockStore) ClaimParticipant(_ context.Context, _, _, _ string) (model.Participant, error) {
@@ -470,7 +482,7 @@ func TestAddParticipant_TouchesCalendar(t *testing.T) {
 	}
 
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
-	if _, err := s.AddParticipant(context.Background(), "cal1", "Alice", nil); err != nil {
+	if _, err := s.AddParticipant(context.Background(), "cal1", "Alice", nil, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if touchCalendarID != "cal1" {
@@ -511,7 +523,7 @@ func TestAddParticipant_CapReached(t *testing.T) {
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-	_, err := s.AddParticipant(context.Background(), "cal1", "Alice", nil)
+	_, err := s.AddParticipant(context.Background(), "cal1", "Alice", nil, nil)
 	if !errors.Is(err, store.ErrCalendarFull) {
 		t.Fatalf("err = %v, want ErrCalendarFull", err)
 	}
@@ -528,7 +540,7 @@ func TestAddParticipant_UnderCap(t *testing.T) {
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-	p, err := s.AddParticipant(context.Background(), "cal1", "Alice", nil)
+	p, err := s.AddParticipant(context.Background(), "cal1", "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

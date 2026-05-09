@@ -29,6 +29,10 @@ type Participant struct {
 	Name       string  `json:"name"`
 	Colour     string  `json:"colour"`
 	UserID     *string `json:"user_id,omitempty"`
+	// Email is the optional contact address for transactional notifications
+	// (finalised / nudge). Resolved via users.email for signed-in
+	// participants, so this field is typically only set for anon joiners.
+	Email *string `json:"email,omitempty"`
 }
 
 type Availability struct {

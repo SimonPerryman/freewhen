@@ -6,6 +6,7 @@ import {
   deleteInvite as apiDeleteInvite,
   getMissing,
   matchInvite as apiMatchInvite,
+  nudgeCalendar,
   renameInvite as apiRenameInvite,
 } from "@/lib/api";
 import analytics from "@/lib/analytics";
@@ -53,6 +54,29 @@ export default function WhosMissingPanel({ calendarId, participants, refreshKey 
   const [submitting, setSubmitting] = useState(false);
   const [submitNote, setSubmitNote] = useState<string | null>(null);
   const [linkMenuFor, setLinkMenuFor] = useState<string | null>(null);
+  const [nudging, setNudging] = useState(false);
+
+  const handleNudge = useCallback(async () => {
+    if (nudging) return;
+    setNudging(true);
+    try {
+      const result = await nudgeCalendar(calendarId);
+      analytics.capture("calendar_nudge_sent", {
+        calendar_id: calendarId,
+        emailed: result.emailed,
+        skipped: result.skipped,
+      });
+      const parts = [`Emailed ${result.emailed} ${result.emailed === 1 ? "person" : "people"}`];
+      if (result.skipped > 0) {
+        parts.push(`${result.skipped} have no email — copy the calendar link to share with them.`);
+      }
+      showToast({ message: parts.join(" · ") });
+    } catch (err) {
+      showToast({ message: err instanceof Error ? err.message : "Couldn't send reminder" });
+    } finally {
+      setNudging(false);
+    }
+  }, [calendarId, nudging, showToast]);
 
   useEffect(() => {
     setOpen(readOpenState(calendarId));
@@ -350,6 +374,19 @@ export default function WhosMissingPanel({ calendarId, participants, refreshKey 
             </div>
             {submitNote ? <p className={styles.note}>{submitNote}</p> : null}
           </div>
+
+          {missingCount > 0 ? (
+            <div className={styles.addBlock}>
+              <button
+                type="button"
+                className={styles.addButton}
+                onClick={handleNudge}
+                disabled={nudging}
+              >
+                {nudging ? "Sending…" : "Send reminder"}
+              </button>
+            </div>
+          ) : null}
 
           {matchedInvites.length > 0 ? (
             <details className={styles.allInvited}>

@@ -29,6 +29,11 @@ type Config struct {
 	// CalendarAccessSecret is the HMAC key used to sign per-calendar access
 	// tokens (password-protected calendars). Must be at least 32 bytes.
 	CalendarAccessSecret string
+	// NotificationsHMACSecret signs one-click unsubscribe tokens. Must be at
+	// least 32 bytes when notifications are enabled. When unset, the
+	// notifications subsystem is disabled (no finalised/nudge emails sent and
+	// /unsubscribe returns 404).
+	NotificationsHMACSecret string
 	// PostHogKey is the project API key for PostHog. When unset, flag
 	// evaluation no-ops and analytics events are dropped server-side.
 	PostHogKey string
@@ -83,6 +88,11 @@ func Load() (*Config, error) {
 	accessSecret := os.Getenv("CALENDAR_ACCESS_SECRET")
 	if len(accessSecret) < 32 {
 		return nil, fmt.Errorf("CALENDAR_ACCESS_SECRET environment variable must be at least 32 bytes")
+	}
+
+	notifSecret := os.Getenv("NOTIFICATIONS_HMAC_SECRET")
+	if notifSecret != "" && len(notifSecret) < 32 {
+		return nil, fmt.Errorf("NOTIFICATIONS_HMAC_SECRET must be at least 32 bytes when set (or unset to disable notifications)")
 	}
 
 	authEmailDisabled, err := parseBool(os.Getenv("AUTH_EMAIL_DISABLED"), false)
@@ -153,6 +163,7 @@ func Load() (*Config, error) {
 		MagicLinkFromEmail:        fromEmail,
 		AuthEmailDisabled:         authEmailDisabled,
 		CalendarAccessSecret:      accessSecret,
+		NotificationsHMACSecret:   notifSecret,
 		PostHogKey:                os.Getenv("POSTHOG_KEY"),
 		PostHogHost:               os.Getenv("POSTHOG_HOST"),
 		PostHogPersonalKey:        os.Getenv("POSTHOG_PERSONAL_API_KEY"),

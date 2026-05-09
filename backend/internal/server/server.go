@@ -10,6 +10,7 @@ import (
 	"github.com/freewhen/backend/internal/email"
 	"github.com/freewhen/backend/internal/flags"
 	"github.com/freewhen/backend/internal/handler"
+	"github.com/freewhen/backend/internal/notifications"
 	"github.com/freewhen/backend/internal/realtime"
 	"github.com/freewhen/backend/internal/service"
 	"github.com/freewhen/backend/internal/store"
@@ -21,6 +22,7 @@ type Server struct {
 	auth           *handler.AuthHandler
 	metrics        *handler.MetricsHandler
 	calIntegration *handler.CalendarIntegrationHandler
+	notifications  *handler.NotificationsHandler
 	testLogin      *handler.TestLoginHandler
 	testEmail      *handler.CapturingEmailSender
 	hub            *realtime.Hub
@@ -31,6 +33,7 @@ type Server struct {
 	corsOrigin     string
 	cfg            *config.Config
 	flags          flags.Evaluator
+	notifSvc       *notifications.Service
 	// routes records each registered route's auth kind so the route-coverage
 	// test can detect handlers added without a requireAuth/requireAdmin wrap.
 	routeSpecs []routeSpec
@@ -76,6 +79,21 @@ func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 	h := handler.New(svc).WithFlags(flagEval).WithTrustedProxyDepth(cfg.TrustedProxyDepth)
 	eh := handler.NewEvents(hub, svc, logger)
 
+	var notifSvc *notifications.Service
+	if cfg.NotificationsHMACSecret != "" && cfg.ResendAPIKey != "" && cfg.MagicLinkFromEmail != "" && cfg.FrontendURL != "" {
+		signer, err := notifications.NewTokenSigner(cfg.NotificationsHMACSecret, 365*24*time.Hour)
+		if err != nil {
+			logger.Warn("notifications signer init failed", "error", err)
+		} else {
+			notifSender := email.NewSender(cfg.ResendAPIKey, cfg.MagicLinkFromEmail)
+			notifSvc = notifications.NewService(notifSender, signer, notifications.AdaptStore(st), logger, cfg.FrontendURL)
+		}
+	} else {
+		logger.Info("notifications disabled (NOTIFICATIONS_HMAC_SECRET unset or email config incomplete)")
+	}
+	svc.WithNotifications(notifSvc).WithBaseURL(cfg.FrontendURL)
+	nh := handler.NewNotifications(notifSvc, svc, logger)
+
 	var emailSender handler.EmailSender
 	var capturedEmail *handler.CapturingEmailSender
 	if cfg.E2ETestMode {
@@ -89,6 +107,9 @@ func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 	}
 	ah := handler.NewAuth(st, emailSender, cfg, logger)
 	mh := handler.NewMetrics(st, hub)
+	if notifSvc != nil {
+		mh.WithNotificationCounters(notifSvc.Counters())
+	}
 	ch := handler.NewCalendarIntegration(st, svc, cfg, logger)
 
 	var tlh *handler.TestLoginHandler
@@ -103,6 +124,8 @@ func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 		auth:           ah,
 		metrics:        mh,
 		calIntegration: ch,
+		notifications:  nh,
+		notifSvc:       notifSvc,
 		testLogin:      tlh,
 		testEmail:      capturedEmail,
 		hub:            hub,
@@ -201,6 +224,11 @@ func (s *Server) routes() {
 
 	// Server-sent events stream for live updates.
 	s.handleOptional("GET /calendars/{id}/events", s.events.Stream)
+
+	if s.notifSvc != nil {
+		s.handlePublic("GET /unsubscribe", s.notifications.Unsubscribe)
+		s.handleAuth("POST /calendars/{id}/nudge", s.notifications.Nudge)
+	}
 
 	if s.testLogin != nil {
 		s.handlePublic("POST /test/login", s.testLogin.Login)

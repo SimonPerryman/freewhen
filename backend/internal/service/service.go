@@ -5,9 +5,11 @@ import (
 	"errors"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/freewhen/backend/internal/limits"
 	"github.com/freewhen/backend/internal/model"
+	"github.com/freewhen/backend/internal/notifications"
 	"github.com/freewhen/backend/internal/realtime"
 	"github.com/freewhen/backend/internal/store"
 )
@@ -24,6 +26,10 @@ var ErrForbidden = errors.New("forbidden")
 
 // ErrInvalidName is returned when a rename submission is empty or too long.
 var ErrInvalidName = errors.New("invalid participant name")
+
+// ErrInvalidEmail is returned when a participant email submission is malformed
+// (e.g. missing @). Empty strings clear the email rather than failing.
+var ErrInvalidEmail = errors.New("invalid participant email")
 
 // Publisher fans realtime events out to subscribers. Satisfied by
 // realtime.Hub; a no-op implementation is provided for tests and for
@@ -42,7 +48,10 @@ type Store interface {
 	DuplicateCalendar(ctx context.Context, sourceID, newOwnerID, finalName, ownerParticipantName string, includeParticipants bool) (model.Calendar, model.Participant, error)
 	GetCalendar(ctx context.Context, id string) (model.CalendarWithDetails, error)
 	GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error)
-	AddParticipant(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
+	GetUser(ctx context.Context, id string) (model.User, error)
+	AddParticipant(ctx context.Context, calendarID, name string, userID *string, email *string) (model.Participant, error)
+	UpdateParticipantEmail(ctx context.Context, calendarID, participantID string, email *string) (model.Participant, error)
+	ClearParticipantEmailByID(ctx context.Context, participantID string) error
 	GetParticipant(ctx context.Context, id string) (model.Participant, error)
 	SetAvailability(ctx context.Context, participantID string, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) error
 	MergeAvailabilityDates(ctx context.Context, participantID string, dates []string) error
@@ -71,6 +80,23 @@ type Service struct {
 	pub           Publisher
 	accessCfg     AccessConfig
 	unlockLimiter *unlockRateLimiter
+	notif         *notifications.Service
+	baseURL       string
+}
+
+// WithNotifications wires the notifications.Service used to fan out
+// transactional emails on finalise. Nil disables sends (the default).
+// baseURL is read from the notifications.Service when present.
+func (s *Service) WithNotifications(n *notifications.Service) *Service {
+	s.notif = n
+	return s
+}
+
+// WithBaseURL sets the public origin used to build calendar / export URLs in
+// notification email bodies. Empty string disables URL substitution.
+func (s *Service) WithBaseURL(u string) *Service {
+	s.baseURL = strings.TrimRight(u, "/")
+	return s
 }
 
 func New(s Store, pub Publisher, cfg AccessConfig) *Service {
@@ -169,13 +195,16 @@ type Viewer struct {
 	UserID *string
 }
 
-func (s *Service) AddParticipant(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error) {
+func (s *Service) AddParticipant(ctx context.Context, calendarID, name string, userID *string, email *string) (model.Participant, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return model.Participant{}, ErrInvalidName
 	}
 	if len(name) > limits.MaxParticipantNameLength {
 		return model.Participant{}, ErrInvalidName
+	}
+	if email != nil && *email != "" && !strings.Contains(*email, "@") {
+		return model.Participant{}, ErrInvalidEmail
 	}
 	count, err := s.store.CountCalendarParticipants(ctx, calendarID)
 	if err != nil {
@@ -184,12 +213,52 @@ func (s *Service) AddParticipant(ctx context.Context, calendarID, name string, u
 	if count >= limits.MaxParticipantsPerCalendar {
 		return model.Participant{}, store.ErrCalendarFull
 	}
-	p, err := s.store.AddParticipant(ctx, calendarID, name, userID)
+	p, err := s.store.AddParticipant(ctx, calendarID, name, userID, email)
 	if err != nil {
 		return model.Participant{}, err
 	}
 	s.touch(ctx, calendarID)
 	s.pub.Publish(calendarID, realtime.EventParticipantJoined)
+	return p, nil
+}
+
+// UpdateParticipantEmail sets or clears the participant's contact email.
+// Authorization mirrors RenameParticipant: owner, self (via callerParticipantID
+// matching), or signed-in user matching the participant's user_id.
+func (s *Service) UpdateParticipantEmail(ctx context.Context, calendarID, targetParticipantID string, callerUserID *string, callerParticipantID string, email *string) (model.Participant, error) {
+	cal, err := s.store.GetCalendarOnly(ctx, calendarID)
+	if err != nil {
+		return model.Participant{}, err
+	}
+
+	allowed := callerUserID != nil && *callerUserID == cal.OwnerID
+	if !allowed && callerParticipantID != "" && callerParticipantID == targetParticipantID {
+		allowed = true
+	}
+	if !allowed && callerUserID != nil {
+		target, err := s.store.GetParticipant(ctx, targetParticipantID)
+		if err != nil {
+			return model.Participant{}, err
+		}
+		if target.CalendarID != calendarID {
+			return model.Participant{}, store.ErrNotFound
+		}
+		if target.UserID != nil && *target.UserID == *callerUserID {
+			allowed = true
+		}
+	}
+	if !allowed {
+		return model.Participant{}, ErrForbidden
+	}
+
+	if email != nil && *email != "" && !strings.Contains(*email, "@") {
+		return model.Participant{}, ErrInvalidEmail
+	}
+
+	p, err := s.store.UpdateParticipantEmail(ctx, calendarID, targetParticipantID, email)
+	if err != nil {
+		return model.Participant{}, err
+	}
 	return p, nil
 }
 
@@ -256,8 +325,55 @@ func (s *Service) FinaliseCalendar(ctx context.Context, calendarID, date string)
 		return model.Calendar{}, err
 	}
 	s.pub.Publish(calendarID, realtime.EventCalendarFinalised)
+	s.fanOutFinalised(ctx, cal, date)
 	return cal, nil
 }
+
+// fanOutFinalised builds the FinaliseEvent payload (participants, owner,
+// formatted date, URLs) and dispatches finalised emails in a goroutine. No-ops
+// if notifications are disabled or required dependencies are missing.
+func (s *Service) fanOutFinalised(ctx context.Context, cal model.Calendar, date string) {
+	if s.notif == nil || s.baseURL == "" {
+		return
+	}
+	details, err := s.store.GetCalendar(context.WithoutCancel(ctx), cal.ID)
+	if err != nil {
+		slog.Default().Warn("finalise fanout: load calendar failed", "calendar_id", cal.ID, "error", err)
+		return
+	}
+	owner, err := s.store.GetUser(context.WithoutCancel(ctx), cal.OwnerID)
+	if err != nil {
+		slog.Default().Warn("finalise fanout: load owner failed", "calendar_id", cal.ID, "error", err)
+		return
+	}
+
+	formatted := formatDate(date)
+	calURL := s.baseURL + "/calendars/" + cal.ID
+	icsURL := s.baseURL + "/api/calendars/" + cal.ID + "/export.ics"
+	gcalURL := s.baseURL + "/api/calendars/" + cal.ID + "/export/google"
+	ev := notifications.FinaliseEvent{
+		Calendar:      cal,
+		Participants:  append([]model.Participant(nil), details.Participants...),
+		OwnerEmail:    owner.Email,
+		OwnerName:     owner.Name,
+		Date:          date,
+		FormattedDate: formatted,
+		CalendarURL:   calURL,
+		ICSURL:        icsURL,
+		GCalURL:       gcalURL,
+	}
+	go s.notif.SendFinalised(context.Background(), ev)
+}
+
+// formatDate renders YYYY-MM-DD as e.g. "Saturday 12 July 2026".
+func formatDate(date string) string {
+	t, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		return date
+	}
+	return t.Format("Monday 2 January 2006")
+}
+
 
 func (s *Service) UnfinaliseCalendar(ctx context.Context, calendarID string) (model.Calendar, error) {
 	cal, err := s.store.ClearFinalisedDate(ctx, calendarID)
