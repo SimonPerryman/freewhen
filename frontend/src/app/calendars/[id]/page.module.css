@@ -20,7 +20,20 @@
 }
 
 .header {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.renameHint {
+  margin: 6px 2px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 
 .titleRow {
@@ -63,34 +76,6 @@
   border: 1px solid var(--accent);
   border-radius: var(--radius-sm);
   outline: none;
-}
-
-.renameButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  margin-left: 4px;
-  font-family: inherit;
-  font-size: 16px;
-  color: var(--text-secondary);
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  cursor: pointer;
-  transition:
-    color 0.15s,
-    background 0.15s,
-    border-color 0.15s;
-}
-
-.renameButton:hover {
-  color: var(--accent-text);
-  background: var(--accent);
-  border-color: var(--accent);
 }
 
 .loading {

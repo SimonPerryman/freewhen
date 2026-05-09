@@ -53,7 +53,7 @@ export default function JoinForm({ onJoin, error, defaultName = "" }: JoinFormPr
           aria-describedby={error ? "participant-name-error" : undefined}
         />
         <button type="submit" className={styles.button} disabled={submitting || !name.trim()}>
-          {submitting ? "Joining…" : "Join"}
+          {submitting ? "Joining…" : "Join →"}
         </button>
       </div>
       {showCounter ? (

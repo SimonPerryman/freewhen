@@ -6,6 +6,7 @@ import { ApiError, createCalendar } from "@/lib/api";
 import { MAX_CALENDAR_NAME_LENGTH } from "@/lib/limits";
 import analytics from "@/lib/analytics";
 import { useAuth } from "@/components/AuthProvider/AuthProvider";
+import HeroLiveGrid from "@/components/HeroLiveGrid/HeroLiveGrid";
 import styles from "./page.module.css";
 
 export default function Home() {
@@ -66,41 +67,51 @@ export default function Home() {
     }
   }
 
+  const buttonLabel = submitting
+    ? "Creating…"
+    : user
+      ? "Create →"
+      : "Sign in to create →";
+
   return (
     <div className={styles.page}>
       <main id="main" className={styles.container}>
-        <h1 className={styles.heading}>FreeWhen</h1>
-        <p className={styles.subheading}>Find when everyone&apos;s free.</p>
+        <h1 className={styles.headline}>
+          Find when
+          <br />
+          everyone&rsquo;s <em className="serif-accent">free.</em>
+        </h1>
 
-        <div className={styles.preview} aria-hidden="true">
-          <div className={styles.previewGrid}>
-            {Array.from({ length: 7 }, (_, i) => (
-              <div
-                key={i}
-                className={`${styles.previewCell} ${i === 2 || i === 5 ? styles.previewCellHighlight : ""}`}
-              />
-            ))}
-          </div>
-        </div>
+        <p className={styles.subheading}>
+          Drop a name, share a link, watch availability fill in.
+        </p>
+
+        <HeroLiveGrid />
 
         <form className={styles.form} onSubmit={handleSubmit}>
           <label className={styles.label} htmlFor="calendar-name">
             Event name
           </label>
-          <input
-            id="calendar-name"
-            className={styles.input}
-            type="text"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Weekend trip"
-            autoComplete="off"
-            disabled={submitting}
-            maxLength={MAX_CALENDAR_NAME_LENGTH}
-          />
-          <button type="submit" className={styles.button} disabled={submitting || isLoading}>
-            {submitting ? "Creating…" : user ? "Create calendar" : "Sign in to create"}
-          </button>
+          <div className={styles.cta}>
+            <input
+              id="calendar-name"
+              className={styles.input}
+              type="text"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Weekend trip"
+              autoComplete="off"
+              disabled={submitting}
+              maxLength={MAX_CALENDAR_NAME_LENGTH}
+            />
+            <button
+              type="submit"
+              className={styles.button}
+              disabled={submitting || isLoading}
+            >
+              {buttonLabel}
+            </button>
+          </div>
           {error ? (
             <p role="alert" className={styles.error}>
               {error}

@@ -9,63 +9,67 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .card {
-    animation: none;
-  }
-}
-
 .card {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  padding: 12px 16px;
-  margin-top: 16px;
-  background: var(--accent-subtle);
-  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  padding: 10px 14px;
+  margin-top: 12px;
+  background: var(--terra-soft);
+  border-radius: 12px;
   animation: bestDayEntrance 0.3s ease-out;
 }
 
-.icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--accent-text);
-  background: var(--accent);
-  border-radius: 50%;
-  flex-shrink: 0;
+@media (prefers-color-scheme: dark) {
+  .card {
+    background: var(--accent-subtle);
+  }
 }
 
 .content {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
+  align-items: baseline;
+  gap: 10px;
   min-width: 0;
+  flex-wrap: wrap;
 }
 
-.title {
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-secondary);
+.label {
+  font-family: var(--font-stack-accent);
+  font-style: italic;
+  font-size: 14px;
+  color: color-mix(in oklab, var(--terra) 70%, black);
+  flex-shrink: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .label {
+    color: color-mix(in oklab, var(--accent) 70%, white);
+  }
 }
 
 .date {
-  font-family: var(--font-display), system-ui, sans-serif;
-  font-size: 17px;
+  font-family: var(--font-stack-body);
+  font-size: 14px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: color-mix(in oklab, var(--terra) 70%, black);
+}
+
+@media (prefers-color-scheme: dark) {
+  .date {
+    color: color-mix(in oklab, var(--accent) 70%, white);
+  }
 }
 
 .subtitle {
-  font-size: 13px;
-  color: var(--accent);
+  font-size: 12px;
+  color: color-mix(in oklab, var(--terra) 60%, black);
   font-weight: 500;
+}
+
+@media (prefers-color-scheme: dark) {
+  .subtitle {
+    color: color-mix(in oklab, var(--accent) 60%, white);
+  }
 }

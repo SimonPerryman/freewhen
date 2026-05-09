@@ -110,6 +110,11 @@
   color: var(--text-secondary);
 }
 
+.sectionLabel::before {
+  content: "→ ";
+  color: var(--accent);
+}
+
 .sectionHint {
   margin: 6px 0 0;
   font-size: 12px;

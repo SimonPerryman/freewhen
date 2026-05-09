@@ -7,7 +7,7 @@
   margin-top: 24px;
   padding: 28px 20px;
   background: var(--accent-subtle);
-  border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
 }
 

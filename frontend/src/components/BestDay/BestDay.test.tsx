@@ -41,7 +41,7 @@ describe("BestDay", () => {
 
     render(<BestDay participants={participants} freeByDate={freeByDate} />);
 
-    expect(screen.getByText("Best day")).toBeInTheDocument();
+    expect(screen.getByText("Best so far")).toBeInTheDocument();
     expect(screen.getByText("Monday 15 Jun")).toBeInTheDocument();
     expect(screen.getByText("Everyone's free")).toBeInTheDocument();
   });
@@ -55,7 +55,7 @@ describe("BestDay", () => {
 
     render(<BestDay participants={participants} freeByDate={freeByDate} />);
 
-    expect(screen.getByText("Best day")).toBeInTheDocument();
+    expect(screen.getByText("Best so far")).toBeInTheDocument();
     expect(screen.getByText("Wednesday 10 Jun")).toBeInTheDocument();
     expect(screen.getByText("2 of 3 free")).toBeInTheDocument();
   });

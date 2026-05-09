@@ -1,18 +1,37 @@
 :root {
-  --background: #faf9f7;
-  --foreground: #1a1a1a;
-  --page-bg: #faf9f7;
-  --card-bg: #ffffff;
+  /* Brand palette */
+  --cream: #faf9f7;
+  --ink: #1a1a1a;
+  --ink-2: #7a7168;
+  --terra: #e06449;
+  --terra-2: #c9553c;
+  --terra-soft: #fdf0ed;
+  --paper: #ffffff;
+
+  /* Semantic tokens (light) */
+  --background: var(--cream);
+  --foreground: var(--ink);
+  --page-bg: var(--cream);
+  --card-bg: var(--paper);
   --border: #e8e4df;
-  --text-primary: #1a1a1a;
-  --text-secondary: #7a7168;
-  --accent: #e06449;
-  --accent-hover: #c9553c;
+  --text-primary: var(--ink);
+  --text-secondary: var(--ink-2);
+  --accent: var(--terra);
+  --accent-hover: var(--terra-2);
   --accent-text: #fff;
-  --accent-subtle: #fdf0ed;
+  --accent-subtle: var(--terra-soft);
   --error: #c2185b;
 
-  /* Design tokens — spacing */
+  /* Dark palette (referenced by dark media query) */
+  --dk-bg: #141210;
+  --dk-bg-2: #1c1915;
+  --dk-paper: #2c2720;
+  --dk-border: #4a443d;
+  --dk-text: #edebe8;
+  --dk-text-2: #9e9688;
+  --dk-terra: #e8755e;
+
+  /* Spacing */
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 12px;
@@ -21,29 +40,34 @@
   --space-2xl: 32px;
   --space-3xl: 40px;
 
-  /* Design tokens — radii */
+  /* Radii */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
 
-  /* Design tokens — shadows */
+  /* Shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.1);
+
+  /* Font stacks */
+  --font-stack-body: var(--font-body), "DM Sans", system-ui, sans-serif;
+  --font-stack-display: var(--font-display), "Fraunces", Georgia, serif;
+  --font-stack-accent: var(--font-accent), "Instrument Serif", Georgia, serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #141210;
-    --foreground: #edebe8;
-    --page-bg: #141210;
-    --card-bg: #2c2720;
-    --border: #4a443d;
-    --text-primary: #edebe8;
-    --text-secondary: #9e9688;
-    --accent: #e8755e;
+    --background: var(--dk-bg);
+    --foreground: var(--dk-text);
+    --page-bg: var(--dk-bg);
+    --card-bg: var(--dk-paper);
+    --border: var(--dk-border);
+    --text-primary: var(--dk-text);
+    --text-secondary: var(--dk-text-2);
+    --accent: var(--dk-terra);
     --accent-hover: #f0917e;
-    --accent-text: #141210;
+    --accent-text: var(--dk-bg);
     --accent-subtle: #3a2820;
     --error: #f06292;
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
@@ -74,14 +98,21 @@ body {
   flex-direction: column;
   color: var(--foreground);
   background: var(--background);
-  font-family: var(--font-body), system-ui, sans-serif;
+  background-image:
+    radial-gradient(1200px 600px at 110% -10%, rgba(224, 100, 73, 0.08), transparent 60%),
+    radial-gradient(900px 500px at -10% 30%, rgba(107, 142, 90, 0.06), transparent 60%);
+  background-attachment: fixed;
+  font-family: var(--font-stack-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 @media (prefers-color-scheme: dark) {
   body {
-    background: radial-gradient(ellipse 80% 70% at 50% 40%, #1c1915 0%, var(--background) 100%);
+    background:
+      radial-gradient(60% 80% at 100% 0%, rgba(232, 117, 94, 0.1), transparent 60%),
+      radial-gradient(40% 60% at 0% 100%, rgba(232, 117, 94, 0.06), transparent 60%),
+      var(--background);
     background-attachment: fixed;
   }
 
@@ -115,6 +146,75 @@ a {
   text-decoration: none;
 }
 
+/* Display headings — Fraunces */
+h1,
+h2,
+h3 {
+  font-family: var(--font-stack-display);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-optical-sizing: auto;
+}
+
+/* Italic accent: Instrument Serif italic in terracotta. Apply via
+   <em class="serif-accent">word</em> on hero/title accents. */
+.serif-accent {
+  font-family: var(--font-stack-accent);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--accent);
+}
+
+/* Wordmark — "Free<span class="serif-accent">When</span>".
+   Used on every rendered surface where the product is named. */
+.wordmark {
+  font-family: var(--font-stack-display);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+/* Instrument Serif italic's cap-height per em is larger than the display
+   sans, AND the font sits higher within its em box, so at 1em "When"
+   floats above "Free" on both cap-top and baseline. Size down to match
+   cap-height; translate down to match baseline. Scoped to .wordmark
+   only — other .serif-accent uses (titles, headings) are unaffected. */
+.wordmark .serif-accent {
+  display: inline-block;
+  font-size: 0.92em;
+  transform: translateY(0.06em);
+}
+
+/* Eyebrow — DM Sans uppercase, wide tracked. */
+.eyebrow {
+  font-family: var(--font-stack-body);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Pill — used for meta/badge counts and the Best so far surface. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: var(--accent-subtle);
+  color: color-mix(in oklab, var(--accent) 70%, black);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .pill {
+    color: color-mix(in oklab, var(--accent) 70%, white);
+  }
+}
+
 /* Global focus indicator. Any component that overrides outline must provide
    its own visible :focus-visible style. */
 :focus-visible {
@@ -145,5 +245,15 @@ a {
 @media (prefers-color-scheme: dark) {
   html {
     color-scheme: dark;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
   }
 }

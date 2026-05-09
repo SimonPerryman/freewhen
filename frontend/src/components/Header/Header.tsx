@@ -18,8 +18,8 @@ export default function Header() {
 
   return (
     <header className={styles.header}>
-      <a href="/" className={styles.logo}>
-        FreeWhen
+      <a href="/" className={`${styles.logo} wordmark`} aria-label="FreeWhen home">
+        Free<span className="serif-accent">When</span>
       </a>
       <nav aria-label="Primary" className={styles.actions}>
         {isLoading ? null : user ? (

@@ -44,10 +44,10 @@ describe("Home (calendar creation page)", () => {
   it("renders the form", async () => {
     getMeMock.mockResolvedValue({ id: "u1", email: "test@example.com", name: "Test" });
     renderWithAuth();
-    expect(screen.getByRole("heading", { name: /freewhen/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /find when/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/event name/i)).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /create calendar/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^create/i })).toBeInTheDocument();
     });
   });
 
@@ -63,11 +63,11 @@ describe("Home (calendar creation page)", () => {
     renderWithAuth();
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /create calendar/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^create/i })).toBeInTheDocument();
     });
 
     await user.type(screen.getByLabelText(/event name/i), "  Trip  ");
-    await user.click(screen.getByRole("button", { name: /create calendar/i }));
+    await user.click(screen.getByRole("button", { name: /^create/i }));
 
     await waitFor(() => {
       expect(createCalendarMock).toHaveBeenCalledWith({ name: "Trip" });
@@ -84,14 +84,14 @@ describe("Home (calendar creation page)", () => {
     renderWithAuth();
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /create calendar/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^create/i })).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole("button", { name: /create calendar/i }));
+    await user.click(screen.getByRole("button", { name: /^create/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("boom");
     expect(pushMock).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: /create calendar/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /^create/i })).toBeEnabled();
   });
 
   it("redirects to login when not authenticated", async () => {

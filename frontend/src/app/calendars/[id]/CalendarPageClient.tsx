@@ -41,6 +41,7 @@ import ParticipantList from "@/components/ParticipantList/ParticipantList";
 import ShareButton from "@/components/ShareButton/ShareButton";
 import SummaryView from "@/components/SummaryView/SummaryView";
 import BestDay from "@/components/BestDay/BestDay";
+import { renderTitle, titlePlain } from "@/lib/title";
 import LiveStatusDot from "@/components/LiveStatusDot/LiveStatusDot";
 import CalendarSettingsSheet from "@/components/CalendarSettingsSheet/CalendarSettingsSheet";
 import ConfirmDialog from "@/components/ConfirmDialog/ConfirmDialog";
@@ -1121,21 +1122,46 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   }
 
   const calendarName = calendar.calendar.name || "Untitled Calendar";
+  const calendarNamePlain = titlePlain(calendarName);
   const calendarEmoji = calendar.calendar.emoji;
   const finalisedDate = calendar.calendar.finalisedDate ?? null;
   const isOwner = !!user && calendar.calendar.ownerId === user.id;
   const isFull = calendar.participants.length >= MAX_PARTICIPANTS_PER_CALENDAR;
+
+  const participantCount = calendar.participants.length;
+  // Distinct dates anyone has marked themselves available (excluding past).
+  // Used to drive the second meta pill: weekend-only ranges read as
+  // "{n} weekends", anything mixed reads as "{n} days".
+  const today = getToday();
+  const distinctDates = new Set<string>();
+  for (const a of calendar.availability) {
+    if (a.date >= today) distinctDates.add(a.date);
+  }
+  for (const d of selectedDates) {
+    if (d >= today) distinctDates.add(d);
+  }
+  const dateCount = distinctDates.size;
+  let allWeekends = dateCount > 0;
+  for (const d of distinctDates) {
+    const [y, m, day] = d.split("-").map(Number);
+    const dow = new Date(y, m - 1, day).getDay();
+    if (dow !== 0 && dow !== 6) {
+      allWeekends = false;
+      break;
+    }
+  }
+  const dateLabel = dateCount === 0
+    ? "no dates yet"
+    : allWeekends
+      ? `${Math.ceil(dateCount / 2)} ${Math.ceil(dateCount / 2) === 1 ? "weekend" : "weekends"}`
+      : `${dateCount} ${dateCount === 1 ? "day" : "days"}`;
+  const peopleLabel = `${participantCount} ${participantCount === 1 ? "person" : "people"}`;
 
   return (
     <div className={styles.page}>
       <div className={styles.container}>
         <div className={styles.header}>
           <div className={styles.titleRow}>
-            {calendarEmoji ? (
-              <span className={styles.emoji} aria-hidden="true">
-                {calendarEmoji}
-              </span>
-            ) : null}
             {renameDraft !== null ? (
               <input
                 ref={renameInputRef}
@@ -1154,21 +1180,14 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
                   }
                 }}
                 aria-label="Calendar name"
+                aria-describedby="calendar-name-help"
                 maxLength={MAX_CALENDAR_NAME_LENGTH}
               />
             ) : (
-              <h1 className={styles.heading}>{calendarName}</h1>
+              <h1 className={styles.heading} aria-label={calendarNamePlain}>
+                {renderTitle(calendarName)}
+              </h1>
             )}
-            {isOwner && renameDraft === null ? (
-              <button
-                type="button"
-                className={styles.renameButton}
-                onClick={handleRenameStart}
-                aria-label="Rename calendar"
-              >
-                ✎
-              </button>
-            ) : null}
             {isOwner && !finalisedDate && renameDraft === null ? (
               <button
                 type="button"
@@ -1195,6 +1214,15 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
             <span className={styles.liveStatus}>
               <LiveStatusDot status={streamStatus} />
             </span>
+          </div>
+          {renameDraft !== null ? (
+            <p id="calendar-name-help" className={styles.renameHint}>
+              Wrap a word in *asterisks* to italicise it.
+            </p>
+          ) : null}
+          <div className={styles.metaRow}>
+            <span className="pill">{peopleLabel}</span>
+            <span className="pill">{dateLabel}</span>
           </div>
         </div>
 
@@ -1240,6 +1268,14 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           <p className={styles.emptyHint}>
             Share the link — when people join, you&apos;ll see their availability here.
           </p>
+        ) : null}
+
+        {!finalisedDate ? (
+          <BestDay
+            participants={calendar.participants}
+            freeByDate={freeByDate}
+            voteCountsByDate={voteCountsByDate}
+          />
         ) : null}
 
         {!finalisedDate && currentParticipant ? (
@@ -1292,14 +1328,6 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
             onToggleVote={(preferred) => handleToggleVote(openDayDate, preferred)}
             onRemoveAvailability={() => handleRemoveAvailabilityForDay(openDayDate)}
             onClose={handleCloseDay}
-          />
-        ) : null}
-
-        {!finalisedDate ? (
-          <BestDay
-            participants={calendar.participants}
-            freeByDate={freeByDate}
-            voteCountsByDate={voteCountsByDate}
           />
         ) : null}
 
@@ -1416,6 +1444,10 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           <CalendarSettingsSheet
             hasPassphrase={calendar.calendar.hasPassphrase ?? false}
             passphrase={calendar.calendar.passphrase ?? null}
+            onRename={() => {
+              setSettingsOpen(false);
+              handleRenameStart();
+            }}
             onEnablePassphrase={handleEnablePassphrase}
             onRegeneratePassphrase={handleRegeneratePassphrase}
             onDisablePassphrase={handleDisablePassphrase}

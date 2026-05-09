@@ -69,7 +69,7 @@ export default function PassphraseGate({
           aria-describedby={error ? "passphrase-gate-error" : undefined}
         />
         <button type="submit" className={styles.button} disabled={submitting || !value.trim()}>
-          {submitting ? "Unlocking…" : "Unlock"}
+          {submitting ? "Unlocking…" : "Unlock →"}
         </button>
         {error ? (
           <p id="passphrase-gate-error" className={styles.error} role="alert">

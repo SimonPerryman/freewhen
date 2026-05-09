@@ -6,6 +6,7 @@ import styles from "./CalendarSettingsSheet.module.css";
 interface Props {
   hasPassphrase: boolean;
   passphrase?: string | null;
+  onRename: () => void;
   onEnablePassphrase: () => void;
   onRegeneratePassphrase: () => void;
   onDisablePassphrase: () => void;
@@ -16,6 +17,7 @@ interface Props {
 export default function CalendarSettingsSheet({
   hasPassphrase,
   passphrase,
+  onRename,
   onEnablePassphrase,
   onRegeneratePassphrase,
   onDisablePassphrase,
@@ -51,6 +53,16 @@ export default function CalendarSettingsSheet({
             ×
           </button>
         </div>
+
+        <section className={styles.section}>
+          <button
+            type="button"
+            className={styles.primaryAction}
+            onClick={onRename}
+          >
+            Rename calendar →
+          </button>
+        </section>
 
         <section className={styles.section}>
           <p className={styles.sectionLabel}>Passphrase</p>
@@ -89,7 +101,7 @@ export default function CalendarSettingsSheet({
               className={styles.primaryAction}
               onClick={onEnablePassphrase}
             >
-              Require a passphrase
+              Require a passphrase →
             </button>
           )}
         </section>
@@ -100,7 +112,7 @@ export default function CalendarSettingsSheet({
             className={styles.primaryAction}
             onClick={onDuplicate}
           >
-            Duplicate this calendar
+            Duplicate this calendar →
           </button>
         </section>
       </div>

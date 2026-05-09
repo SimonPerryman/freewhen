@@ -251,32 +251,6 @@ describe("CalendarPageClient", () => {
     expect(mockGetCalendar).toHaveBeenCalledWith(CALENDAR_ID);
   });
 
-  it("renders the calendar emoji alongside the name when present", async () => {
-    mockGetCalendar.mockResolvedValue(
-      makeCalendarData({
-        calendar: {
-          id: CALENDAR_ID,
-          name: "Team Meetup",
-          emoji: "🦊",
-          ownerId: "owner-1",
-          createdAt: "2026-01-01T00:00:00Z",
-        },
-      }),
-    );
-
-    render(
-      <AuthProvider>
-        <CalendarPageClient calendarId={CALENDAR_ID} />
-      </AuthProvider>,
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText("Team Meetup")).toBeInTheDocument();
-    });
-
-    expect(screen.getByText("🦊")).toBeInTheDocument();
-  });
-
   it("omits the emoji element when the calendar has no emoji set", async () => {
     mockGetCalendar.mockResolvedValue(
       makeCalendarData({
@@ -521,7 +495,8 @@ describe("CalendarPageClient", () => {
       expect(screen.getByText("Team Meetup")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Rename calendar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Calendar settings" }));
+    fireEvent.click(screen.getByRole("button", { name: /Rename calendar/i }));
 
     const input = (await screen.findByRole("textbox", {
       name: "Calendar name",

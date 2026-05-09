@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Sans, Bricolage_Grotesque } from "next/font/google";
+import { DM_Sans, Fraunces, Instrument_Serif } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import AnalyticsProvider from "@/components/AnalyticsProvider/AnalyticsProvider";
 import AuthProvider from "@/components/AuthProvider/AuthProvider";
@@ -10,12 +10,22 @@ import "./globals.css";
 const body = DM_Sans({
   variable: "--font-body",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const display = Bricolage_Grotesque({
+const display = Fraunces({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: ["400", "600", "700"],
+  axes: ["opsz"],
+  display: "swap",
+});
+
+const accent = Instrument_Serif({
+  variable: "--font-accent",
+  subsets: ["latin"],
+  weight: ["400"],
+  style: ["normal", "italic"],
+  display: "swap",
 });
 
 export const viewport: Viewport = {
@@ -59,7 +69,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${body.variable} ${display.variable}`}>
+    <html
+      lang="en"
+      className={`${body.variable} ${display.variable} ${accent.variable}`}
+    >
       <body>
         <a href="#main" className="skip-link">
           Skip to content
