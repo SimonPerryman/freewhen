@@ -490,6 +490,47 @@ room without changing the inter-line gap on the wrapping headline:
 Scoped to the page-level `.headline` only — global `h1` line-height
 stays at 1 so other headings aren't affected.
 
+## Amendment — "Best so far" pill: label treatment + vertical rhythm
+
+Two issues with the `BestDay` pill as it sits on the calendar detail
+page (`CalendarPageClient.tsx:1273-1283`, between the empty-state hint
+and the Import-from-Google entry):
+
+1. **Vertical rhythm is asymmetric.** `.card` has `margin-top: 12px`
+   but no bottom margin, and the Import entry below renders as a bare
+   `<div>{importView.entry}</div>` with no top margin. The pill sits
+   tight against the Import button while having room above — reads as
+   unbalanced rather than as a deliberate group.
+2. **Italic accent label fights the date next to it.** The label uses
+   Instrument Serif italic at 14px in the same baseline-aligned row as
+   an upright DM Sans 600 date. Two competing voices for what is
+   functionally a microlabel/eyebrow, and italic stroke contrast
+   collapses badly at 14px on mobile. The italic accent is doing
+   editorial work where a tag is needed.
+
+Fix:
+
+- Give `.card` symmetric vertical rhythm (`margin: 12px 0`) so it owns
+  its own spacing and callers don't have to compensate.
+- Re-treat `.label` as an eyebrow: DM Sans, uppercase, tracked, smaller
+  — drops the italic, harmonises with the upright date, reads
+  unambiguously as a tag.
+
+```css
+.label {
+  font-family: var(--font-stack-body);
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  /* colour unchanged */
+}
+```
+
+Scope is `BestDay.module.css` only — other `.serif-accent` / italic
+usages (wordmark, calendar titles via `renderTitle()`) are untouched.
+
 ## Log
 
 - 2026-05-09 — Amendment: wordmark "Free" vs italic "When" reads
@@ -526,6 +567,14 @@ stays at 1 so other headings aren't affected.
   decorative gradient bar with just an emoji. Detail page is now title
   + pills + grid. Cover-as-tile-header pattern can return on the
   `/calendars` list view if/when that gets a pass.
+- 2026-05-09 — Implemented "Best so far" pill amendment in
+  `BestDay.module.css`: `.card` margin → `12px 0` (symmetric vertical
+  rhythm so the pill no longer sits tight against the Import entry
+  below); `.label` re-treated as an eyebrow (DM Sans, 11px, weight
+  600, `letter-spacing: 0.08em`, uppercase) — drops the Instrument
+  Serif italic which was illegible at 14px and competing with the
+  upright bold date next to it. Colour token unchanged. Scope limited
+  to `BestDay`; other italic-accent usages untouched.
 - 2026-05-09 — Reverted the headline descender amendment after closer
   inspection — the perceived clipping wasn't a clip at all but a
   descender-depth asymmetry: Instrument Serif italic's `y` (in
