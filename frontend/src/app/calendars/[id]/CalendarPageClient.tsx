@@ -1284,6 +1284,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
         {importView.chrome}
         {importView.interstitial}
         <CalendarGrid
+          calendarId={calendarId}
           participants={calendar.participants}
           freeByDate={freeByDate}
           noteAuthorsByDate={noteAuthorsByDate}

@@ -712,7 +712,8 @@ describe("CalendarGrid", () => {
     expect(initial.getAttribute("aria-hidden")).toBe("true");
     const actual = (initial as HTMLElement).style.color;
     const expected = textOnColour(ps[0].colour);
-    const normalised = actual === "rgb(255, 255, 255)" ? "#fff" : actual === "rgb(0, 0, 0)" ? "#000" : actual;
+    const normalised =
+      actual === "rgb(255, 255, 255)" ? "#fff" : actual === "rgb(0, 0, 0)" ? "#000" : actual;
     expect(normalised).toBe(expected);
   });
 
@@ -915,5 +916,160 @@ describe("CalendarGrid", () => {
       );
       expect(screen.getAllByTestId("vote-badge")).toHaveLength(1);
     });
+  });
+
+  describe("instruction strip", () => {
+    it("renders when currentParticipantId is set", () => {
+      const ps = makeParticipants(1);
+      render(
+        <CalendarGrid
+          participants={ps}
+          freeByDate={new Map()}
+          currentParticipantId={ps[0].id}
+          onToggle={onToggle}
+          joined={true}
+        />,
+      );
+      expect(screen.getByTestId("instruction-strip")).toBeTruthy();
+    });
+
+    it("does not render for spectator (no participant)", () => {
+      render(
+        <CalendarGrid
+          participants={[]}
+          freeByDate={new Map()}
+          currentParticipantId={null}
+          onToggle={onToggle}
+          joined={false}
+        />,
+      );
+      expect(screen.queryByTestId("instruction-strip")).toBeNull();
+    });
+  });
+
+  describe("own-free chevron affordance", () => {
+    it("adds the mine class to cells where the current participant is free", () => {
+      const ps = makeParticipants(1);
+      const futureDate = futureDateStr(3);
+      const freeByDate = new Map([[futureDate, new Set([ps[0].id])]]);
+      const { container } = render(
+        <CalendarGrid
+          participants={ps}
+          freeByDate={freeByDate}
+          currentParticipantId={ps[0].id}
+          onToggle={onToggle}
+          joined={true}
+        />,
+      );
+      const mineCells = container.querySelectorAll('[class*="mine"]');
+      expect(mineCells.length).toBe(1);
+    });
+
+    it("suppresses the chevron when a vote badge occupies the bottom-right", () => {
+      const ps = makeParticipants(1);
+      const futureDate = futureDateStr(3);
+      const freeByDate = new Map([[futureDate, new Set([ps[0].id])]]);
+      const { container } = render(
+        <CalendarGrid
+          participants={ps}
+          freeByDate={freeByDate}
+          voteCountsByDate={new Map([[futureDate, 1]])}
+          currentParticipantId={ps[0].id}
+          onToggle={onToggle}
+          joined={true}
+        />,
+      );
+      const mineCells = container.querySelectorAll('[class*="hasBottomRightBadge"]');
+      expect(mineCells.length).toBe(1);
+    });
+  });
+
+  describe("first-mark coachmark", () => {
+    beforeEach(() => {
+      try {
+        localStorage.clear();
+      } catch {
+        /* ignore */
+      }
+    });
+
+    it("appears after first toggling a cell on", async () => {
+      const user = userEvent.setup();
+      const ps = makeParticipants(1);
+      render(
+        <CalendarGrid
+          calendarId="cal-1"
+          participants={ps}
+          freeByDate={new Map()}
+          currentParticipantId={ps[0].id}
+          onToggle={onToggle}
+          joined={true}
+        />,
+      );
+      const cells = screen
+        .getAllByTestId("day-cell")
+        .filter((c) => c.tagName === "BUTTON" && !(c as HTMLButtonElement).disabled);
+      await user.click(cells[0]);
+      // 220ms delay before reveal
+      await new Promise((r) => setTimeout(r, 260));
+      expect(screen.queryByTestId("coachmark-prefer-note")).toBeTruthy();
+    });
+
+    it("does not re-appear after dismissal flag is set", async () => {
+      const user = userEvent.setup();
+      const ps = makeParticipants(1);
+      localStorage.setItem("freewhen.coachmark.detailSheet.cal-1.p0", "1");
+      render(
+        <CalendarGrid
+          calendarId="cal-1"
+          participants={ps}
+          freeByDate={new Map()}
+          currentParticipantId={ps[0].id}
+          onToggle={onToggle}
+          joined={true}
+        />,
+      );
+      const cells = screen
+        .getAllByTestId("day-cell")
+        .filter((c) => c.tagName === "BUTTON" && !(c as HTMLButtonElement).disabled);
+      await user.click(cells[0]);
+      await new Promise((r) => setTimeout(r, 260));
+      expect(screen.queryByTestId("coachmark-prefer-note")).toBeNull();
+    });
+  });
+});
+
+describe("CoachmarkPreferNote (via CalendarGrid)", () => {
+  beforeEach(() => {
+    try {
+      localStorage.clear();
+    } catch {
+      /* ignore */
+    }
+  });
+
+  it("Got it dismisses and writes the localStorage flag", async () => {
+    const user = userEvent.setup();
+    const ps = [{ id: "p0", calendarId: "cal-1", name: "P0", colour: COLOUR_PALETTE[0] }];
+    const onToggleLocal = vi.fn();
+    render(
+      <CalendarGrid
+        calendarId="cal-1"
+        participants={ps}
+        freeByDate={new Map()}
+        currentParticipantId="p0"
+        onToggle={onToggleLocal}
+        joined={true}
+      />,
+    );
+    const cells = screen
+      .getAllByTestId("day-cell")
+      .filter((c) => c.tagName === "BUTTON" && !(c as HTMLButtonElement).disabled);
+    await user.click(cells[0]);
+    await new Promise((r) => setTimeout(r, 260));
+    const dismiss = screen.getByText("Got it");
+    await user.click(dismiss);
+    expect(screen.queryByTestId("coachmark-prefer-note")).toBeNull();
+    expect(localStorage.getItem("freewhen.coachmark.detailSheet.cal-1.p0")).toBe("1");
   });
 });

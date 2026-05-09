@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import type { Participant } from "@/lib/types";
 import {
   layoutSlots,
@@ -10,7 +10,30 @@ import {
   textOnColour,
 } from "@/lib/overlap";
 import analytics from "@/lib/analytics";
+import CoachmarkPreferNote from "./CoachmarkPreferNote";
 import styles from "./CalendarGrid.module.css";
+
+const COACHMARK_STORAGE_PREFIX = "freewhen.coachmark.detailSheet.";
+
+function coachmarkKey(calendarId: string, participantId: string): string {
+  return `${COACHMARK_STORAGE_PREFIX}${calendarId}.${participantId}`;
+}
+
+function readCoachmarkDismissed(calendarId: string, participantId: string): boolean {
+  try {
+    return localStorage.getItem(coachmarkKey(calendarId, participantId)) === "1";
+  } catch {
+    return true;
+  }
+}
+
+function writeCoachmarkDismissed(calendarId: string, participantId: string): void {
+  try {
+    localStorage.setItem(coachmarkKey(calendarId, participantId), "1");
+  } catch {
+    /* private mode etc — silently ignore */
+  }
+}
 
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAY_LETTERS = ["M", "T", "W", "T", "F", "S", "S"];
@@ -31,6 +54,7 @@ const MONTH_SHORT = [
 const WEEKS_VISIBLE = 5;
 
 interface CalendarGridProps {
+  calendarId?: string;
   participants: Participant[];
   freeByDate: Map<string, Set<string>>;
   // noteAuthorsByDate[date] = set of participant IDs who have a note on that date.
@@ -101,6 +125,7 @@ function buildAriaLabel(dateLabel: string, sorted: Participant[], freeIds: Set<s
 const SWIPE_THRESHOLD = 50;
 
 export default function CalendarGrid({
+  calendarId,
   participants,
   freeByDate,
   noteAuthorsByDate,
@@ -123,6 +148,27 @@ export default function CalendarGrid({
   const pulseTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const swipeStartX = useRef<number | null>(null);
   const swipeStartY = useRef<number | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const cellRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const [coachmarkAnchor, setCoachmarkAnchor] = useState<HTMLButtonElement | null>(null);
+  const coachmarkTimer = useRef<ReturnType<typeof setTimeout>>(null);
+
+  const dismissCoachmark = useCallback(() => {
+    if (coachmarkTimer.current) {
+      clearTimeout(coachmarkTimer.current);
+      coachmarkTimer.current = null;
+    }
+    setCoachmarkAnchor(null);
+    if (calendarId && currentParticipantId) {
+      writeCoachmarkDismissed(calendarId, currentParticipantId);
+    }
+  }, [calendarId, currentParticipantId]);
+
+  useEffect(() => {
+    return () => {
+      if (coachmarkTimer.current) clearTimeout(coachmarkTimer.current);
+    };
+  }, []);
 
   const toolbarAvailable = joined && !locked && !!onRangeToggle;
 
@@ -157,6 +203,11 @@ export default function CalendarGrid({
       // Tap on an unselected cell still toggles fast. Range-mode taps (onRangeToggle)
       // come through a different path and are not affected.
       if (alreadySelected && onOpenDay) {
+        if (coachmarkTimer.current) {
+          clearTimeout(coachmarkTimer.current);
+          coachmarkTimer.current = null;
+        }
+        if (coachmarkAnchor) dismissCoachmark();
         onOpenDay(dateStr);
         return;
       }
@@ -164,8 +215,24 @@ export default function CalendarGrid({
       setPulsing(dateStr);
       pulseTimer.current = setTimeout(() => setPulsing(null), 300);
       onToggle(dateStr);
+
+      // First-mark coachmark: only when adding (not removing), only once per
+      // calendar+participant. The 220ms delay lets the cell entrance animation
+      // land first.
+      if (
+        calendarId &&
+        currentParticipantId &&
+        !coachmarkAnchor &&
+        !readCoachmarkDismissed(calendarId, currentParticipantId)
+      ) {
+        if (coachmarkTimer.current) clearTimeout(coachmarkTimer.current);
+        coachmarkTimer.current = setTimeout(() => {
+          const cell = cellRefs.current.get(dateStr);
+          if (cell) setCoachmarkAnchor(cell);
+        }, 220);
+      }
     },
-    [onToggle, onOpenDay],
+    [onToggle, onOpenDay, calendarId, currentParticipantId, coachmarkAnchor, dismissCoachmark],
   );
 
   const today = getToday();
@@ -266,7 +333,12 @@ export default function CalendarGrid({
   const totalSlots = layout.cols * layout.rows;
 
   return (
-    <div className={styles.container} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+    <div
+      ref={containerRef}
+      className={styles.container}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {toolbarAvailable ? (
         <div className={styles.toolbar} role="toolbar" aria-label="Bulk availability tools">
           <button
@@ -333,6 +405,13 @@ export default function CalendarGrid({
         </button>
       </div>
 
+      {currentParticipantId ? (
+        <div className={styles.instructionStrip} data-testid="instruction-strip">
+          <strong>Tap once</strong> to mark a date free. <strong>Tap again</strong> to prefer it or
+          add a note.
+        </div>
+      ) : null}
+
       <div className={styles.grid} key={weekOffset}>
         {DAY_NAMES.map((name, i) => (
           <div key={name} className={styles.dayHeader}>
@@ -366,12 +445,18 @@ export default function CalendarGrid({
           const heatPercent = Math.round(heatRatio * 14); // max 14% mix for subtle tint
 
           const isFinalised = finalisedDate === dateStr;
+          const isOwnFree = !!currentParticipantId && freeIds.has(currentParticipantId);
+          const voteCount = voteCountsByDate?.get(dateStr) ?? 0;
           const classNames = [styles.day, styles.cellEntrance];
           if (isToday) classNames.push(styles.today);
           if (joined && !locked) classNames.push(styles.clickable);
           if (everyoneFree) classNames.push(styles.everyoneFree);
           if (isFinalised) classNames.push(styles.finalised);
           if (pulsing === dateStr) classNames.push(styles.toggle);
+          if (isOwnFree && !isFinalised) {
+            classNames.push(styles.mine);
+            if (voteCount > 0) classNames.push(styles.hasBottomRightBadge);
+          }
           const isSuggestedFree = !!suggestedFreeDates?.has(dateStr);
           const isSuggestedBusy = !isSuggestedFree && !!suggestedBusyDates?.has(dateStr);
           if (isSuggestedFree) classNames.push(styles.suggestedFree);
@@ -407,7 +492,6 @@ export default function CalendarGrid({
 
           const noteAuthors = noteAuthorsByDate?.get(dateStr);
           const showNoteDot = !!noteAuthors && noteAuthors.size > 0;
-          const voteCount = voteCountsByDate?.get(dateStr) ?? 0;
           let noteDotColour: string | undefined;
           if (showNoteDot) {
             if (noteAuthors.size === 1) {
@@ -421,6 +505,10 @@ export default function CalendarGrid({
               key={dateStr}
               type="button"
               data-testid="day-cell"
+              ref={(el) => {
+                if (el) cellRefs.current.set(dateStr, el);
+                else cellRefs.current.delete(dateStr);
+              }}
               className={classNames.join(" ")}
               onClick={onCellClick}
               disabled={!canInteract}
@@ -503,6 +591,14 @@ export default function CalendarGrid({
           );
         })}
       </div>
+
+      {coachmarkAnchor ? (
+        <CoachmarkPreferNote
+          anchorEl={coachmarkAnchor}
+          containerEl={containerRef.current}
+          onDismiss={dismissCoachmark}
+        />
+      ) : null}
     </div>
   );
 }

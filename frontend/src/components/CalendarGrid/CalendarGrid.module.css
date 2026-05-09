@@ -1,4 +1,5 @@
 .container {
+  position: relative;
   margin-top: 20px;
 }
 
@@ -155,6 +156,26 @@
   .todayButton {
     animation: none;
   }
+}
+
+.instructionStrip {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  padding: 8px 12px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 4%, transparent),
+    transparent
+  );
+  border-left: 2px solid var(--accent);
+  border-radius: 2px 8px 8px 2px;
+  margin-bottom: 12px;
+}
+
+.instructionStrip strong {
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .grid {
@@ -427,4 +448,45 @@
 .voteBadgeCount {
   font-size: 9px;
   font-weight: 600;
+}
+
+/* "There's more here" chevron on cells the current participant has marked free.
+   Suppressed when a vote badge already occupies bottom-right, when the cell is
+   finalised (its own visual is loud enough), or on past placeholders. */
+@keyframes chevronIn {
+  from {
+    opacity: 0;
+    transform: translate(2px, 2px) rotate(-45deg);
+  }
+  to {
+    opacity: 0.85;
+    transform: translate(0, 0) rotate(-45deg);
+  }
+}
+
+.mine::after {
+  content: "";
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  width: 8px;
+  height: 8px;
+  border-right: 1.5px solid color-mix(in srgb, var(--text-primary) 55%, transparent);
+  border-bottom: 1.5px solid color-mix(in srgb, var(--text-primary) 55%, transparent);
+  border-bottom-right-radius: 2px;
+  opacity: 0.85;
+  transform: rotate(-45deg);
+  animation: chevronIn 0.22s ease-out both;
+  pointer-events: none;
+}
+
+.mine.hasBottomRightBadge::after,
+.finalised.mine::after {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mine::after {
+    animation: none;
+  }
 }
