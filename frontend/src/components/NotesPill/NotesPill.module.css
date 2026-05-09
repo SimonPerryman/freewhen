@@ -1,0 +1,154 @@
+.wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.pillButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--note-accent);
+  background: var(--note-accent-subtle);
+  border: 1px solid transparent;
+  max-width: 100%;
+  cursor: pointer;
+  min-height: 32px;
+  appearance: none;
+}
+
+.pillButton:hover {
+  background: color-mix(in srgb, var(--note-accent) 18%, transparent);
+}
+
+.pillButton:focus-visible {
+  outline: 2px solid var(--note-accent);
+  outline-offset: 2px;
+}
+
+.glyph {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, black 12%, transparent);
+}
+
+.popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  min-width: 200px;
+  max-width: min(280px, calc(100vw - 32px));
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 6px 20px color-mix(in srgb, black 18%, transparent);
+  animation: popoverIn 0.12s ease-out;
+}
+
+@media (max-width: 380px) {
+  .popover {
+    right: auto;
+    left: 0;
+  }
+}
+
+@keyframes popoverIn {
+  from {
+    transform: translateY(-2px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popover {
+    animation: none;
+  }
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+.rowButton {
+  cursor: pointer;
+  appearance: none;
+}
+
+.rowButton:hover {
+  background: color-mix(in srgb, var(--note-accent) 10%, transparent);
+}
+
+.rowButton:focus-visible {
+  outline: 2px solid var(--note-accent);
+  outline-offset: -2px;
+}
+
+.row .swatch {
+  margin-top: 4px;
+}
+
+.rowBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.rowName {
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.rowText {
+  word-break: break-word;
+  white-space: pre-wrap;
+  color: var(--text-secondary);
+}

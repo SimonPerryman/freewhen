@@ -835,40 +835,34 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     }
   }, [calendar, calendarId, markLocalMutation]);
 
-  const handleRemoveParticipant = useCallback(
-    (target: Participant) => {
-      setParticipantToRemove(target);
-    },
-    [],
-  );
+  const handleRemoveParticipant = useCallback((target: Participant) => {
+    setParticipantToRemove(target);
+  }, []);
 
-  const confirmRemoveParticipant = useCallback(
-    async () => {
-      const target = participantToRemove;
-      if (!target) return;
-      setParticipantToRemove(null);
+  const confirmRemoveParticipant = useCallback(async () => {
+    const target = participantToRemove;
+    if (!target) return;
+    setParticipantToRemove(null);
 
-      const previous = calendar;
-      setCalendar((prev) =>
-        prev
-          ? {
-              ...prev,
-              participants: prev.participants.filter((p) => p.id !== target.id),
-              availability: prev.availability.filter((a) => a.participantId !== target.id),
-            }
-          : prev,
-      );
-      markLocalMutation();
+    const previous = calendar;
+    setCalendar((prev) =>
+      prev
+        ? {
+            ...prev,
+            participants: prev.participants.filter((p) => p.id !== target.id),
+            availability: prev.availability.filter((a) => a.participantId !== target.id),
+          }
+        : prev,
+    );
+    markLocalMutation();
 
-      try {
-        await removeParticipant(calendarId, target.id);
-        analytics.capture("participant_removed", { calendar_id: calendarId });
-      } catch {
-        setCalendar(previous);
-      }
-    },
-    [participantToRemove, calendarId, calendar, markLocalMutation],
-  );
+    try {
+      await removeParticipant(calendarId, target.id);
+      analytics.capture("participant_removed", { calendar_id: calendarId });
+    } catch {
+      setCalendar(previous);
+    }
+  }, [participantToRemove, calendarId, calendar, markLocalMutation]);
 
   const handleRenameParticipant = useCallback(
     async (target: Participant, newName: string) => {
@@ -1066,6 +1060,29 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     return map;
   }, [calendar, currentParticipant, notesByDate]);
 
+  // notesByDateAndAuthor carries the *text* of each note keyed by
+  // (date → participantId → text). Drives the Summary notes pill.
+  const notesByDateAndAuthor = useMemo(() => {
+    const map = new Map<string, Map<string, string>>();
+    if (!calendar) return map;
+    for (const a of calendar.availability) {
+      if (currentParticipant && a.participantId === currentParticipant.id) continue;
+      if (!a.note) continue;
+      const inner = map.get(a.date) ?? new Map<string, string>();
+      inner.set(a.participantId, a.note);
+      map.set(a.date, inner);
+    }
+    if (currentParticipant) {
+      for (const [date, text] of notesByDate) {
+        if (!text) continue;
+        const inner = map.get(date) ?? new Map<string, string>();
+        inner.set(currentParticipant.id, text);
+        map.set(date, inner);
+      }
+    }
+    return map;
+  }, [calendar, currentParticipant, notesByDate]);
+
   if (loading) {
     return (
       <div className={styles.page}>
@@ -1150,11 +1167,12 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
       break;
     }
   }
-  const dateLabel = dateCount === 0
-    ? "no dates yet"
-    : allWeekends
-      ? `${Math.ceil(dateCount / 2)} ${Math.ceil(dateCount / 2) === 1 ? "weekend" : "weekends"}`
-      : `${dateCount} ${dateCount === 1 ? "day" : "days"}`;
+  const dateLabel =
+    dateCount === 0
+      ? "no dates yet"
+      : allWeekends
+        ? `${Math.ceil(dateCount / 2)} ${Math.ceil(dateCount / 2) === 1 ? "weekend" : "weekends"}`
+        : `${dateCount} ${dateCount === 1 ? "day" : "days"}`;
   const peopleLabel = `${participantCount} ${participantCount === 1 ? "person" : "people"}`;
 
   return (
@@ -1245,7 +1263,12 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
               This calendar is full ({MAX_PARTICIPANTS_PER_CALENDAR} people).
             </p>
           ) : (
-            <JoinForm onJoin={handleJoin} error={joinError} defaultName={storedName} hideEmail={!!user} />
+            <JoinForm
+              onJoin={handleJoin}
+              error={joinError}
+              defaultName={storedName}
+              hideEmail={!!user}
+            />
           )
         ) : null}
 
@@ -1278,9 +1301,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           />
         ) : null}
 
-        {!finalisedDate && currentParticipant ? (
-          <div>{importView.entry}</div>
-        ) : null}
+        {!finalisedDate && currentParticipant ? <div>{importView.entry}</div> : null}
         {importView.chrome}
         {importView.interstitial}
         <CalendarGrid
@@ -1358,9 +1379,11 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
                 participants={calendar.participants}
                 freeByDate={freeByDate}
                 preferredByDate={preferredByDate}
+                notesByDateAndAuthor={notesByDateAndAuthor}
                 calendarId={calendarId}
                 canFinalise={isOwner}
                 onFinalise={handleFinalise}
+                onOpenDay={handleOpenDay}
               />
               <ShareButton
                 calendarName={calendarName}

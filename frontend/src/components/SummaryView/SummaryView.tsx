@@ -4,15 +4,18 @@ import type { Participant } from "@/lib/types";
 import PreferencePill, {
   type PreferencePillVoter,
 } from "@/components/PreferencePill/PreferencePill";
+import NotesPill, { type NotesPillNote } from "@/components/NotesPill/NotesPill";
 import styles from "./SummaryView.module.css";
 
 interface SummaryViewProps {
   participants: Participant[];
   freeByDate: Map<string, Set<string>>;
   preferredByDate?: Map<string, Set<string>>;
+  notesByDateAndAuthor?: Map<string, Map<string, string>>;
   calendarId?: string;
   canFinalise?: boolean;
   onFinalise?: (date: string) => Promise<void> | void;
+  onOpenDay?: (date: string) => void;
 }
 
 const dateFormatter = new Intl.DateTimeFormat("en-GB", {
@@ -85,9 +88,11 @@ export default function SummaryView({
   participants,
   freeByDate,
   preferredByDate,
+  notesByDateAndAuthor,
   calendarId,
   canFinalise = false,
   onFinalise,
+  onOpenDay,
 }: SummaryViewProps) {
   const summary = useMemo(
     () => computeSummary(participants, freeByDate, new Date()),
@@ -99,6 +104,19 @@ export default function SummaryView({
     for (const p of participants) map.set(p.id, p);
     return map;
   }, [participants]);
+
+  const notesFor = (date: string): NotesPillNote[] => {
+    const byAuthor = notesByDateAndAuthor?.get(date);
+    if (!byAuthor || byAuthor.size === 0) return [];
+    const result: NotesPillNote[] = [];
+    for (const [authorId, text] of byAuthor) {
+      if (!text) continue;
+      const p = participantById.get(authorId);
+      if (!p) continue;
+      result.push({ id: p.id, name: p.name, colour: p.colour, text });
+    }
+    return result;
+  };
 
   const votersFor = (date: string): PreferencePillVoter[] => {
     const ids = preferredByDate?.get(date);
@@ -128,10 +146,12 @@ export default function SummaryView({
               <span>{formatDate(d.date)}</span>
               <span className={styles.rowEnd}>
                 {showFinalise ? <FinaliseButton date={d.date} onFinalise={onFinalise!} /> : null}
-                <PreferencePill
-                  voters={votersFor(d.date)}
+                <PreferencePill voters={votersFor(d.date)} calendarId={calendarId} date={d.date} />
+                <NotesPill
+                  notes={notesFor(d.date)}
                   calendarId={calendarId}
                   date={d.date}
+                  onOpenDay={onOpenDay}
                 />
               </span>
             </li>
