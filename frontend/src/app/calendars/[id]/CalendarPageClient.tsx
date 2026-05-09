@@ -1356,6 +1356,8 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
               <SummaryView
                 participants={calendar.participants}
                 freeByDate={freeByDate}
+                preferredByDate={preferredByDate}
+                calendarId={calendarId}
                 canFinalise={isOwner}
                 onFinalise={handleFinalise}
               />

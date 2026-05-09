@@ -1,11 +1,16 @@
 import { useMemo, useState } from "react";
 import { computeSummary } from "@/lib/summary";
 import type { Participant } from "@/lib/types";
+import PreferencePill, {
+  type PreferencePillVoter,
+} from "@/components/PreferencePill/PreferencePill";
 import styles from "./SummaryView.module.css";
 
 interface SummaryViewProps {
   participants: Participant[];
   freeByDate: Map<string, Set<string>>;
+  preferredByDate?: Map<string, Set<string>>;
+  calendarId?: string;
   canFinalise?: boolean;
   onFinalise?: (date: string) => Promise<void> | void;
 }
@@ -79,6 +84,8 @@ function FinaliseButton({ date, onFinalise }: FinaliseButtonProps) {
 export default function SummaryView({
   participants,
   freeByDate,
+  preferredByDate,
+  calendarId,
   canFinalise = false,
   onFinalise,
 }: SummaryViewProps) {
@@ -86,6 +93,24 @@ export default function SummaryView({
     () => computeSummary(participants, freeByDate, new Date()),
     [participants, freeByDate],
   );
+
+  const participantById = useMemo(() => {
+    const map = new Map<string, Participant>();
+    for (const p of participants) map.set(p.id, p);
+    return map;
+  }, [participants]);
+
+  const votersFor = (date: string): PreferencePillVoter[] => {
+    const ids = preferredByDate?.get(date);
+    if (!ids || ids.size === 0) return [];
+    const voters: PreferencePillVoter[] = [];
+    for (const id of ids) {
+      const p = participantById.get(id);
+      if (!p) continue;
+      voters.push({ id: p.id, name: p.name, colour: p.colour });
+    }
+    return voters;
+  };
 
   if (participants.length < 2) return null;
 
@@ -101,7 +126,14 @@ export default function SummaryView({
           {summary.everyoneFree.map((d) => (
             <li key={d.date} className={styles.dateItemAccent}>
               <span>{formatDate(d.date)}</span>
-              {showFinalise ? <FinaliseButton date={d.date} onFinalise={onFinalise!} /> : null}
+              <span className={styles.rowEnd}>
+                {showFinalise ? <FinaliseButton date={d.date} onFinalise={onFinalise!} /> : null}
+                <PreferencePill
+                  voters={votersFor(d.date)}
+                  calendarId={calendarId}
+                  date={d.date}
+                />
+              </span>
             </li>
           ))}
         </ul>
@@ -121,7 +153,14 @@ export default function SummaryView({
                     — {d.freeCount}/{d.totalCount} free
                   </span>
                 </span>
-                {showFinalise ? <FinaliseButton date={d.date} onFinalise={onFinalise!} /> : null}
+                <span className={styles.rowEnd}>
+                  {showFinalise ? <FinaliseButton date={d.date} onFinalise={onFinalise!} /> : null}
+                  <PreferencePill
+                    voters={votersFor(d.date)}
+                    calendarId={calendarId}
+                    date={d.date}
+                  />
+                </span>
               </li>
             ))}
           </ul>

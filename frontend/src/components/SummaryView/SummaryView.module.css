@@ -115,6 +115,14 @@
   font-weight: 400;
 }
 
+.rowEnd {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .emptyState {
   font-size: 14px;
   color: var(--text-secondary);
