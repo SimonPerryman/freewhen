@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 type Status = "pending" | "success" | "invalid";
 
-export default function UnsubscribePage() {
+function UnsubscribeInner() {
   const params = useSearchParams();
   const token = params.get("t");
   const [status, setStatus] = useState<Status>("pending");
@@ -60,5 +60,13 @@ export default function UnsubscribePage() {
         </>
       )}
     </main>
+  );
+}
+
+export default function UnsubscribePage() {
+  return (
+    <Suspense fallback={null}>
+      <UnsubscribeInner />
+    </Suspense>
   );
 }
