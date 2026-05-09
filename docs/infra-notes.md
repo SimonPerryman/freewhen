@@ -164,6 +164,37 @@ All runtime secrets live in Secret Manager and are referenced by `infra/secrets.
 
 Same shape for `freewhen-database-url`, `freewhen-calendar-secret`, `freewhen-google-client-id`, `freewhen-google-client-secret` — the secret IDs are the only things that change. Local `.env.local` is gitignored; rotate that copy by editing the file, never by committing.
 
+## Email deliverability (SPF / DKIM / DMARC)
+
+Magic-link mail is sent via Resend from `mail.freewhen.simonperryman.co.uk` (a verified subdomain). SPF, DKIM, and the return-path are managed automatically by Cloudflare's Resend integration. DMARC is a manual TXT record at `_dmarc.freewhen` with `p=quarantine; adkim=r; aspf=r`.
+
+### DMARC aggregate (RUA) reports
+
+Receivers (Gmail, Microsoft, Yahoo, etc.) send a daily zipped XML report to whatever address is in the `rua=` tag, summarising:
+
+- Per sending IP, message counts claiming to be from the domain
+- SPF / DKIM pass or fail and which domain they aligned with
+- Whether DMARC overall passed
+- What the receiver did with failures (none / quarantine / reject)
+
+Use cases: spot legitimate senders that aren't aligned (need DKIM/SPF added), spot spoofing, validate before tightening policy from `p=quarantine` → `p=reject`.
+
+**Reporting interval (`ri=`) is effectively daily.** The RFC lets you request other intervals but Google/Microsoft/Yahoo all ignore non-daily values. Don't bother setting `ri=`.
+
+### Reducing inbox noise from RUA
+
+Three options, in order of preference:
+
+1. **Forward to a free DMARC processor** (Postmark's [dmarc.postmarkapp.com](https://dmarc.postmarkapp.com), dmarcian, etc.) — they ingest the daily zips and email a weekly digest. Postmark's DMARC product is separate from their sending product; no sending account needed.
+2. **Gmail filter** — auto-archive the daily zips to a label, check monthly. Zero third party in the loop.
+3. **Drop `rua=` entirely** — remove the tag from the Cloudflare TXT record at `_dmarc.freewhen` and receivers stop reporting. Loses visibility into new senders and spoofing attempts; only do this once the sender list is stable and policy is `p=reject`.
+
+### How to remove `rua=`
+
+1. Cloudflare → `simonperryman.co.uk` zone → DNS → find the TXT record at `_dmarc.freewhen`.
+2. Edit the value: drop the `rua=mailto:...;` segment, leaving e.g. `v=DMARC1; p=quarantine; adkim=r; aspf=r`.
+3. Save. No backend change needed.
+
 ## Integration Tests
 
 `make test-integration` runs the Go integration suite against a real Postgres.
