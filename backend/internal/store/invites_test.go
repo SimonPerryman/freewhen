@@ -62,7 +62,7 @@ func TestMatchInviteByName_AutoMatchOnAddParticipant(t *testing.T) {
 		t.Fatalf("add invites: %v", err)
 	}
 
-	p, err := s.AddParticipant(ctx, cal.ID, " alice ", nil)
+	p, err := s.AddParticipant(ctx, cal.ID, " alice ", nil, nil)
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestMatchInviteByName_ReMatchOnRename(t *testing.T) {
 	if _, err := s.AddInvites(ctx, cal.ID, []string{"Alice", "Bobby"}); err != nil {
 		t.Fatalf("add invites: %v", err)
 	}
-	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
@@ -162,8 +162,8 @@ func TestParticipantsWithNoAvailability(t *testing.T) {
 	ctx := context.Background()
 	owner := createTestUser(t, s, "Owner")
 	cal, _ := s.CreateCalendar(ctx, "Trip", "", owner.ID)
-	alice, _ := s.AddParticipant(ctx, cal.ID, "Alice", nil)
-	bob, _ := s.AddParticipant(ctx, cal.ID, "Bob", nil)
+	alice, _ := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
+	bob, _ := s.AddParticipant(ctx, cal.ID, "Bob", nil, nil)
 	// Alice submits, Bob doesn't.
 	if err := s.SetAvailability(ctx, alice.ID, []string{"2030-01-01"}, nil, nil); err != nil {
 		t.Fatalf("set availability: %v", err)

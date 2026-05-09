@@ -18,7 +18,7 @@ func TestAddParticipant(t *testing.T) {
 		t.Fatalf("create calendar: %v", err)
 	}
 
-	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -53,7 +53,7 @@ func TestAddParticipantWithUserID(t *testing.T) {
 		t.Fatalf("create calendar: %v", err)
 	}
 
-	p, err := s.AddParticipant(ctx, cal.ID, "Alice", &alice.ID)
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", &alice.ID, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -76,11 +76,11 @@ func TestAddParticipantUserAlreadyJoined(t *testing.T) {
 		t.Fatalf("create calendar: %v", err)
 	}
 
-	if _, err := s.AddParticipant(ctx, cal.ID, "Alice", &alice.ID); err != nil {
+	if _, err := s.AddParticipant(ctx, cal.ID, "Alice", &alice.ID, nil); err != nil {
 		t.Fatalf("first add: %v", err)
 	}
 
-	_, err = s.AddParticipant(ctx, cal.ID, "Alice Again", &alice.ID)
+	_, err = s.AddParticipant(ctx, cal.ID, "Alice Again", &alice.ID, nil)
 	if err != ErrUserAlreadyJoined {
 		t.Errorf("expected ErrUserAlreadyJoined, got %v", err)
 	}
@@ -101,10 +101,10 @@ func TestAddParticipantSameUserDifferentCalendar(t *testing.T) {
 		t.Fatalf("create cal2: %v", err)
 	}
 
-	if _, err := s.AddParticipant(ctx, cal1.ID, "Alice", &alice.ID); err != nil {
+	if _, err := s.AddParticipant(ctx, cal1.ID, "Alice", &alice.ID, nil); err != nil {
 		t.Errorf("expected no error for cal1, got %v", err)
 	}
-	if _, err := s.AddParticipant(ctx, cal2.ID, "Alice", &alice.ID); err != nil {
+	if _, err := s.AddParticipant(ctx, cal2.ID, "Alice", &alice.ID, nil); err != nil {
 		t.Errorf("expected no error for cal2, got %v", err)
 	}
 }
@@ -119,15 +119,15 @@ func TestAddParticipantColourAssignment(t *testing.T) {
 		t.Fatalf("create calendar: %v", err)
 	}
 
-	p1, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	p1, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("add alice: %v", err)
 	}
-	p2, err := s.AddParticipant(ctx, cal.ID, "Bob", nil)
+	p2, err := s.AddParticipant(ctx, cal.ID, "Bob", nil, nil)
 	if err != nil {
 		t.Fatalf("add bob: %v", err)
 	}
-	p3, err := s.AddParticipant(ctx, cal.ID, "Charlie", nil)
+	p3, err := s.AddParticipant(ctx, cal.ID, "Charlie", nil, nil)
 	if err != nil {
 		t.Fatalf("add charlie: %v", err)
 	}
@@ -150,11 +150,11 @@ func TestAddParticipantDuplicateName(t *testing.T) {
 		t.Fatalf("create calendar: %v", err)
 	}
 
-	if _, err := s.AddParticipant(ctx, cal.ID, "Alice", nil); err != nil {
+	if _, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil); err != nil {
 		t.Fatalf("first add: %v", err)
 	}
 
-	_, err = s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	_, err = s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
 	if err != ErrDuplicateName {
 		t.Errorf("expected ErrDuplicateName, got %v", err)
 	}
@@ -174,10 +174,10 @@ func TestAddParticipantSameNameDifferentCalendar(t *testing.T) {
 		t.Fatalf("create cal2: %v", err)
 	}
 
-	if _, err := s.AddParticipant(ctx, cal1.ID, "Alice", nil); err != nil {
+	if _, err := s.AddParticipant(ctx, cal1.ID, "Alice", nil, nil); err != nil {
 		t.Errorf("expected no error for cal1, got %v", err)
 	}
-	if _, err := s.AddParticipant(ctx, cal2.ID, "Alice", nil); err != nil {
+	if _, err := s.AddParticipant(ctx, cal2.ID, "Alice", nil, nil); err != nil {
 		t.Errorf("expected no error for cal2, got %v", err)
 	}
 }
@@ -194,7 +194,7 @@ func TestClaimParticipant(t *testing.T) {
 	}
 
 	// Add anonymous participant
-	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
@@ -236,7 +236,7 @@ func TestClaimParticipantAlreadyLinked(t *testing.T) {
 		t.Fatalf("create calendar: %v", err)
 	}
 
-	p, err := s.AddParticipant(ctx, cal.ID, "Alice", &alice.ID)
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", &alice.ID, nil)
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
@@ -259,12 +259,12 @@ func TestClaimParticipantUserAlreadyInCalendar(t *testing.T) {
 	}
 
 	// Alice joins with her account
-	if _, err := s.AddParticipant(ctx, cal.ID, "Alice", &alice.ID); err != nil {
+	if _, err := s.AddParticipant(ctx, cal.ID, "Alice", &alice.ID, nil); err != nil {
 		t.Fatalf("add alice: %v", err)
 	}
 
 	// Another anonymous participant
-	anon, err := s.AddParticipant(ctx, cal.ID, "Anonymous", nil)
+	anon, err := s.AddParticipant(ctx, cal.ID, "Anonymous", nil, nil)
 	if err != nil {
 		t.Fatalf("add anon: %v", err)
 	}
@@ -302,7 +302,7 @@ func TestDeleteParticipant(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
-	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
@@ -355,7 +355,7 @@ func TestDeleteParticipantWrongCalendar(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create cal2: %v", err)
 	}
-	p, err := s.AddParticipant(ctx, cal1.ID, "Alice", nil)
+	p, err := s.AddParticipant(ctx, cal1.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
@@ -379,7 +379,7 @@ func TestUpdateParticipantName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
-	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
@@ -405,10 +405,10 @@ func TestUpdateParticipantNameDuplicate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
-	if _, err := s.AddParticipant(ctx, cal.ID, "Alice", nil); err != nil {
+	if _, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil); err != nil {
 		t.Fatalf("add alice: %v", err)
 	}
-	bob, err := s.AddParticipant(ctx, cal.ID, "Bob", nil)
+	bob, err := s.AddParticipant(ctx, cal.ID, "Bob", nil, nil)
 	if err != nil {
 		t.Fatalf("add bob: %v", err)
 	}
@@ -432,7 +432,7 @@ func TestUpdateParticipantNameWrongCalendar(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create cal2: %v", err)
 	}
-	p, err := s.AddParticipant(ctx, cal1.ID, "Alice", nil)
+	p, err := s.AddParticipant(ctx, cal1.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("add participant: %v", err)
 	}
@@ -455,10 +455,10 @@ func TestGetCalendarParticipantUserID(t *testing.T) {
 	}
 
 	// One linked, one anonymous
-	if _, err := s.AddParticipant(ctx, cal.ID, "Alice", &alice.ID); err != nil {
+	if _, err := s.AddParticipant(ctx, cal.ID, "Alice", &alice.ID, nil); err != nil {
 		t.Fatalf("add alice: %v", err)
 	}
-	if _, err := s.AddParticipant(ctx, cal.ID, "Bob", nil); err != nil {
+	if _, err := s.AddParticipant(ctx, cal.ID, "Bob", nil, nil); err != nil {
 		t.Fatalf("add bob: %v", err)
 	}
 

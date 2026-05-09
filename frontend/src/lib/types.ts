@@ -18,6 +18,7 @@ export interface Participant {
   name: string;
   colour: string;
   userId?: string;
+  email?: string | null;
 }
 
 export interface Availability {
@@ -57,6 +58,7 @@ export interface UpdateCalendarRequest {
 
 export interface AddParticipantRequest {
   name: string;
+  email?: string | null;
 }
 
 export interface SetAvailabilityRequest {

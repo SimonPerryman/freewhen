@@ -17,7 +17,23 @@ describe("JoinForm", () => {
     await user.type(screen.getByLabelText(/your name/i), "  Alice  ");
     await user.click(screen.getByRole("button", { name: /join/i }));
 
-    expect(onJoin).toHaveBeenCalledWith("Alice");
+    expect(onJoin).toHaveBeenCalledWith("Alice", null);
+  });
+
+  it("forwards an optional email when provided", async () => {
+    const user = userEvent.setup();
+    render(<JoinForm onJoin={onJoin} error={null} />);
+
+    await user.type(screen.getByLabelText(/your name/i), "Alice");
+    await user.type(screen.getByLabelText(/email/i), "  alice@example.com  ");
+    await user.click(screen.getByRole("button", { name: /join/i }));
+
+    expect(onJoin).toHaveBeenCalledWith("Alice", "alice@example.com");
+  });
+
+  it("hides the email field when hideEmail is set", () => {
+    render(<JoinForm onJoin={onJoin} error={null} hideEmail />);
+    expect(screen.queryByLabelText(/email/i)).not.toBeInTheDocument();
   });
 
   it("disables submit when input is empty", () => {

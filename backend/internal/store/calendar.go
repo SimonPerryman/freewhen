@@ -225,6 +225,45 @@ func (s *Store) TouchCalendar(ctx context.Context, calendarID string) error {
 	return nil
 }
 
+// GetCalendarLastNudgeAt returns the timestamp of the most recent
+// owner-triggered nudge for a calendar, or nil if none has been sent.
+// Returns ErrNotFound when the calendar does not exist.
+func (s *Store) GetCalendarLastNudgeAt(ctx context.Context, calendarID string) (*time.Time, error) {
+	var last sql.NullTime
+	err := s.db.QueryRowContext(ctx,
+		`SELECT last_nudge_at FROM calendars WHERE id = $1`, calendarID,
+	).Scan(&last)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("get last_nudge_at: %w", err)
+	}
+	if !last.Valid {
+		return nil, nil
+	}
+	t := last.Time
+	return &t, nil
+}
+
+// SetCalendarLastNudgeAt records the time the last nudge was sent.
+func (s *Store) SetCalendarLastNudgeAt(ctx context.Context, calendarID string, t time.Time) error {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE calendars SET last_nudge_at = $1 WHERE id = $2`, t, calendarID,
+	)
+	if err != nil {
+		return fmt.Errorf("set last_nudge_at: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // CalendarListItem is a calendar plus its participant count, returned by
 // ListCalendarsForUser. The caller derives per-user fields (role, etc.) from
 // the embedded Calendar.
@@ -417,7 +456,7 @@ func (s *Store) DuplicateCalendar(
 
 func (s *Store) getParticipants(ctx context.Context, calendarID string) ([]model.Participant, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, calendar_id, name, colour, user_id FROM participants WHERE calendar_id = $1`, calendarID,
+		`SELECT id, calendar_id, name, colour, user_id, email FROM participants WHERE calendar_id = $1`, calendarID,
 	)
 	if err != nil {
 		return nil, err
@@ -428,11 +467,16 @@ func (s *Store) getParticipants(ctx context.Context, calendarID string) ([]model
 	for rows.Next() {
 		var p model.Participant
 		var userID sql.NullString
-		if err := rows.Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &userID); err != nil {
+		var email sql.NullString
+		if err := rows.Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &userID, &email); err != nil {
 			return nil, err
 		}
 		if userID.Valid {
 			p.UserID = &userID.String
+		}
+		if email.Valid {
+			e := email.String
+			p.Email = &e
 		}
 		participants = append(participants, p)
 	}

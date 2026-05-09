@@ -30,7 +30,8 @@ type CalendarService interface {
 	DuplicateCalendar(ctx context.Context, sourceID, newOwnerID, ownerParticipantName, overrideName string, includeParticipants bool) (model.Calendar, model.Participant, error)
 	GetCalendar(ctx context.Context, id string) (model.CalendarWithDetails, error)
 	GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error)
-	AddParticipant(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
+	AddParticipant(ctx context.Context, calendarID, name string, userID *string, email *string) (model.Participant, error)
+	UpdateParticipantEmail(ctx context.Context, calendarID, targetParticipantID string, callerUserID *string, callerParticipantID string, email *string) (model.Participant, error)
 	SetAvailability(ctx context.Context, calendarID, participantID string, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) error
 	ImportAvailability(ctx context.Context, calendarID, participantID string, dates []string) error
 	FinaliseCalendar(ctx context.Context, calendarID, date string) (model.Calendar, error)

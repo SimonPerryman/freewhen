@@ -54,7 +54,7 @@ func fillCalendarParticipantsToCap(t *testing.T, db *sql.DB, calendarID string) 
 	}
 	for i := existing; i < limits.MaxParticipantsPerCalendar; i++ {
 		name := fmt.Sprintf("seed-%d", i)
-		if _, err := st.AddParticipant(ctx, calendarID, name, nil); err != nil {
+		if _, err := st.AddParticipant(ctx, calendarID, name, nil, nil); err != nil {
 			t.Fatalf("seed participant %d: %v", i, err)
 		}
 	}

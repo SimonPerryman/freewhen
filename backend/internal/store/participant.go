@@ -23,7 +23,21 @@ var colourPalette = []string{
 	"#84CC16", // lime
 }
 
-func (s *Store) AddParticipant(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error) {
+// normaliseEmail trims whitespace and lowercases the supplied address. Returns
+// nil if the result is empty (so callers can store NULL for blank input).
+// Matches the magic-link normalisation in handler/auth.go and migration 023.
+func normaliseEmail(email *string) *string {
+	if email == nil {
+		return nil
+	}
+	v := strings.ToLower(strings.TrimSpace(*email))
+	if v == "" {
+		return nil
+	}
+	return &v
+}
+
+func (s *Store) AddParticipant(ctx context.Context, calendarID, name string, userID *string, email *string) (model.Participant, error) {
 	var exists bool
 	var finalisedDate sql.NullString
 	err := s.db.QueryRowContext(ctx,
@@ -49,17 +63,22 @@ func (s *Store) AddParticipant(ctx context.Context, calendarID, name string, use
 	if userID != nil {
 		userIDVal = *userID
 	}
+	var emailVal any
+	if normalised := normaliseEmail(email); normalised != nil {
+		emailVal = *normalised
+	}
 
 	const maxRetries = 3
 	for i := 0; i < maxRetries; i++ {
 		id := generateID(8)
 		var p model.Participant
 		var scannedUserID sql.NullString
+		var scannedEmail sql.NullString
 		err := s.db.QueryRowContext(ctx,
-			`INSERT INTO participants (id, calendar_id, name, colour, user_id) VALUES ($1, $2, $3, $4, $5)
-			 RETURNING id, calendar_id, name, colour, user_id`,
-			id, calendarID, name, colour, userIDVal,
-		).Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &scannedUserID)
+			`INSERT INTO participants (id, calendar_id, name, colour, user_id, email) VALUES ($1, $2, $3, $4, $5, $6)
+			 RETURNING id, calendar_id, name, colour, user_id, email`,
+			id, calendarID, name, colour, userIDVal, emailVal,
+		).Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &scannedUserID, &scannedEmail)
 		if err != nil {
 			if isUniqueViolation(err) {
 				if isDuplicateName(err) {
@@ -75,6 +94,10 @@ func (s *Store) AddParticipant(ctx context.Context, calendarID, name string, use
 		if scannedUserID.Valid {
 			p.UserID = &scannedUserID.String
 		}
+		if scannedEmail.Valid {
+			e := scannedEmail.String
+			p.Email = &e
+		}
 		// Best-effort auto-match against the owner's invite list. A failure here
 		// shouldn't fail the join — the owner can manually relink.
 		_ = s.MatchInviteByName(ctx, calendarID, p.ID, p.Name)
@@ -86,9 +109,10 @@ func (s *Store) AddParticipant(ctx context.Context, calendarID, name string, use
 func (s *Store) GetParticipant(ctx context.Context, id string) (model.Participant, error) {
 	var p model.Participant
 	var userID sql.NullString
+	var email sql.NullString
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, calendar_id, name, colour, user_id FROM participants WHERE id = $1`, id,
-	).Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &userID)
+		`SELECT id, calendar_id, name, colour, user_id, email FROM participants WHERE id = $1`, id,
+	).Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &userID, &email)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Participant{}, ErrNotFound
@@ -98,18 +122,23 @@ func (s *Store) GetParticipant(ctx context.Context, id string) (model.Participan
 	if userID.Valid {
 		p.UserID = &userID.String
 	}
+	if email.Valid {
+		e := email.String
+		p.Email = &e
+	}
 	return p, nil
 }
 
 func (s *Store) ClaimParticipant(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error) {
 	var p model.Participant
 	var scannedUserID sql.NullString
+	var scannedEmail sql.NullString
 	err := s.db.QueryRowContext(ctx,
 		`UPDATE participants SET user_id = $1
 		 WHERE id = $2 AND calendar_id = $3 AND user_id IS NULL
-		 RETURNING id, calendar_id, name, colour, user_id`,
+		 RETURNING id, calendar_id, name, colour, user_id, email`,
 		userID, participantID, calendarID,
-	).Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &scannedUserID)
+	).Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &scannedUserID, &scannedEmail)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			// Either participant doesn't exist, wrong calendar, or already linked.
@@ -135,6 +164,10 @@ func (s *Store) ClaimParticipant(ctx context.Context, calendarID, participantID,
 	if scannedUserID.Valid {
 		p.UserID = &scannedUserID.String
 	}
+	if scannedEmail.Valid {
+		e := scannedEmail.String
+		p.Email = &e
+	}
 	return p, nil
 }
 
@@ -145,12 +178,13 @@ func (s *Store) ClaimParticipant(ctx context.Context, calendarID, participantID,
 func (s *Store) UpdateParticipantName(ctx context.Context, calendarID, participantID, name string) (model.Participant, error) {
 	var p model.Participant
 	var scannedUserID sql.NullString
+	var scannedEmail sql.NullString
 	err := s.db.QueryRowContext(ctx,
 		`UPDATE participants SET name = $1
 		 WHERE id = $2 AND calendar_id = $3
-		 RETURNING id, calendar_id, name, colour, user_id`,
+		 RETURNING id, calendar_id, name, colour, user_id, email`,
 		name, participantID, calendarID,
-	).Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &scannedUserID)
+	).Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &scannedUserID, &scannedEmail)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Participant{}, ErrNotFound
@@ -163,10 +197,69 @@ func (s *Store) UpdateParticipantName(ctx context.Context, calendarID, participa
 	if scannedUserID.Valid {
 		p.UserID = &scannedUserID.String
 	}
+	if scannedEmail.Valid {
+		e := scannedEmail.String
+		p.Email = &e
+	}
 	// Rename may bring the participant's name in line with an unmatched invite.
 	// Re-run auto-match best-effort.
 	_ = s.MatchInviteByName(ctx, calendarID, p.ID, p.Name)
 	return p, nil
+}
+
+// UpdateParticipantEmail sets the participant's contact email. Pass a pointer
+// to "" (or nil) to clear it. Returns ErrNotFound if the row does not exist.
+func (s *Store) UpdateParticipantEmail(ctx context.Context, calendarID, participantID string, email *string) (model.Participant, error) {
+	var emailVal any
+	if normalised := normaliseEmail(email); normalised != nil {
+		emailVal = *normalised
+	}
+
+	var p model.Participant
+	var scannedUserID sql.NullString
+	var scannedEmail sql.NullString
+	err := s.db.QueryRowContext(ctx,
+		`UPDATE participants SET email = $1
+		 WHERE id = $2 AND calendar_id = $3
+		 RETURNING id, calendar_id, name, colour, user_id, email`,
+		emailVal, participantID, calendarID,
+	).Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &scannedUserID, &scannedEmail)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.Participant{}, ErrNotFound
+		}
+		return model.Participant{}, fmt.Errorf("update participant email: %w", err)
+	}
+	if scannedUserID.Valid {
+		p.UserID = &scannedUserID.String
+	}
+	if scannedEmail.Valid {
+		e := scannedEmail.String
+		p.Email = &e
+	}
+	return p, nil
+}
+
+// ClearParticipantEmailByID nulls the email column for the given participant
+// id, regardless of calendar. Used by the unsubscribe flow where the only
+// trustworthy identifier in the URL is the HMAC-signed participant id.
+// Idempotent: clearing an already-null row succeeds.
+func (s *Store) ClearParticipantEmailByID(ctx context.Context, participantID string) error {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE participants SET email = NULL WHERE id = $1`,
+		participantID,
+	)
+	if err != nil {
+		return fmt.Errorf("clear participant email: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // DeleteParticipant removes a participant from a calendar. Availability rows
@@ -205,11 +298,12 @@ func insertParticipantTx(ctx context.Context, tx *sql.Tx, calendarID, name strin
 		id := generateID(8)
 		var p model.Participant
 		var scannedUserID sql.NullString
+		var scannedEmail sql.NullString
 		err := tx.QueryRowContext(ctx,
 			`INSERT INTO participants (id, calendar_id, name, colour, user_id) VALUES ($1, $2, $3, $4, $5)
-			 RETURNING id, calendar_id, name, colour, user_id`,
+			 RETURNING id, calendar_id, name, colour, user_id, email`,
 			id, calendarID, name, colour, userIDVal,
-		).Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &scannedUserID)
+		).Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &scannedUserID, &scannedEmail)
 		if err != nil {
 			if isUniqueViolation(err) {
 				if isDuplicateName(err) {
@@ -224,6 +318,10 @@ func insertParticipantTx(ctx context.Context, tx *sql.Tx, calendarID, name strin
 		}
 		if scannedUserID.Valid {
 			p.UserID = &scannedUserID.String
+		}
+		if scannedEmail.Valid {
+			e := scannedEmail.String
+			p.Email = &e
 		}
 		return p, nil
 	}

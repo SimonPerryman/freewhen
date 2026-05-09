@@ -60,8 +60,12 @@ func (m *mockService) GetCalendarOnly(ctx context.Context, id string) (model.Cal
 	return m.getCalendarOnly(ctx, id)
 }
 
-func (m *mockService) AddParticipant(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error) {
+func (m *mockService) AddParticipant(ctx context.Context, calendarID, name string, userID *string, _ *string) (model.Participant, error) {
 	return m.addParticipant(ctx, calendarID, name, userID)
+}
+
+func (m *mockService) UpdateParticipantEmail(_ context.Context, _, _ string, _ *string, _ string, _ *string) (model.Participant, error) {
+	panic("unexpected call to UpdateParticipantEmail")
 }
 
 func (m *mockService) ClaimParticipant(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error) {

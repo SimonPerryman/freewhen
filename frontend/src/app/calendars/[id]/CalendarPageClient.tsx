@@ -933,11 +933,11 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   }, [calendarId, markLocalMutation]);
 
   const handleJoin = useCallback(
-    async (name: string) => {
+    async (name: string, email?: string | null) => {
       setJoinError(null);
       markLocalMutation();
       try {
-        const participant = await addParticipant(calendarId, { name });
+        const participant = await addParticipant(calendarId, { name, email });
         setCurrentParticipant(participant);
         participantIdRef.current = participant.id;
         writeStorage(calendarId, {
@@ -1245,7 +1245,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
               This calendar is full ({MAX_PARTICIPANTS_PER_CALENDAR} people).
             </p>
           ) : (
-            <JoinForm onJoin={handleJoin} error={joinError} defaultName={storedName} />
+            <JoinForm onJoin={handleJoin} error={joinError} defaultName={storedName} hideEmail={!!user} />
           )
         ) : null}
 

@@ -103,11 +103,11 @@ func TestGetCalendar(t *testing.T) {
 		t.Fatalf("create calendar: %v", err)
 	}
 
-	alice, err := s.AddParticipant(ctx, cal.ID, "Alice", nil)
+	alice, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("add alice: %v", err)
 	}
-	bob, err := s.AddParticipant(ctx, cal.ID, "Bob", nil)
+	bob, err := s.AddParticipant(ctx, cal.ID, "Bob", nil, nil)
 	if err != nil {
 		t.Fatalf("add bob: %v", err)
 	}
@@ -249,7 +249,7 @@ func TestListCalendarsForUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create alpha: %v", err)
 	}
-	if _, err := s.AddParticipant(ctx, calA.ID, "Owner", &owner.ID); err != nil {
+	if _, err := s.AddParticipant(ctx, calA.ID, "Owner", &owner.ID, nil); err != nil {
 		t.Fatalf("owner joins alpha: %v", err)
 	}
 
@@ -257,12 +257,12 @@ func TestListCalendarsForUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create beta: %v", err)
 	}
-	if _, err := s.AddParticipant(ctx, calB.ID, "Owner", &owner.ID); err != nil {
+	if _, err := s.AddParticipant(ctx, calB.ID, "Owner", &owner.ID, nil); err != nil {
 		t.Fatalf("owner joins beta: %v", err)
 	}
 
 	// joiner joins only Alpha.
-	if _, err := s.AddParticipant(ctx, calA.ID, "Joiner", &joiner.ID); err != nil {
+	if _, err := s.AddParticipant(ctx, calA.ID, "Joiner", &joiner.ID, nil); err != nil {
 		t.Fatalf("joiner joins alpha: %v", err)
 	}
 
@@ -315,7 +315,7 @@ func TestListCalendarsForUser_RespectsLimit(t *testing.T) {
 		if err != nil {
 			t.Fatalf("create: %v", err)
 		}
-		if _, err := s.AddParticipant(ctx, cal.ID, "Owner", &owner.ID); err != nil {
+		if _, err := s.AddParticipant(ctx, cal.ID, "Owner", &owner.ID, nil); err != nil {
 			t.Fatalf("join: %v", err)
 		}
 	}
@@ -338,13 +338,13 @@ func TestDuplicateCalendar_CopiesCoreFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create src: %v", err)
 	}
-	if _, err := s.AddParticipant(ctx, src.ID, "Owner", &owner.ID); err != nil {
+	if _, err := s.AddParticipant(ctx, src.ID, "Owner", &owner.ID, nil); err != nil {
 		t.Fatalf("owner join: %v", err)
 	}
-	if _, err := s.AddParticipant(ctx, src.ID, "Alice", nil); err != nil {
+	if _, err := s.AddParticipant(ctx, src.ID, "Alice", nil, nil); err != nil {
 		t.Fatalf("add alice: %v", err)
 	}
-	if _, err := s.AddParticipant(ctx, src.ID, "Bob", nil); err != nil {
+	if _, err := s.AddParticipant(ctx, src.ID, "Bob", nil, nil); err != nil {
 		t.Fatalf("add bob: %v", err)
 	}
 
@@ -386,10 +386,10 @@ func TestDuplicateCalendar_SkipParticipants(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create src: %v", err)
 	}
-	if _, err := s.AddParticipant(ctx, src.ID, "Owner", &owner.ID); err != nil {
+	if _, err := s.AddParticipant(ctx, src.ID, "Owner", &owner.ID, nil); err != nil {
 		t.Fatalf("owner join: %v", err)
 	}
-	if _, err := s.AddParticipant(ctx, src.ID, "Alice", nil); err != nil {
+	if _, err := s.AddParticipant(ctx, src.ID, "Alice", nil, nil); err != nil {
 		t.Fatalf("add alice: %v", err)
 	}
 
@@ -416,7 +416,7 @@ func TestDuplicateCalendar_OwnerDedupedOnIncludeParticipants(t *testing.T) {
 		t.Fatalf("create src: %v", err)
 	}
 	// Owner is a participant on the source (standard auto-join shape).
-	if _, err := s.AddParticipant(ctx, src.ID, "Owner", &owner.ID); err != nil {
+	if _, err := s.AddParticipant(ctx, src.ID, "Owner", &owner.ID, nil); err != nil {
 		t.Fatalf("owner join: %v", err)
 	}
 

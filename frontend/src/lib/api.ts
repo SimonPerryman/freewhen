@@ -230,6 +230,33 @@ export async function renameParticipant(
   });
 }
 
+// updateParticipantEmail sets or clears the participant's contact email. Pass
+// null/empty to clear (in-app unsubscribe). Anonymous-only — signed-in users
+// edit their email via account settings.
+export async function updateParticipantEmail(
+  calendarId: string,
+  participantId: string,
+  email: string | null,
+  callerParticipantId: string | null,
+): Promise<Participant> {
+  return request<Participant>(`/calendars/${calendarId}/participants/${participantId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ email: email ?? "", participant_id: callerParticipantId ?? "" }),
+    calendarId,
+  });
+}
+
+export interface NudgeResult {
+  emailed: number;
+  skipped: number;
+}
+
+export async function nudgeCalendar(calendarId: string): Promise<NudgeResult> {
+  return request<NudgeResult>(`/calendars/${calendarId}/nudge`, {
+    method: "POST",
+  });
+}
+
 export async function removeParticipant(calendarId: string, participantId: string): Promise<void> {
   await request(`/calendars/${calendarId}/participants/${participantId}`, {
     method: "DELETE",
