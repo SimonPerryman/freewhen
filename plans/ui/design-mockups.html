@@ -1,0 +1,1450 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FreeWhen — design explorations</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        /* freewhen tokens */
+        --cream: #faf9f7;
+        --ink: #1a1a1a;
+        --ink-2: #7a7168;
+        --terra: #e06449;
+        --terra-2: #c9553c;
+        --terra-soft: #fdf0ed;
+        --border: #e8e4df;
+        --paper: #ffffff;
+
+        /* dark */
+        --dk-bg: #141210;
+        --dk-bg-2: #1c1915;
+        --dk-paper: #2c2720;
+        --dk-border: #4a443d;
+        --dk-text: #edebe8;
+        --dk-text-2: #9e9688;
+        --dk-terra: #e8755e;
+
+        /* per-calendar themes (suggestion) */
+        --t-fern: #6b8e5a;
+        --t-fern-soft: #eef2e8;
+        --t-cobalt: #3b5bdb;
+        --t-cobalt-soft: #e8edfb;
+        --t-plum: #7c3a8b;
+        --t-plum-soft: #f4ebf6;
+        --t-sand: #c98a4b;
+        --t-sand-soft: #fbf1e4;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        background: var(--cream);
+        color: var(--ink);
+        font-family: "DM Sans", system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      body {
+        background-image:
+          radial-gradient(1200px 600px at 110% -10%, rgba(224, 100, 73, 0.08), transparent 60%),
+          radial-gradient(900px 500px at -10% 30%, rgba(107, 142, 90, 0.06), transparent 60%);
+      }
+
+      .shell {
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 56px 28px 120px;
+      }
+
+      .lead {
+        display: grid;
+        gap: 14px;
+        margin-bottom: 56px;
+      }
+
+      .eyebrow {
+        font-family: "DM Sans";
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-size: 12px;
+        color: var(--terra);
+        font-weight: 600;
+      }
+
+      .lead h1 {
+        font-family: "Fraunces", serif;
+        font-weight: 400;
+        font-size: clamp(36px, 6vw, 64px);
+        line-height: 1.02;
+        letter-spacing: -0.02em;
+      }
+      .lead h1 em {
+        font-style: italic;
+        font-family: "Instrument Serif", serif;
+        color: var(--terra);
+      }
+
+      .lead p {
+        max-width: 60ch;
+        color: var(--ink-2);
+        font-size: 17px;
+        line-height: 1.55;
+      }
+
+      .section-label {
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+        margin: 64px 0 18px;
+      }
+      .section-label .num {
+        font-family: "Fraunces", serif;
+        font-style: italic;
+        font-size: 22px;
+        color: var(--terra);
+      }
+      .section-label .title {
+        font-family: "Fraunces", serif;
+        font-size: 26px;
+        letter-spacing: -0.01em;
+      }
+      .section-label .desc {
+        margin-left: auto;
+        color: var(--ink-2);
+        font-size: 14px;
+        max-width: 46ch;
+      }
+
+      /* phone frame */
+      .phones {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 28px;
+        align-items: start;
+      }
+
+      .phone {
+        --device-bg: var(--cream);
+        background: var(--device-bg);
+        border-radius: 38px;
+        border: 1px solid var(--border);
+        box-shadow:
+          0 1px 0 rgba(255, 255, 255, 0.6) inset,
+          0 30px 60px -30px rgba(40, 30, 20, 0.25),
+          0 10px 20px -10px rgba(40, 30, 20, 0.12);
+        overflow: hidden;
+        position: relative;
+        aspect-ratio: 9 / 18.5;
+      }
+      .phone.dark {
+        --device-bg: var(--dk-bg);
+        color: var(--dk-text);
+        border-color: var(--dk-border);
+      }
+      .phone .notch {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90px;
+        height: 22px;
+        background: #000;
+        border-radius: 99px;
+        z-index: 5;
+      }
+      .phone .screen {
+        position: absolute;
+        inset: 0;
+        padding: 44px 18px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        overflow: hidden;
+      }
+      .phone .caption {
+        position: absolute;
+        bottom: -34px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 13px;
+        color: var(--ink-2);
+        font-family: "Fraunces", serif;
+        font-style: italic;
+      }
+
+      /* === HERO MOCK === */
+      .hero {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        height: 100%;
+        padding-top: 28px;
+      }
+      .hero .top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px;
+        color: var(--ink-2);
+      }
+      .hero .top .mark {
+        font-family: "Fraunces", serif;
+        font-size: 17px;
+        color: var(--ink);
+        letter-spacing: -0.01em;
+        font-weight: 500;
+      }
+      .hero .top .mark span {
+        color: var(--terra);
+        font-style: italic;
+      }
+      .hero h2 {
+        font-family: "Fraunces", serif;
+        font-weight: 400;
+        font-size: 38px;
+        line-height: 0.98;
+        letter-spacing: -0.025em;
+        margin-top: 6px;
+      }
+      .hero h2 em {
+        font-family: "Instrument Serif", serif;
+        font-style: italic;
+        color: var(--terra);
+      }
+      .hero .sub {
+        color: var(--ink-2);
+        font-size: 14px;
+        line-height: 1.45;
+        max-width: 28ch;
+      }
+
+      /* live mini-grid */
+      .live-grid {
+        margin-top: auto;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 14px;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      }
+      .live-grid::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(120px 80px at 80% 10%, rgba(224, 100, 73, 0.08), transparent 70%);
+        pointer-events: none;
+      }
+      .live-grid .lg-head {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--ink-2);
+        margin-bottom: 10px;
+      }
+      .live-grid .lg-head .pulse {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--terra);
+      }
+      .live-grid .lg-head .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 99px;
+        background: var(--terra);
+        box-shadow: 0 0 0 0 rgba(224, 100, 73, 0.5);
+        animation: ping 1.6s infinite;
+      }
+      @keyframes ping {
+        0% {
+          box-shadow: 0 0 0 0 rgba(224, 100, 73, 0.5);
+        }
+        80%,
+        100% {
+          box-shadow: 0 0 0 10px rgba(224, 100, 73, 0);
+        }
+      }
+      .live-grid .grid {
+        display: grid;
+        grid-template-columns: 28px repeat(7, 1fr);
+        gap: 4px;
+      }
+      .live-grid .col-head {
+        font-size: 10px;
+        text-align: center;
+        color: var(--ink-2);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+      .live-grid .row-head {
+        font-size: 10px;
+        color: var(--ink-2);
+        align-self: center;
+      }
+      .live-grid .cell {
+        height: 12px;
+        border-radius: 3px;
+        background: #f1ede8;
+        position: relative;
+      }
+      .live-grid .cell.h1 {
+        background: #f7d3c8;
+      }
+      .live-grid .cell.h2 {
+        background: #efa68f;
+      }
+      .live-grid .cell.h3 {
+        background: var(--terra);
+      }
+      .live-grid .cell.fresh {
+        animation: fillIn 1.4s ease both;
+      }
+      @keyframes fillIn {
+        from {
+          background: #f1ede8;
+          transform: scale(0.9);
+        }
+        to {
+          transform: scale(1);
+        }
+      }
+
+      .cta {
+        display: flex;
+        gap: 8px;
+        margin-top: 14px;
+      }
+      .cta input {
+        flex: 1;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 14px;
+        font-family: inherit;
+        font-size: 14px;
+        color: var(--ink);
+      }
+      .cta button {
+        background: var(--ink);
+        color: var(--cream);
+        border: 0;
+        padding: 12px 16px;
+        border-radius: 12px;
+        font-family: inherit;
+        font-weight: 600;
+        font-size: 14px;
+        letter-spacing: -0.005em;
+        cursor: pointer;
+      }
+
+      /* === THEMED CALENDAR PAGE === */
+      .ev {
+        --t: var(--terra);
+        --t-soft: var(--terra-soft);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .ev.fern {
+        --t: var(--t-fern);
+        --t-soft: var(--t-fern-soft);
+      }
+      .ev.cobalt {
+        --t: var(--t-cobalt);
+        --t-soft: var(--t-cobalt-soft);
+      }
+      .ev.plum {
+        --t: var(--t-plum);
+        --t-soft: var(--t-plum-soft);
+      }
+      .ev.sand {
+        --t: var(--t-sand);
+        --t-soft: var(--t-sand-soft);
+      }
+
+      .ev .cover {
+        height: 130px;
+        margin: -44px -18px 0;
+        position: relative;
+        background:
+          radial-gradient(140% 100% at 20% 0%, var(--t) 0%, transparent 55%),
+          radial-gradient(120% 100% at 100% 100%, color-mix(in oklab, var(--t) 70%, white) 0%, var(--t-soft) 70%);
+        overflow: hidden;
+      }
+      .ev .cover::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.85' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.4 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        opacity: 0.12;
+      }
+      .ev .cover .badge {
+        position: absolute;
+        bottom: 10px;
+        left: 14px;
+        font-family: "Fraunces", serif;
+        font-style: italic;
+        font-size: 13px;
+        color: var(--paper);
+        background: rgba(0, 0, 0, 0.18);
+        padding: 4px 10px;
+        border-radius: 99px;
+        backdrop-filter: blur(6px);
+      }
+      .ev .cover .emoji {
+        position: absolute;
+        right: 14px;
+        bottom: 8px;
+        font-size: 44px;
+        filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
+      }
+
+      .ev h2 {
+        font-family: "Fraunces", serif;
+        font-weight: 400;
+        font-size: 30px;
+        line-height: 1;
+        letter-spacing: -0.02em;
+        padding: 0 4px;
+        margin-top: 4px;
+      }
+      .ev h2 em {
+        font-family: "Instrument Serif", serif;
+        font-style: italic;
+        color: var(--t);
+      }
+      .ev .meta {
+        display: flex;
+        gap: 10px;
+        padding: 0 4px;
+        color: var(--ink-2);
+        font-size: 12px;
+      }
+      .ev .meta .pill {
+        background: var(--t-soft);
+        color: color-mix(in oklab, var(--t) 70%, black);
+        padding: 4px 8px;
+        border-radius: 99px;
+        font-weight: 500;
+      }
+
+      .ev .people {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 4px 0;
+      }
+      .ev .avatars {
+        display: flex;
+      }
+      .ev .avatars .av {
+        width: 26px;
+        height: 26px;
+        border-radius: 99px;
+        border: 2px solid var(--cream);
+        margin-left: -8px;
+        font-size: 11px;
+        display: grid;
+        place-items: center;
+        font-weight: 600;
+        color: white;
+      }
+      .ev .avatars .av:first-child {
+        margin-left: 0;
+      }
+      .ev .people .count {
+        font-size: 12px;
+        color: var(--ink-2);
+      }
+
+      .ev .grid-card {
+        margin-top: auto;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 14px;
+      }
+      .ev .grid-card h3 {
+        font-family: "Fraunces", serif;
+        font-weight: 500;
+        font-size: 15px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+      }
+      .ev .grid-card h3 small {
+        font-family: "DM Sans";
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--ink-2);
+        font-weight: 600;
+      }
+      .ev .grid-card .grid {
+        display: grid;
+        grid-template-columns: 24px repeat(7, 1fr);
+        gap: 3px;
+      }
+      .ev .grid-card .col-head {
+        font-size: 9px;
+        text-align: center;
+        color: var(--ink-2);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .ev .grid-card .row-head {
+        font-size: 9px;
+        color: var(--ink-2);
+        align-self: center;
+      }
+      .ev .grid-card .cell {
+        height: 10px;
+        border-radius: 2px;
+        background: #f1ede8;
+      }
+      .ev .grid-card .cell.h1 {
+        background: color-mix(in oklab, var(--t) 22%, var(--paper));
+      }
+      .ev .grid-card .cell.h2 {
+        background: color-mix(in oklab, var(--t) 50%, var(--paper));
+      }
+      .ev .grid-card .cell.h3 {
+        background: var(--t);
+      }
+      .ev .best {
+        margin-top: 10px;
+        padding: 10px 12px;
+        background: var(--t-soft);
+        border-radius: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .ev .best .label {
+        font-family: "Fraunces", serif;
+        font-style: italic;
+        font-size: 13px;
+        color: color-mix(in oklab, var(--t) 70%, black);
+      }
+      .ev .best .when {
+        font-weight: 600;
+        font-size: 14px;
+        color: color-mix(in oklab, var(--t) 70%, black);
+      }
+
+      /* === SHARE / OG === */
+      .share-wrap {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+        gap: 28px;
+      }
+      .og {
+        aspect-ratio: 1200 / 630;
+        background: var(--cream);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        position: relative;
+        overflow: hidden;
+        padding: 36px 38px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        box-shadow: 0 20px 50px -30px rgba(40, 30, 20, 0.3);
+      }
+      .og.dark {
+        background: var(--dk-bg);
+        border-color: var(--dk-border);
+        color: var(--dk-text);
+      }
+      .og.dark .og-bg {
+        background:
+          radial-gradient(60% 80% at 100% 0%, rgba(232, 117, 94, 0.35), transparent 60%),
+          radial-gradient(40% 60% at 0% 100%, rgba(232, 117, 94, 0.18), transparent 60%);
+      }
+      .og .og-bg {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(60% 80% at 100% 0%, rgba(224, 100, 73, 0.18), transparent 60%),
+          radial-gradient(40% 60% at 0% 100%, rgba(107, 142, 90, 0.12), transparent 60%);
+        pointer-events: none;
+      }
+      .og .og-mark {
+        font-family: "Fraunces", serif;
+        font-size: 18px;
+        letter-spacing: -0.01em;
+        position: relative;
+        z-index: 2;
+      }
+      .og .og-mark span {
+        color: var(--terra);
+        font-style: italic;
+      }
+      .og.dark .og-mark span {
+        color: var(--dk-terra);
+      }
+
+      .og .og-body {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 24px;
+      }
+      .og .og-body .left {
+        flex: 1;
+      }
+      .og h3 {
+        font-family: "Fraunces", serif;
+        font-weight: 400;
+        font-size: clamp(28px, 3.4vw, 44px);
+        line-height: 0.98;
+        letter-spacing: -0.025em;
+        margin-bottom: 10px;
+      }
+      .og h3 em {
+        font-family: "Instrument Serif", serif;
+        font-style: italic;
+        color: var(--terra);
+      }
+      .og.dark h3 em {
+        color: var(--dk-terra);
+      }
+      .og .meta-row {
+        font-size: 14px;
+        color: var(--ink-2);
+        display: flex;
+        gap: 16px;
+      }
+      .og.dark .meta-row {
+        color: var(--dk-text-2);
+      }
+      .og .meta-row b {
+        color: var(--ink);
+        font-weight: 500;
+      }
+      .og.dark .meta-row b {
+        color: var(--dk-text);
+      }
+
+      .og .og-grid {
+        flex-shrink: 0;
+        width: 42%;
+        background: rgba(255, 255, 255, 0.6);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+        backdrop-filter: blur(10px);
+      }
+      .og.dark .og-grid {
+        background: rgba(255, 255, 255, 0.04);
+        border-color: var(--dk-border);
+      }
+      .og .og-grid .grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 3px;
+      }
+      .og .og-grid .cell {
+        height: 14px;
+        border-radius: 2px;
+        background: #efe9e2;
+      }
+      .og.dark .og-grid .cell {
+        background: #2a241e;
+      }
+      .og .og-grid .cell.h1 {
+        background: #f3c5b6;
+      }
+      .og.dark .og-grid .cell.h1 {
+        background: #5a2e22;
+      }
+      .og .og-grid .cell.h2 {
+        background: #ee9077;
+      }
+      .og.dark .og-grid .cell.h2 {
+        background: #a14b35;
+      }
+      .og .og-grid .cell.h3 {
+        background: var(--terra);
+      }
+      .og.dark .og-grid .cell.h3 {
+        background: var(--dk-terra);
+      }
+
+      .imessage {
+        background: #f1f1f3;
+        border-radius: 28px;
+        padding: 24px;
+        max-width: 380px;
+        margin: 0 auto;
+      }
+      .imessage .from {
+        text-align: center;
+        font-size: 12px;
+        color: #8a8a90;
+        margin-bottom: 10px;
+      }
+      .imessage .bubble {
+        background: white;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+      }
+      .imessage .preview {
+        padding: 0;
+      }
+      .imessage .link {
+        font-size: 13px;
+        color: #007aff;
+        padding: 10px 14px;
+        word-break: break-all;
+      }
+      .imessage .preview .og {
+        border-radius: 0;
+        border: 0;
+        box-shadow: none;
+        aspect-ratio: 1200 / 630;
+        padding: 22px 24px;
+      }
+      .imessage .preview h3 {
+        font-size: 22px;
+      }
+      .imessage .preview .og-grid {
+        width: 46%;
+        padding: 8px;
+      }
+      .imessage .preview .og-grid .cell {
+        height: 8px;
+      }
+      .imessage .meta-strip {
+        padding: 10px 14px;
+        font-size: 12px;
+        color: #6e6e73;
+        border-top: 1px solid #efeff1;
+        display: flex;
+        justify-content: space-between;
+      }
+
+      /* annotation cards */
+      .notes {
+        margin-top: 28px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+      }
+      .note {
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px;
+      }
+      .note h4 {
+        font-family: "Fraunces", serif;
+        font-weight: 500;
+        font-size: 16px;
+        letter-spacing: -0.01em;
+        margin-bottom: 6px;
+      }
+      .note h4::before {
+        content: "→ ";
+        color: var(--terra);
+      }
+      .note p {
+        font-size: 13.5px;
+        line-height: 1.5;
+        color: var(--ink-2);
+      }
+      .note code {
+        background: var(--terra-soft);
+        color: var(--terra-2);
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+
+      /* type sample */
+      .typeset {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 28px;
+      }
+      .typeset .col h5 {
+        font-family: "DM Sans";
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-size: 11px;
+        color: var(--ink-2);
+        margin-bottom: 8px;
+      }
+      .typeset .now h2,
+      .typeset .next h2 {
+        font-weight: 400;
+        font-size: 34px;
+        line-height: 1;
+        letter-spacing: -0.02em;
+      }
+      .typeset .now h2 {
+        font-family: "DM Sans", sans-serif;
+        font-weight: 600;
+      }
+      .typeset .next h2 {
+        font-family: "Fraunces", serif;
+      }
+      .typeset .next h2 em {
+        font-family: "Instrument Serif", serif;
+        font-style: italic;
+        color: var(--terra);
+      }
+      .typeset p {
+        margin-top: 8px;
+        color: var(--ink-2);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="lead">
+        <span class="eyebrow">Design exploration · FreeWhen</span>
+        <h1>What we can <em>borrow</em> from Partiful &amp; Luma —<br />without losing the warmth.</h1>
+        <p>
+          Three concrete moves, mocked in your existing palette
+          (<code style="background: var(--terra-soft); color: var(--terra-2); padding: 2px 6px; border-radius: 4px;">#e06449</code> on cream)
+          with a serif display swap and per-event accent tinting. Everything below is hand-built HTML so you can dig into the
+          markup and steal what you like.
+        </p>
+      </header>
+
+      <!-- 1. HERO -->
+      <div class="section-label">
+        <span class="num">i.</span>
+        <span class="title">Homepage hero — the grid <em style="font-family: 'Instrument Serif', serif;">is</em> the brand</span>
+        <span class="desc">
+          The current 7 grey cells are decoration. Replace with a live-feeling mini grid that fills in as the page loads —
+          the product's signature, doing the talking.
+        </span>
+      </div>
+
+      <div class="phones">
+        <!-- before -->
+        <div class="phone">
+          <div class="notch"></div>
+          <div class="screen">
+            <div class="hero">
+              <div class="top"><span class="mark">FreeWhen</span><span>Today</span></div>
+              <h2 style="font-family: 'DM Sans'; font-weight: 600; font-size: 30px;">FreeWhen</h2>
+              <p class="sub">Find when everyone's free.</p>
+              <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 24px;">
+                <div style="height: 36px; background: #efe9e2; border-radius: 6px;"></div>
+                <div style="height: 36px; background: #efe9e2; border-radius: 6px;"></div>
+                <div style="height: 36px; background: var(--terra); border-radius: 6px;"></div>
+                <div style="height: 36px; background: #efe9e2; border-radius: 6px;"></div>
+                <div style="height: 36px; background: #efe9e2; border-radius: 6px;"></div>
+                <div style="height: 36px; background: var(--terra); border-radius: 6px;"></div>
+                <div style="height: 36px; background: #efe9e2; border-radius: 6px;"></div>
+              </div>
+              <div class="cta" style="margin-top: auto;">
+                <input placeholder="Weekend trip" />
+                <button>Create</button>
+              </div>
+            </div>
+          </div>
+          <div class="caption">Now — fine, but anonymous</div>
+        </div>
+
+        <!-- after -->
+        <div class="phone">
+          <div class="notch"></div>
+          <div class="screen">
+            <div class="hero">
+              <div class="top">
+                <span class="mark">Free<span>When</span></span><span>April</span>
+              </div>
+              <h2>Find when<br />everyone's <em>free.</em></h2>
+              <p class="sub">Drop a name, share a link, watch availability fill in.</p>
+
+              <div class="live-grid">
+                <div class="lg-head">
+                  <span>Apr 28 — May 4</span>
+                  <span class="pulse"><span class="dot"></span>3 responding</span>
+                </div>
+                <div class="grid" id="liveGrid">
+                  <div class="row-head">am</div>
+                  <div class="col-head">M</div>
+                  <div class="col-head">T</div>
+                  <div class="col-head">W</div>
+                  <div class="col-head">T</div>
+                  <div class="col-head">F</div>
+                  <div class="col-head">S</div>
+                  <div class="col-head">S</div>
+                </div>
+              </div>
+
+              <div class="cta">
+                <input placeholder="Weekend trip" />
+                <button>Create →</button>
+              </div>
+            </div>
+          </div>
+          <div class="caption">Next — the grid as the hero</div>
+        </div>
+
+        <!-- dark variant -->
+        <div class="phone dark">
+          <div class="notch"></div>
+          <div class="screen">
+            <div class="hero" style="color: var(--dk-text);">
+              <div class="top" style="color: var(--dk-text-2);">
+                <span class="mark" style="color: var(--dk-text);">Free<span style="color: var(--dk-terra);">When</span></span>
+                <span>April</span>
+              </div>
+              <h2 style="color: var(--dk-text);">Find when<br />everyone's <em style="color: var(--dk-terra);">free.</em></h2>
+              <p class="sub" style="color: var(--dk-text-2);">Drop a name, share a link, watch availability fill in.</p>
+              <div class="live-grid" style="background: var(--dk-paper); border-color: var(--dk-border);">
+                <div class="lg-head" style="color: var(--dk-text-2);">
+                  <span>Apr 28 — May 4</span>
+                  <span class="pulse" style="color: var(--dk-terra);"><span class="dot" style="background: var(--dk-terra);"></span>3 responding</span>
+                </div>
+                <div class="grid" id="liveGrid2">
+                  <div class="row-head" style="color: var(--dk-text-2);">am</div>
+                  <div class="col-head" style="color: var(--dk-text-2);">M</div>
+                  <div class="col-head" style="color: var(--dk-text-2);">T</div>
+                  <div class="col-head" style="color: var(--dk-text-2);">W</div>
+                  <div class="col-head" style="color: var(--dk-text-2);">T</div>
+                  <div class="col-head" style="color: var(--dk-text-2);">F</div>
+                  <div class="col-head" style="color: var(--dk-text-2);">S</div>
+                  <div class="col-head" style="color: var(--dk-text-2);">S</div>
+                </div>
+              </div>
+              <div class="cta">
+                <input style="background: var(--dk-paper); border-color: var(--dk-border); color: var(--dk-text);" placeholder="Weekend trip" />
+                <button style="background: var(--dk-terra); color: var(--dk-bg);">Create →</button>
+              </div>
+            </div>
+          </div>
+          <div class="caption">Dark — Luma's canonical mode</div>
+        </div>
+      </div>
+
+      <div class="notes">
+        <div class="note">
+          <h4>Animated fill-in</h4>
+          <p>
+            On load, cells stagger from grey → terracotta with <code>animation-delay</code>. Reads as "people are
+            answering right now" — the product demonstrating itself.
+          </p>
+        </div>
+        <div class="note">
+          <h4>Wordmark with a kink</h4>
+          <p>
+            <code>Free<em>When</em></code> in serif italic. Tiny detail; instantly more memorable than monoweight DM Sans.
+          </p>
+        </div>
+        <div class="note">
+          <h4>Dark as a peer, not a fallback</h4>
+          <p>
+            Same content, more drama. Worth marketing screenshots in dark by default — the radial gradient + grain you
+            already have looks great.
+          </p>
+        </div>
+      </div>
+
+      <!-- 2. THEMED CALENDAR -->
+      <div class="section-label">
+        <span class="num">ii.</span>
+        <span class="title">Per-event accent — bringing back the theme picker (lightweight version)</span>
+        <span class="desc">
+          Not a full theme system: a single chosen accent + emoji per calendar. Cheap to ship, but the spread feels like
+          four products instead of one.
+        </span>
+      </div>
+
+      <div class="phones">
+        <div class="phone">
+          <div class="notch"></div>
+          <div class="screen">
+            <div class="ev">
+              <div class="cover">
+                <span class="badge">Bachelorette</span>
+                <span class="emoji">🍑</span>
+              </div>
+              <h2>Jen's <em>hen do</em></h2>
+              <div class="meta"><span class="pill">8 people</span><span class="pill">3 weekends</span></div>
+              <div class="people">
+                <div class="avatars">
+                  <div class="av" style="background: #d97a8c;">JE</div>
+                  <div class="av" style="background: #c98a4b;">SA</div>
+                  <div class="av" style="background: #6b8e5a;">MA</div>
+                  <div class="av" style="background: #3b5bdb;">+5</div>
+                </div>
+                <span class="count">5 of 8 responded</span>
+              </div>
+              <div class="grid-card">
+                <h3>Availability <small>3 weekends</small></h3>
+                <div class="grid">
+                  <div class="row-head">am</div>
+                  <div class="col-head">F</div>
+                  <div class="col-head">S</div>
+                  <div class="col-head">S</div>
+                  <div class="col-head">F</div>
+                  <div class="col-head">S</div>
+                  <div class="col-head">S</div>
+                  <div class="col-head">F</div>
+                  <div class="row-head">pm</div>
+                  <div class="cell h1"></div>
+                  <div class="cell h2"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell"></div>
+                  <div class="cell h2"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h1"></div>
+                  <div class="row-head">eve</div>
+                  <div class="cell h2"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h1"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h2"></div>
+                </div>
+                <div class="best">
+                  <span class="label">Best so far</span>
+                  <span class="when">Sat May 17, eve</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="caption">Default — terracotta</div>
+        </div>
+
+        <div class="phone">
+          <div class="notch"></div>
+          <div class="screen">
+            <div class="ev fern">
+              <div class="cover">
+                <span class="badge">Camping</span>
+                <span class="emoji">⛰️</span>
+              </div>
+              <h2>Lakes <em>walking trip</em></h2>
+              <div class="meta"><span class="pill">6 people</span><span class="pill">June</span></div>
+              <div class="people">
+                <div class="avatars">
+                  <div class="av" style="background: #6b8e5a;">RO</div>
+                  <div class="av" style="background: #c98a4b;">TI</div>
+                  <div class="av" style="background: #7c3a8b;">FR</div>
+                  <div class="av" style="background: #3b5bdb;">+3</div>
+                </div>
+                <span class="count">All in</span>
+              </div>
+              <div class="grid-card">
+                <h3>Availability <small>June</small></h3>
+                <div class="grid">
+                  <div class="row-head">am</div>
+                  <div class="col-head">M</div>
+                  <div class="col-head">T</div>
+                  <div class="col-head">W</div>
+                  <div class="col-head">T</div>
+                  <div class="col-head">F</div>
+                  <div class="col-head">S</div>
+                  <div class="col-head">S</div>
+                  <div class="row-head">pm</div>
+                  <div class="cell h2"></div>
+                  <div class="cell h1"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h2"></div>
+                  <div class="row-head">eve</div>
+                  <div class="cell h1"></div>
+                  <div class="cell h2"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h1"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h2"></div>
+                </div>
+                <div class="best">
+                  <span class="label">Best so far</span>
+                  <span class="when">Sat Jun 14, am</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="caption">Fern · for outdoorsy plans</div>
+        </div>
+
+        <div class="phone">
+          <div class="notch"></div>
+          <div class="screen">
+            <div class="ev cobalt">
+              <div class="cover">
+                <span class="badge">Offsite</span>
+                <span class="emoji">🗓️</span>
+              </div>
+              <h2>Q3 <em>planning</em></h2>
+              <div class="meta"><span class="pill">12 people</span><span class="pill">2 days</span></div>
+              <div class="people">
+                <div class="avatars">
+                  <div class="av" style="background: #3b5bdb;">SI</div>
+                  <div class="av" style="background: #1a1a1a;">AL</div>
+                  <div class="av" style="background: #c98a4b;">PR</div>
+                  <div class="av" style="background: #6b8e5a;">+9</div>
+                </div>
+                <span class="count">9 of 12 responded</span>
+              </div>
+              <div class="grid-card">
+                <h3>Availability <small>July</small></h3>
+                <div class="grid">
+                  <div class="row-head">am</div>
+                  <div class="col-head">M</div>
+                  <div class="col-head">T</div>
+                  <div class="col-head">W</div>
+                  <div class="col-head">T</div>
+                  <div class="col-head">F</div>
+                  <div class="col-head">S</div>
+                  <div class="col-head">S</div>
+                  <div class="row-head">pm</div>
+                  <div class="cell h3"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h2"></div>
+                  <div class="cell h1"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell"></div>
+                  <div class="cell"></div>
+                  <div class="row-head">eve</div>
+                  <div class="cell h2"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h2"></div>
+                  <div class="cell h1"></div>
+                  <div class="cell"></div>
+                  <div class="cell"></div>
+                </div>
+                <div class="best">
+                  <span class="label">Best so far</span>
+                  <span class="when">Tue Jul 8, am</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="caption">Cobalt · for work</div>
+        </div>
+
+        <div class="phone">
+          <div class="notch"></div>
+          <div class="screen">
+            <div class="ev plum">
+              <div class="cover">
+                <span class="badge">Birthday</span>
+                <span class="emoji">🍷</span>
+              </div>
+              <h2>Pete <em>turns thirty</em></h2>
+              <div class="meta"><span class="pill">14 people</span><span class="pill">May</span></div>
+              <div class="people">
+                <div class="avatars">
+                  <div class="av" style="background: #7c3a8b;">PE</div>
+                  <div class="av" style="background: #d97a8c;">EM</div>
+                  <div class="av" style="background: #c98a4b;">JO</div>
+                  <div class="av" style="background: #3b5bdb;">+11</div>
+                </div>
+                <span class="count">11 of 14 responded</span>
+              </div>
+              <div class="grid-card">
+                <h3>Availability <small>May</small></h3>
+                <div class="grid">
+                  <div class="row-head">am</div>
+                  <div class="col-head">M</div>
+                  <div class="col-head">T</div>
+                  <div class="col-head">W</div>
+                  <div class="col-head">T</div>
+                  <div class="col-head">F</div>
+                  <div class="col-head">S</div>
+                  <div class="col-head">S</div>
+                  <div class="row-head">pm</div>
+                  <div class="cell h1"></div>
+                  <div class="cell"></div>
+                  <div class="cell h2"></div>
+                  <div class="cell h2"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h2"></div>
+                  <div class="row-head">eve</div>
+                  <div class="cell"></div>
+                  <div class="cell h1"></div>
+                  <div class="cell h2"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h3"></div>
+                </div>
+                <div class="best">
+                  <span class="label">Best so far</span>
+                  <span class="when">Sat May 24, eve</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="caption">Plum · for celebrations</div>
+        </div>
+      </div>
+
+      <div class="notes">
+        <div class="note">
+          <h4>What's actually changing</h4>
+          <p>
+            One <code>theme</code> column on the calendar (enum of ~6 presets) + one optional emoji. The grid heat map
+            recolours via <code>color-mix(in oklab, var(--t), white)</code> — no separate palette per theme.
+          </p>
+        </div>
+        <div class="note">
+          <h4>Cover-as-gradient, not photo</h4>
+          <p>
+            Two radial gradients + a noise overlay = a cover that feels designed without an image upload. Photo upload can
+            come later if it's worth it.
+          </p>
+        </div>
+        <div class="note">
+          <h4>"Best so far" pill</h4>
+          <p>
+            Surfaces the calendar's punchline above the fold. Currently you have <code>BestDay</code> as a separate
+            block — promote it.
+          </p>
+        </div>
+      </div>
+
+      <!-- 3. SHARE -->
+      <div class="section-label">
+        <span class="num">iii.</span>
+        <span class="title">Share artifact — the iMessage preview as a poster</span>
+        <span class="desc">
+          Both Partiful and Luma obsess over how a shared link looks in a message. A FreeWhen link should arrive looking
+          like an event, not a URL.
+        </span>
+      </div>
+
+      <div class="share-wrap">
+        <div>
+          <div class="og">
+            <div class="og-bg"></div>
+            <div class="og-mark">Free<span>When</span></div>
+            <div class="og-body">
+              <div class="left">
+                <h3>Jen's <em>hen do</em></h3>
+                <div class="meta-row">
+                  <span><b>8</b> people</span>
+                  <span><b>3</b> weekends</span>
+                  <span>Best so far · <b>Sat May 17</b></span>
+                </div>
+              </div>
+              <div class="og-grid">
+                <div class="grid">
+                  <div class="cell h1"></div>
+                  <div class="cell h2"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell"></div>
+                  <div class="cell h2"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h1"></div>
+                  <div class="cell h2"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h1"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h2"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h2"></div>
+                  <div class="cell h2"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h2"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p style="text-align: center; margin-top: 12px; font-family: 'Fraunces', serif; font-style: italic; color: var(--ink-2); font-size: 13px;">
+            Open Graph image — light
+          </p>
+        </div>
+
+        <div>
+          <div class="og dark">
+            <div class="og-bg"></div>
+            <div class="og-mark">Free<span>When</span></div>
+            <div class="og-body">
+              <div class="left">
+                <h3>Pete <em>turns thirty</em></h3>
+                <div class="meta-row">
+                  <span><b>14</b> people</span>
+                  <span><b>11</b> in</span>
+                  <span>Best so far · <b>Sat May 24</b></span>
+                </div>
+              </div>
+              <div class="og-grid">
+                <div class="grid">
+                  <div class="cell h1"></div>
+                  <div class="cell"></div>
+                  <div class="cell h2"></div>
+                  <div class="cell h2"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h2"></div>
+                  <div class="cell"></div>
+                  <div class="cell h1"></div>
+                  <div class="cell h2"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h2"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h3"></div>
+                  <div class="cell h2"></div>
+                  <div class="cell h2"></div>
+                  <div class="cell h3"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p style="text-align: center; margin-top: 12px; font-family: 'Fraunces', serif; font-style: italic; color: var(--ink-2); font-size: 13px;">
+            Open Graph image — dark
+          </p>
+        </div>
+
+        <div>
+          <div class="imessage">
+            <div class="from">FreeWhen · freewhen.app</div>
+            <div class="bubble">
+              <div class="link">freewhen.app/c/jens-hen-do</div>
+              <div class="preview">
+                <div class="og">
+                  <div class="og-bg"></div>
+                  <div class="og-mark">Free<span>When</span></div>
+                  <div class="og-body">
+                    <div class="left">
+                      <h3>Jen's <em>hen do</em></h3>
+                      <div class="meta-row">
+                        <span><b>8</b> people</span>
+                        <span>Best · <b>May 17</b></span>
+                      </div>
+                    </div>
+                    <div class="og-grid">
+                      <div class="grid">
+                        <div class="cell h1"></div>
+                        <div class="cell h2"></div>
+                        <div class="cell h3"></div>
+                        <div class="cell"></div>
+                        <div class="cell h2"></div>
+                        <div class="cell h3"></div>
+                        <div class="cell h1"></div>
+                        <div class="cell h2"></div>
+                        <div class="cell h3"></div>
+                        <div class="cell h3"></div>
+                        <div class="cell h1"></div>
+                        <div class="cell h3"></div>
+                        <div class="cell h3"></div>
+                        <div class="cell h2"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="meta-strip"><span>freewhen.app</span><span>FreeWhen</span></div>
+            </div>
+          </div>
+          <p style="text-align: center; margin-top: 12px; font-family: 'Fraunces', serif; font-style: italic; color: var(--ink-2); font-size: 13px;">
+            How it lands in iMessage
+          </p>
+        </div>
+      </div>
+
+      <div class="notes">
+        <div class="note">
+          <h4>Built dynamically</h4>
+          <p>
+            Next.js can render OG images with the <code>ImageResponse</code> API (edge route) — title, count, and a real
+            heat-map grid generated from the calendar's actual responses. No design work per share.
+          </p>
+        </div>
+        <div class="note">
+          <h4>The grid sells the link</h4>
+          <p>
+            The recipient sees terracotta clustering before they read a word. It says "people are answering" without
+            copy.
+          </p>
+        </div>
+      </div>
+
+      <!-- TYPE -->
+      <div class="section-label">
+        <span class="num">iv.</span>
+        <span class="title">Type — one swap, big shift</span>
+        <span class="desc">
+          Keep DM Sans for body. Swap headings to <em style="font-family: 'Fraunces', serif;">Fraunces</em> (variable serif,
+          free on Google Fonts) and accent select words in <em style="font-family: 'Instrument Serif', serif;">Instrument Serif</em> italic.
+        </span>
+      </div>
+
+      <div class="typeset">
+        <div class="col now">
+          <h5>Now — Bricolage Grotesque</h5>
+          <h2 style="font-family: 'DM Sans';">Find when everyone's free.</h2>
+          <p>Reads competent. Reads SaaS. Indistinguishable from forty other tools.</p>
+        </div>
+        <div class="col next">
+          <h5>Next — Fraunces + Instrument Serif</h5>
+          <h2>Find when everyone's <em>free.</em></h2>
+          <p>Reads warm. Reads designed. The italic terracotta accent is the whole personality lift.</p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // animate the live grid filling in
+      function buildGrid(elId, cells) {
+        const root = document.getElementById(elId);
+        if (!root) return;
+        cells.forEach((intensity, i) => {
+          const cell = document.createElement("div");
+          cell.className = "cell" + (intensity ? " h" + intensity + " fresh" : "");
+          cell.style.animationDelay = 60 * i + 200 + "ms";
+          root.appendChild(cell);
+        });
+      }
+      const pattern = [1, 2, 3, 0, 2, 3, 1, 2, 3, 3, 1, 3, 3, 2, 3, 3, 2, 2, 3, 3, 2];
+      buildGrid("liveGrid", pattern);
+      buildGrid("liveGrid2", pattern);
+    </script>
+  </body>
+</html>

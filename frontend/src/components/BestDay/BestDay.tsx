@@ -98,14 +98,11 @@ export default function BestDay({ participants, freeByDate, voteCountsByDate }: 
 
   return (
     <div className={styles.card}>
-      <span className={styles.icon} aria-hidden="true">
-        &#x2713;
-      </span>
       <div className={styles.content}>
-        <span className={styles.title}>Best day</span>
+        <span className={styles.label}>Best so far</span>
         <span className={styles.date}>{formatDate(bestDay.date)}</span>
-        <span className={styles.subtitle}>{bestDay.label}</span>
       </div>
+      <span className={styles.subtitle}>{bestDay.label}</span>
     </div>
   );
 }
