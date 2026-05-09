@@ -15,7 +15,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 10px 14px;
-  margin-top: 12px;
+  margin: 12px 0;
   background: var(--terra-soft);
   border-radius: 12px;
   animation: bestDayEntrance 0.3s ease-out;
@@ -36,9 +36,11 @@
 }
 
 .label {
-  font-family: var(--font-stack-accent);
-  font-style: italic;
-  font-size: 14px;
+  font-family: var(--font-stack-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: color-mix(in oklab, var(--terra) 70%, black);
   flex-shrink: 0;
 }
