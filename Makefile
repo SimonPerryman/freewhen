@@ -36,9 +36,12 @@ lint-pii:
 		exit 1; \
 	fi
 
-# Formatting
+# Formatting. Backend uses `golangci-lint fmt` which applies the formatters
+# enabled in `backend/.golangci.yml` (gofmt + goimports), so the local fix
+# matches what CI checks.
 fmt:
 	cd frontend && pnpm exec oxfmt --write src/
+	cd backend && golangci-lint fmt
 
 # Verify the tree is formatted without modifying it. Run as part of `make
 # lint` (and therefore CI) so unformatted code can't land on main.

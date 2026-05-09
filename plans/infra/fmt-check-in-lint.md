@@ -18,11 +18,16 @@ the diff.
 3. Add `fmt-check` to the `lint` fan-out. CI already runs `make lint`, so no
    workflow edit is required — gating happens automatically.
 
-Backend is already covered: `gofmt`-equivalent checks come via `golangci-lint`
-through `staticcheck`/`govet` and a `go fmt` diff would show up in PR review;
-not adding a separate `gofmt -l` gate unless drift becomes a problem.
+Mirror the same gate on the backend: enable `gofmt` and `goimports` as
+formatters in `backend/.golangci.yml`. `golangci-lint run` reports
+unformatted files as issues, so the existing `lint-backend` target picks
+this up automatically. Extend `make fmt` to call `golangci-lint fmt` so
+the local "fix it" command matches what CI checks.
 
 ## Log
 
-- 2026-05-10 — Created plan, committed 27-file oxfmt pass, wired `fmt-check`
-  into `make lint`. Verified locally.
+- 2026-05-10 — Created plan. Committed 27-file oxfmt pass + 16-file
+  gofmt/goimports pass to clear pre-existing drift. Wired `fmt-check`
+  into `make lint`, enabled `gofmt`/`goimports` formatters in
+  `backend/.golangci.yml`, extended `make fmt` to format the backend
+  via `golangci-lint fmt`. Verified locally.
