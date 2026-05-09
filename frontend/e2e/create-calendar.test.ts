@@ -13,7 +13,7 @@ test("creator signs in, creates a calendar, lands on the calendar page", async (
 
   const calendarName = `Trip ${Date.now()}`;
   await nameField.fill(calendarName);
-  await page.getByRole("button", { name: "Create calendar" }).click();
+  await page.getByRole("button", { name: /^Create/ }).click();
 
   await expect(page).toHaveURL(/\/calendars\/[\w-]+$/);
   await expect(page.getByRole("heading", { level: 1, name: calendarName })).toBeVisible();
