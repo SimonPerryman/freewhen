@@ -19,6 +19,36 @@ const INTENSITY_CLASS: Record<1 | 2 | 3, string> = {
 
 const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"] as const;
 
+const MONTH_ABBR = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+const FALLBACK_RANGE = "Apr 28 — May 4";
+
+function formatWeekRange(now: Date): string {
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  // Shift to Monday: getDay() returns 0=Sun..6=Sat; we want 0=Mon..6=Sun.
+  const dayFromMonday = (start.getDay() + 6) % 7;
+  start.setDate(start.getDate() - dayFromMonday);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  const startLabel = `${MONTH_ABBR[start.getMonth()]} ${start.getDate()}`;
+  const endLabel = `${MONTH_ABBR[end.getMonth()]} ${end.getDate()}`;
+  return `${startLabel} — ${endLabel}`;
+}
+
 const TICK_MS = 1800;
 const GRID_COLS = 7;
 const RECENT_HISTORY = 3;
@@ -63,13 +93,28 @@ function pickCellIndex(length: number, recent: ReadonlyArray<number>): number {
 
 export function HeroLiveGrid() {
   const [cells, setCells] = useState<ReadonlyArray<Intensity>>(PATTERN);
+  const [rangeLabel, setRangeLabel] = useState<string>(FALLBACK_RANGE);
   const recentRef = useRef<number[]>([]);
+
+  useEffect(() => {
+    setRangeLabel(formatWeekRange(new Date()));
+  }, []);
 
   useEffect(() => {
     const reducedMotion =
       typeof window !== "undefined" && typeof window.matchMedia === "function"
         ? window.matchMedia("(prefers-reduced-motion: reduce)")
         : null;
+
+    setCells((prev) => {
+      const copy = prev.slice() as Intensity[];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j]!, copy[i]!];
+      }
+      return copy;
+    });
+
     if (reducedMotion?.matches) return;
 
     let timer: ReturnType<typeof setInterval> | null = null;
@@ -118,7 +163,7 @@ export function HeroLiveGrid() {
   return (
     <div className={styles.card} aria-hidden="true">
       <div className={styles.head}>
-        <span className={styles.headRange}>Apr 28 — May 4</span>
+        <span className={styles.headRange}>{rangeLabel}</span>
       </div>
       <div className={styles.dow}>
         {DAY_LABELS.map((label, i) => (
