@@ -32,13 +32,26 @@ Both effects run only when the user isn't interacting, respect `prefers-reduced-
 ### 2. Animated `HeroLiveGrid`
 
 - Convert `HeroLiveGrid` to a client component (`"use client"`) and make `PATTERN` initial state instead of a const.
-- On an interval (default `1800ms`), pick a random cell index and step its intensity along a small cycle (`0 → 1 → 2 → 3 → 2 → 1 → 0`, or just random next-different intensity — pick whatever looks calmer in practice).
+- On an interval (default `1800ms`), pick a cell and step its intensity to a different value.
 - CSS: ensure `.cell` has a `transition: background-color 600ms ease` (check `HeroLiveGrid.module.css`) so the change fades rather than pops.
 - Pause the interval when:
   - `document.visibilityState !== "visible"`, OR
   - `prefers-reduced-motion: reduce` is set (in which case render the static pattern, no interval at all).
 - Keep `aria-hidden="true"` — purely decorative.
 - No prop API changes; the homepage import stays the same.
+
+#### Calmness rules (learned during first pass)
+
+The naive "pick a random cell, pick a random next intensity" version produced two visible problems on a real screen:
+
+1. **Empty cells (intensity 0) read as bright white in dark mode.** The `fillIn` keyframe's `to` value falls back to a paper-tinted color (`color-mix(... var(--paper) ...)`) when `--target` is unset, which inverts the intent in dark mode. Fix: give intensity-0 cells an explicit dark-mode-aware background that sits close to `var(--card-bg)`, and don't rely on the keyframe fallback.
+2. **Random cell picks visually clump** — the same corner can flicker three times in a row.
+
+Mitigations to bake in from the start:
+
+- **Weight `nextIntensity` toward heat.** Roughly: ~10% chance of 0, ~30% each of 1/2/3 (excluding the current value). Empty cells should be uncommon; the grid is meant to feel "filling in," not "blinking on/off."
+- **De-clump cell selection.** Track the last N changed cell indices (N≈3) and exclude those *and their immediate neighbours* (±1, ±7 for the 7-wide grid) from the next pick. Falls back to a fully random pick if the exclusion set leaves no candidates.
+- **Cadence:** keep `1800ms`. Slowing it further makes the page feel dead; the calmness comes from contrast + de-clumping, not from a slower tick.
 
 ### 3. Tests (`src/app/page.test.tsx` + new `HeroLiveGrid.test.tsx`)
 
@@ -68,3 +81,5 @@ Both effects run only when the user isn't interacting, respect `prefers-reduced-
 
 - 2026-05-09 — Created plan.
 - 2026-05-09 12:15 — Implemented typewriter placeholder hook (`useTypewriterPlaceholder`), animated `HeroLiveGrid` (random cell intensity tick every 1800ms), reduced-motion + tab-hidden + focus/typed pauses, and tests. Placeholder pauses while input is focused or non-empty.
+- 2026-05-09 — On a real dark-mode screen, intensity-0 cells read as bright white (keyframe fallback uses `--paper`) and random picks clumped. Added "Calmness rules" section above so a re-implementation would catch both up front.
+- 2026-05-09 — Run 2: implemented calmness rules. CSS now defines `--target` on the base `.cell` (light + dark) so the `fillIn` keyframe's `to` resolves correctly for empty cells in dark mode. Cell picks track the last 3 indices and exclude them plus their ±1/±7 neighbours; intensity choice is weighted (~10% empty, ~30% each of 1/2/3, excluding current).

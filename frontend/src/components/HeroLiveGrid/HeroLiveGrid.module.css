@@ -71,7 +71,8 @@
 .cell {
   height: 14px;
   border-radius: 3px;
-  background: color-mix(in oklab, var(--paper) 92%, var(--ink-2));
+  --target: color-mix(in oklab, var(--paper) 92%, var(--ink-2));
+  background: var(--target);
   animation: fillIn 1.4s ease both;
   animation-delay: calc(60ms * var(--i) + 200ms);
   transition: background-color 600ms ease;
@@ -86,7 +87,7 @@
 
 @media (prefers-color-scheme: dark) {
   .cell {
-    background: color-mix(in oklab, var(--card-bg) 80%, var(--text-secondary));
+    --target: color-mix(in oklab, var(--card-bg) 80%, var(--text-secondary));
   }
 }
 
