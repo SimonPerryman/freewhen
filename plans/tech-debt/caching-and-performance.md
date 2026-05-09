@@ -1,6 +1,6 @@
 # Caching and Performance
 
-Status: pending
+Status: parked
 
 ## Goal
 
@@ -55,3 +55,4 @@ When a trigger fires for one of the above:
 ## Log
 
 - 2026-05-04 21:23 — Created plan after architecture review. No work scheduled; this is a deferred-ideas register.
+- 2026-05-09 — Status changed to `parked`. No trigger has fired and none is expected at current scale; this is a register, not a pending task.

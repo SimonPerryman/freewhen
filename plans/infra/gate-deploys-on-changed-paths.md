@@ -1,7 +1,7 @@
 ---
 # Gate deploys on changed paths
 
-Status: in-progress
+Status: done
 
 ## Goal
 
@@ -30,3 +30,4 @@ churn on Cloud Run revisions, and a slower path to green.
 ## Log
 
 - 2026-05-03 — Created plan and wired up `dorny/paths-filter` in CI.
+- 2026-05-09 — Marked done. Path-filter gating has been in CI and skipping no-op deploys as expected.
