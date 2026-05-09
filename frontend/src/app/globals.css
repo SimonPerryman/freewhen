@@ -20,6 +20,8 @@
   --accent-hover: var(--terra-2);
   --accent-text: #fff;
   --accent-subtle: var(--terra-soft);
+  --note-accent: #2a5d8f;
+  --note-accent-subtle: #eaf2fa;
   --error: #c2185b;
 
   /* Dark palette (referenced by dark media query) */
@@ -69,6 +71,8 @@
     --accent-hover: #f0917e;
     --accent-text: var(--dk-bg);
     --accent-subtle: #3a2820;
+    --note-accent: #8fb8e0;
+    --note-accent-subtle: #1e2c3d;
     --error: #f06292;
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
     --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);

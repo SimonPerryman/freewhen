@@ -140,9 +140,7 @@ describe("SummaryView", () => {
       [everyoneFree, new Set(["a", "b", "c"])],
       [mostFree, new Set(["a", "b"])],
     ]);
-    const preferredByDate = new Map<string, Set<string>>([
-      [mostFree, new Set(["a"])],
-    ]);
+    const preferredByDate = new Map<string, Set<string>>([[mostFree, new Set(["a"])]]);
 
     render(
       <SummaryView
@@ -162,9 +160,7 @@ describe("SummaryView", () => {
     const participants = [makeParticipant("a"), makeParticipant("b"), makeParticipant("c")];
     const date = futureDateStr(1);
     const freeByDate = new Map([[date, new Set(["a", "b", "c"])]]);
-    const preferredByDate = new Map<string, Set<string>>([
-      [date, new Set(["a", "b"])],
-    ]);
+    const preferredByDate = new Map<string, Set<string>>([[date, new Set(["a", "b"])]]);
 
     render(
       <SummaryView
@@ -176,6 +172,57 @@ describe("SummaryView", () => {
 
     expect(
       screen.getByRole("button", { name: "2 people prefer this day. Show who." }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders a notes pill on rows with notes and not on rows without", () => {
+    const participants = [makeParticipant("a"), makeParticipant("b"), makeParticipant("c")];
+    const everyoneFree = futureDateStr(1);
+    const mostFree = futureDateStr(2);
+    const freeByDate = new Map([
+      [everyoneFree, new Set(["a", "b", "c"])],
+      [mostFree, new Set(["a", "b"])],
+    ]);
+    const notesByDateAndAuthor = new Map<string, Map<string, string>>([
+      [everyoneFree, new Map([["a", "after 6pm"]])],
+    ]);
+
+    render(
+      <SummaryView
+        participants={participants}
+        freeByDate={freeByDate}
+        notesByDateAndAuthor={notesByDateAndAuthor}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "1 note on this day. Show it." }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders both prefer and notes pills on the same row", () => {
+    const participants = [makeParticipant("a"), makeParticipant("b"), makeParticipant("c")];
+    const date = futureDateStr(1);
+    const freeByDate = new Map([[date, new Set(["a", "b", "c"])]]);
+    const preferredByDate = new Map<string, Set<string>>([[date, new Set(["a", "b"])]]);
+    const notesByDateAndAuthor = new Map<string, Map<string, string>>([
+      [date, new Map([["c", "anytime works"]])],
+    ]);
+
+    render(
+      <SummaryView
+        participants={participants}
+        freeByDate={freeByDate}
+        preferredByDate={preferredByDate}
+        notesByDateAndAuthor={notesByDateAndAuthor}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "2 people prefer this day. Show who." }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "1 note on this day. Show it." }),
     ).toBeInTheDocument();
   });
 
