@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Create CTA — variants</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;1,9..144,400&family=DM+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --cream: #faf9f7;
+        --ink: #1a1a1a;
+        --ink-2: #7a7168;
+        --terra: #e06449;
+        --terra-2: #c9553c;
+        --dk-bg: #141210;
+        --dk-bg-2: #1c1915;
+        --dk-paper: #2c2720;
+        --dk-border: #4a443d;
+        --dk-text: #edebe8;
+        --dk-text-2: #9e9688;
+        --dk-terra: #e8755e;
+        --dk-terra-hover: #f0917e;
+        --radius-md: 10px;
+        --radius-lg: 14px;
+        --font-body: "DM Sans", system-ui, sans-serif;
+        --font-display: "Fraunces", Georgia, serif;
+        --font-accent: "Instrument Serif", Georgia, serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: #0b0a09;
+        color: var(--dk-text);
+        font-family: var(--font-body);
+        padding: 32px 24px 80px;
+      }
+
+      .doc-header {
+        max-width: 960px;
+        margin: 0 auto 32px;
+      }
+      .doc-header h1 {
+        font-family: var(--font-display);
+        font-weight: 400;
+        font-size: 32px;
+        margin: 0 0 8px;
+      }
+      .doc-header p {
+        margin: 0;
+        color: var(--dk-text-2);
+        max-width: 60ch;
+        line-height: 1.5;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 32px;
+        max-width: 1280px;
+        margin: 32px auto 0;
+      }
+      @media (min-width: 980px) {
+        .grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      /* hero card — mirrors the real page composition */
+      .hero {
+        background: var(--dk-bg);
+        border: 1px solid var(--dk-border);
+        border-radius: 20px;
+        padding: 36px 32px 32px;
+        position: relative;
+        overflow: hidden;
+      }
+      .hero.light {
+        background: var(--cream);
+        color: var(--ink);
+      }
+      .hero.light .label,
+      .hero.light .sub {
+        color: var(--ink-2);
+      }
+      .hero.light .calendar {
+        background: rgba(0, 0, 0, 0.03);
+        border-color: rgba(0, 0, 0, 0.08);
+      }
+      .hero.light .calendar .week-label,
+      .hero.light .calendar .dow {
+        color: var(--ink-2);
+      }
+      .hero.light .input {
+        background: var(--cream);
+        color: var(--ink);
+        border-color: var(--terra);
+      }
+      .hero.light .input::placeholder {
+        color: var(--ink-2);
+      }
+
+      .variant-tag {
+        position: absolute;
+        top: 12px;
+        right: 14px;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--dk-text-2);
+        background: rgba(255, 255, 255, 0.04);
+        padding: 4px 10px;
+        border-radius: 999px;
+      }
+      .hero.light .variant-tag {
+        color: var(--ink-2);
+        background: rgba(0, 0, 0, 0.05);
+      }
+
+      .headline {
+        font-family: var(--font-display);
+        font-weight: 400;
+        font-size: clamp(36px, 5vw, 56px);
+        line-height: 1.02;
+        letter-spacing: -0.02em;
+        margin: 0 0 14px;
+      }
+      .headline em {
+        font-family: var(--font-accent);
+        font-style: italic;
+        color: var(--dk-terra);
+        font-weight: 400;
+      }
+      .hero.light .headline em {
+        color: var(--terra);
+      }
+
+      .sub {
+        margin: 0 0 22px;
+        color: var(--dk-text-2);
+        font-size: 15px;
+      }
+
+      /* mini calendar */
+      .calendar {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: var(--radius-lg);
+        padding: 16px 14px 14px;
+        margin-bottom: 22px;
+      }
+      .week-label {
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--dk-text-2);
+        margin-bottom: 10px;
+      }
+      .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 6px;
+      }
+      .dow {
+        font-size: 11px;
+        text-align: center;
+        color: var(--dk-text-2);
+        margin-bottom: 4px;
+      }
+      .brick {
+        height: 8px;
+        border-radius: 3px;
+        background: #5a3329;
+      }
+      .brick.hot {
+        background: var(--dk-terra);
+      }
+      .brick.dim {
+        background: #3a2520;
+      }
+      .brick.empty {
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      /* form */
+      .label {
+        display: block;
+        font-size: 13px;
+        color: var(--dk-text-2);
+        margin: 0 0 8px;
+      }
+      .cta {
+        display: flex;
+        gap: 12px;
+      }
+      .input {
+        flex: 1;
+        min-width: 0;
+        background: var(--dk-bg-2);
+        color: var(--dk-text);
+        border: 1px solid var(--terra);
+        border-radius: 12px;
+        padding: 14px 16px;
+        font-size: 15px;
+        font-family: inherit;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(224, 100, 73, 0.18);
+      }
+      .input::placeholder {
+        color: var(--dk-text-2);
+      }
+
+      .button {
+        flex: 0 0 auto;
+        min-width: 156px;
+        padding: 14px 20px;
+        font-size: 15px;
+        font-weight: 600;
+        font-family: inherit;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        transition:
+          background 0.15s ease,
+          transform 0.1s ease,
+          box-shadow 0.15s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+      .button:active {
+        transform: scale(0.98);
+      }
+
+      /* color variants */
+      .button.cream {
+        background: var(--dk-text);
+        color: var(--dk-bg);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+      }
+      .hero.light .button.cream {
+        background: var(--ink);
+        color: var(--cream);
+      }
+      .button.coral {
+        background: var(--dk-terra);
+        color: #1a0e0a;
+        box-shadow: 0 2px 12px rgba(232, 117, 94, 0.35);
+      }
+      .button.coral:hover {
+        background: var(--dk-terra-hover);
+      }
+      .hero.light .button.coral {
+        background: var(--terra);
+        color: #fff;
+        box-shadow: 0 2px 12px rgba(224, 100, 73, 0.3);
+      }
+      .hero.light .button.coral:hover {
+        background: var(--terra-2);
+      }
+      .button.outline {
+        background: transparent;
+        color: var(--dk-terra);
+        border: 1px solid var(--dk-terra);
+      }
+      .button.outline:hover {
+        background: rgba(232, 117, 94, 0.1);
+      }
+      .hero.light .button.outline {
+        color: var(--terra);
+        border-color: var(--terra);
+      }
+
+      .button .arrow {
+        font-size: 16px;
+        line-height: 1;
+        transition: transform 0.2s ease;
+      }
+      .button:hover .arrow {
+        transform: translateX(2px);
+      }
+      .button:hover .arrow.diag {
+        transform: translate(2px, -2px);
+      }
+
+      /* icon row chooser per hero */
+      .icon-row {
+        display: flex;
+        gap: 8px;
+        margin-top: 14px;
+        flex-wrap: wrap;
+      }
+      .icon-row .button {
+        min-width: 0;
+        padding: 10px 14px;
+        font-size: 13px;
+      }
+      .icon-row-label {
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--dk-text-2);
+        margin-top: 18px;
+        margin-bottom: 6px;
+      }
+      .hero.light .icon-row-label {
+        color: var(--ink-2);
+      }
+
+      .footnote {
+        max-width: 960px;
+        margin: 40px auto 0;
+        color: var(--dk-text-2);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .footnote code {
+        background: rgba(255, 255, 255, 0.06);
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="doc-header">
+      <h1>Create CTA — variants</h1>
+      <p>
+        Each hero below mirrors the real homepage composition (dark or light mode, headline, calendar
+        bricks, focused input) so the button reads in context. The primary button on each card is the
+        recommended pairing; the row underneath shows the same color with each icon option.
+      </p>
+    </header>
+
+    <div class="grid">
+      <!-- 1. CORAL — DARK -->
+      <section class="hero">
+        <span class="variant-tag">Coral · Dark</span>
+        <h2 class="headline">
+          Find when<br />everyone&rsquo;s <em>free.</em>
+        </h2>
+        <p class="sub">Drop a name, share a link, watch availability fill in.</p>
+
+        <div class="calendar">
+          <div class="week-label">MAY 4 — MAY 10</div>
+          <div class="calendar-grid">
+            <div class="dow">M</div><div class="dow">T</div><div class="dow">W</div>
+            <div class="dow">T</div><div class="dow">F</div><div class="dow">S</div>
+            <div class="dow">S</div>
+            <div class="brick hot"></div><div class="brick"></div><div class="brick hot"></div>
+            <div class="brick empty"></div><div class="brick"></div><div class="brick empty"></div>
+            <div class="brick hot"></div>
+            <div class="brick"></div><div class="brick hot"></div><div class="brick"></div>
+            <div class="brick hot"></div><div class="brick"></div><div class="brick"></div>
+            <div class="brick"></div>
+            <div class="brick"></div><div class="brick hot"></div><div class="brick"></div>
+            <div class="brick hot"></div><div class="brick hot"></div><div class="brick"></div>
+            <div class="brick"></div>
+          </div>
+        </div>
+
+        <label class="label" for="cta-coral-dark">Event name</label>
+        <div class="cta">
+          <input id="cta-coral-dark" class="input" placeholder="Weekend trip" />
+          <button class="button coral">Create</button>
+        </div>
+
+        <div class="icon-row-label">Icon options</div>
+        <div class="icon-row">
+          <button class="button coral">Create</button>
+          <button class="button coral">Create <span class="arrow diag">↗</span></button>
+          <button class="button coral">Create <span class="arrow">→</span></button>
+        </div>
+      </section>
+
+      <!-- 2. CORAL — LIGHT -->
+      <section class="hero light">
+        <span class="variant-tag">Coral · Light</span>
+        <h2 class="headline">
+          Find when<br />everyone&rsquo;s <em>free.</em>
+        </h2>
+        <p class="sub">Drop a name, share a link, watch availability fill in.</p>
+
+        <div class="calendar">
+          <div class="week-label">MAY 4 — MAY 10</div>
+          <div class="calendar-grid">
+            <div class="dow">M</div><div class="dow">T</div><div class="dow">W</div>
+            <div class="dow">T</div><div class="dow">F</div><div class="dow">S</div>
+            <div class="dow">S</div>
+            <div class="brick hot"></div><div class="brick"></div><div class="brick hot"></div>
+            <div class="brick empty"></div><div class="brick"></div><div class="brick empty"></div>
+            <div class="brick hot"></div>
+            <div class="brick"></div><div class="brick hot"></div><div class="brick"></div>
+            <div class="brick hot"></div><div class="brick"></div><div class="brick"></div>
+            <div class="brick"></div>
+            <div class="brick"></div><div class="brick hot"></div><div class="brick"></div>
+            <div class="brick hot"></div><div class="brick hot"></div><div class="brick"></div>
+            <div class="brick"></div>
+          </div>
+        </div>
+
+        <label class="label" for="cta-coral-light">Event name</label>
+        <div class="cta">
+          <input id="cta-coral-light" class="input" placeholder="Weekend trip" />
+          <button class="button coral">Create</button>
+        </div>
+
+        <div class="icon-row-label">Icon options</div>
+        <div class="icon-row">
+          <button class="button coral">Create</button>
+          <button class="button coral">Create <span class="arrow diag">↗</span></button>
+          <button class="button coral">Create <span class="arrow">→</span></button>
+        </div>
+      </section>
+
+      <!-- 3. OUTLINE — DARK -->
+      <section class="hero">
+        <span class="variant-tag">Outline (coral) · Dark</span>
+        <h2 class="headline">
+          Find when<br />everyone&rsquo;s <em>free.</em>
+        </h2>
+        <p class="sub">Drop a name, share a link, watch availability fill in.</p>
+
+        <div class="calendar">
+          <div class="week-label">MAY 4 — MAY 10</div>
+          <div class="calendar-grid">
+            <div class="dow">M</div><div class="dow">T</div><div class="dow">W</div>
+            <div class="dow">T</div><div class="dow">F</div><div class="dow">S</div>
+            <div class="dow">S</div>
+            <div class="brick hot"></div><div class="brick"></div><div class="brick hot"></div>
+            <div class="brick empty"></div><div class="brick"></div><div class="brick empty"></div>
+            <div class="brick hot"></div>
+            <div class="brick"></div><div class="brick hot"></div><div class="brick"></div>
+            <div class="brick hot"></div><div class="brick"></div><div class="brick"></div>
+            <div class="brick"></div>
+            <div class="brick"></div><div class="brick hot"></div><div class="brick"></div>
+            <div class="brick hot"></div><div class="brick hot"></div><div class="brick"></div>
+            <div class="brick"></div>
+          </div>
+        </div>
+
+        <label class="label" for="cta-outline-dark">Event name</label>
+        <div class="cta">
+          <input id="cta-outline-dark" class="input" placeholder="Weekend trip" />
+          <button class="button outline">Create</button>
+        </div>
+
+        <div class="icon-row-label">Icon options</div>
+        <div class="icon-row">
+          <button class="button outline">Create</button>
+          <button class="button outline">Create <span class="arrow diag">↗</span></button>
+          <button class="button outline">Create <span class="arrow">→</span></button>
+        </div>
+      </section>
+
+      <!-- 4. CREAM (current) — DARK -->
+      <section class="hero">
+        <span class="variant-tag">Cream (current) · Dark</span>
+        <h2 class="headline">
+          Find when<br />everyone&rsquo;s <em>free.</em>
+        </h2>
+        <p class="sub">Drop a name, share a link, watch availability fill in.</p>
+
+        <div class="calendar">
+          <div class="week-label">MAY 4 — MAY 10</div>
+          <div class="calendar-grid">
+            <div class="dow">M</div><div class="dow">T</div><div class="dow">W</div>
+            <div class="dow">T</div><div class="dow">F</div><div class="dow">S</div>
+            <div class="dow">S</div>
+            <div class="brick hot"></div><div class="brick"></div><div class="brick hot"></div>
+            <div class="brick empty"></div><div class="brick"></div><div class="brick empty"></div>
+            <div class="brick hot"></div>
+            <div class="brick"></div><div class="brick hot"></div><div class="brick"></div>
+            <div class="brick hot"></div><div class="brick"></div><div class="brick"></div>
+            <div class="brick"></div>
+            <div class="brick"></div><div class="brick hot"></div><div class="brick"></div>
+            <div class="brick hot"></div><div class="brick hot"></div><div class="brick"></div>
+            <div class="brick"></div>
+          </div>
+        </div>
+
+        <label class="label" for="cta-cream-dark">Event name</label>
+        <div class="cta">
+          <input id="cta-cream-dark" class="input" placeholder="Weekend trip" />
+          <button class="button cream">Create <span class="arrow">→</span></button>
+        </div>
+
+        <div class="icon-row-label">Icon options</div>
+        <div class="icon-row">
+          <button class="button cream">Create</button>
+          <button class="button cream">Create <span class="arrow diag">↗</span></button>
+          <button class="button cream">Create <span class="arrow">→</span></button>
+        </div>
+      </section>
+    </div>
+
+    <p class="footnote">
+      Tokens map to the real <code>globals.css</code>: coral = <code>--terra</code> (light) /
+      <code>--dk-terra</code> (dark); cream = <code>--dk-text</code> on dark, <code>--ink</code> on
+      light. Hover state on coral lifts to <code>--terra-2</code> / <code>#f0917e</code>. Open this file
+      directly in a browser to compare.
+    </p>
+  </body>
+</html>

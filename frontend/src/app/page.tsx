@@ -80,7 +80,7 @@ export default function Home() {
     }
   }
 
-  const buttonLabel = submitting ? "Creating…" : user ? "Create →" : "Sign in to create →";
+  const buttonLabel = submitting ? "Creating…" : "Create";
 
   return (
     <div className={styles.page}>

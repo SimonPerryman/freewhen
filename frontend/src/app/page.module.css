@@ -101,8 +101,8 @@
   font-size: 15px;
   font-weight: 600;
   font-family: var(--font-stack-body);
-  color: var(--cream);
-  background: var(--ink);
+  color: var(--accent-text);
+  background: var(--accent);
   border: none;
   border-radius: 12px;
   cursor: pointer;
@@ -114,14 +114,8 @@
   white-space: nowrap;
 }
 
-@media (prefers-color-scheme: dark) {
-  .button {
-    background: var(--dk-text);
-    color: var(--dk-bg);
-  }
-}
-
 .button:hover:not(:disabled) {
+  background: var(--accent-hover);
   box-shadow: var(--shadow-md);
 }
 
