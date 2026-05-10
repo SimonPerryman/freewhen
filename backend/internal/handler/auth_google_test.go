@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -9,17 +10,16 @@ import (
 	"net/url"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/freewhen/backend/internal/availability"
+	"github.com/freewhen/backend/internal/idprovider"
 	"github.com/freewhen/backend/internal/model"
 
 	"golang.org/x/oauth2"
 )
 
 // fakeGoogle is a shared httptest.Server stand-in for Google's OAuth +
-// userinfo + freebusy endpoints. Each test wires the relevant handlers and
-// drives Connect / Callback / GoogleCallback through it.
+// userinfo endpoints. Each test wires the relevant handlers and drives
+// OAuthLogin / OAuthCallback through it.
 type fakeGoogle struct {
 	server *httptest.Server
 	mux    *http.ServeMux
@@ -27,18 +27,15 @@ type fakeGoogle struct {
 	// Configurable per-test response handlers.
 	tokenHandler    http.HandlerFunc
 	userInfoHandler http.HandlerFunc
-	freeBusyHandler http.HandlerFunc
 
-	// Captured authorization headers from the userinfo / freebusy endpoints,
-	// so tests can assert the bearer token was forwarded.
+	// Captured Authorization header from the userinfo endpoint so tests can
+	// assert the bearer token was forwarded.
 	lastUserInfoAuth string
-	lastFreeBusyAuth string
 }
 
 func newFakeGoogle(t *testing.T) *fakeGoogle {
 	t.Helper()
 	g := &fakeGoogle{mux: http.NewServeMux()}
-	// Auth URL — handler redirects users here, the test never actually hits it.
 	g.mux.HandleFunc("/o/oauth2/v2/auth", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
@@ -59,15 +56,6 @@ func newFakeGoogle(t *testing.T) *fakeGoogle {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"sub":"google-123","email":"new@example.com","name":"New User"}`))
 	})
-	g.mux.HandleFunc("/calendar/v3/freebusy", func(w http.ResponseWriter, r *http.Request) {
-		g.lastFreeBusyAuth = r.Header.Get("Authorization")
-		if g.freeBusyHandler != nil {
-			g.freeBusyHandler(w, r)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{}`))
-	})
 	g.server = httptest.NewServer(g.mux)
 	t.Cleanup(g.server.Close)
 	return g
@@ -86,38 +74,51 @@ func (g *fakeGoogle) userInfoURL() string {
 
 func newGoogleTestAuthHandler(t *testing.T, st AuthStore, fg *fakeGoogle) *AuthHandler {
 	t.Helper()
-	h := &AuthHandler{
-		store: st,
-		oauth: &oauth2.Config{
-			ClientID:     "test-client",
-			ClientSecret: "test-secret",
-			RedirectURL:  "https://app.test/auth/google/callback",
-			Scopes:       []string{"openid", "email", "profile"},
-			Endpoint:     fg.endpoint(),
-		},
-		userInfoURL:  fg.userInfoURL(),
+	googleProvider := idprovider.NewGoogle(
+		"test-client", "test-secret", "https://app.test/auth/google/callback",
+		idprovider.WithGoogleOAuthEndpoint(fg.endpoint()),
+		idprovider.WithGoogleUserInfoURL(fg.userInfoURL()),
+	)
+	return &AuthHandler{
+		store:        st,
+		idProviders:  idprovider.NewRegistry(googleProvider),
 		frontendURL:  "https://app.test",
 		secureCookie: false,
 		logger:       slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
-	return h
 }
 
-// Avoid unused-import warnings for availability/time/json/model in trimmed test sets.
+// requestWithProvider returns a request whose ServeMux path-value for
+// "provider" is set, mimicking how routing fills the param in production.
+func requestWithProvider(method, target, provider string) *http.Request {
+	req := httptest.NewRequest(method, target, nil)
+	req.SetPathValue("provider", provider)
+	return req
+}
+
+// emptyAuthHandler is the no-provider equivalent used for "not configured"
+// checks. It still has a non-nil registry so the path-param lookup runs.
+func emptyAuthHandler() *AuthHandler {
+	return &AuthHandler{
+		idProviders: idprovider.NewRegistry(),
+		logger:      slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+}
+
+// Avoid unused-import warnings for json/model in trimmed test sets.
 var (
-	_ = availability.TimeRange{}
-	_ = time.Now
 	_ = json.Marshal
 	_ = model.User{}
+	_ = context.Background
 )
 
-func TestGoogleLogin_Redirects(t *testing.T) {
+func TestOAuthLogin_Redirects(t *testing.T) {
 	fg := newFakeGoogle(t)
 	h := newGoogleTestAuthHandler(t, newFakeAuthStore(), fg)
 
-	req := httptest.NewRequest(http.MethodGet, "/auth/google?return_url=/calendars/abc", nil)
+	req := requestWithProvider(http.MethodGet, "/auth/google?return_url=/calendars/abc", "google")
 	rec := httptest.NewRecorder()
-	h.GoogleLogin(rec, req)
+	h.OAuthLogin(rec, req)
 
 	if rec.Code != http.StatusTemporaryRedirect {
 		t.Fatalf("status: %d", rec.Code)
@@ -141,7 +142,7 @@ func TestGoogleLogin_Redirects(t *testing.T) {
 	if s.ReturnURL != "/calendars/abc" {
 		t.Fatalf("return_url: %q", s.ReturnURL)
 	}
-	// Nonce cookie set.
+	// Nonce cookie set and scoped to the provider callback path.
 	var nonce *http.Cookie
 	for _, c := range rec.Result().Cookies() {
 		if c.Name == "oauth_nonce" {
@@ -151,15 +152,18 @@ func TestGoogleLogin_Redirects(t *testing.T) {
 	if nonce == nil || nonce.Value != s.Nonce {
 		t.Fatalf("nonce cookie missing or mismatched")
 	}
+	if nonce.Path != "/auth/google/callback" {
+		t.Errorf("nonce cookie path = %q, want /auth/google/callback", nonce.Path)
+	}
 }
 
-func TestGoogleLogin_AbsoluteReturnURL_FallsBack(t *testing.T) {
+func TestOAuthLogin_AbsoluteReturnURL_FallsBack(t *testing.T) {
 	fg := newFakeGoogle(t)
 	h := newGoogleTestAuthHandler(t, newFakeAuthStore(), fg)
 
-	req := httptest.NewRequest(http.MethodGet, "/auth/google?return_url=https://evil/x", nil)
+	req := requestWithProvider(http.MethodGet, "/auth/google?return_url=https://evil/x", "google")
 	rec := httptest.NewRecorder()
-	h.GoogleLogin(rec, req)
+	h.OAuthLogin(rec, req)
 
 	loc := rec.Header().Get("Location")
 	parsed, _ := url.Parse(loc)
@@ -170,23 +174,37 @@ func TestGoogleLogin_AbsoluteReturnURL_FallsBack(t *testing.T) {
 	}
 }
 
-func TestGoogleLogin_NotConfigured(t *testing.T) {
-	h := &AuthHandler{logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
-	req := httptest.NewRequest(http.MethodGet, "/auth/google", nil)
+func TestOAuthLogin_UnknownProvider(t *testing.T) {
+	h := emptyAuthHandler()
+	req := requestWithProvider(http.MethodGet, "/auth/nope", "nope")
 	rec := httptest.NewRecorder()
-	h.GoogleLogin(rec, req)
+	h.OAuthLogin(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status: %d", rec.Code)
+	}
+}
+
+func TestOAuthLogin_ProviderUnconfigured(t *testing.T) {
+	// Provider exists in the registry but has no OAuth credentials.
+	h := &AuthHandler{
+		idProviders: idprovider.NewRegistry(idprovider.NewGoogle("", "", "")),
+		logger:      slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	req := requestWithProvider(http.MethodGet, "/auth/google", "google")
+	rec := httptest.NewRecorder()
+	h.OAuthLogin(rec, req)
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status: %d", rec.Code)
 	}
 }
 
-// driveLoginThenCallback runs GoogleLogin, captures the state + nonce cookie,
+// driveLoginThenCallback runs OAuthLogin, captures the state + nonce cookie,
 // then issues a callback request with those values plus the supplied code.
 func driveLoginThenCallback(t *testing.T, h *AuthHandler, code string) *httptest.ResponseRecorder {
 	t.Helper()
-	loginReq := httptest.NewRequest(http.MethodGet, "/auth/google?return_url=/dashboard", nil)
+	loginReq := requestWithProvider(http.MethodGet, "/auth/google?return_url=/dashboard", "google")
 	loginRec := httptest.NewRecorder()
-	h.GoogleLogin(loginRec, loginReq)
+	h.OAuthLogin(loginRec, loginReq)
 	loc, _ := url.Parse(loginRec.Header().Get("Location"))
 	state := loc.Query().Get("state")
 
@@ -200,15 +218,15 @@ func driveLoginThenCallback(t *testing.T, h *AuthHandler, code string) *httptest
 		t.Fatal("no nonce cookie")
 	}
 
-	cbReq := httptest.NewRequest(http.MethodGet,
-		"/auth/google/callback?code="+code+"&state="+url.QueryEscape(state), nil)
+	cbReq := requestWithProvider(http.MethodGet,
+		"/auth/google/callback?code="+code+"&state="+url.QueryEscape(state), "google")
 	cbReq.AddCookie(nonce)
 	cbRec := httptest.NewRecorder()
-	h.GoogleCallback(cbRec, cbReq)
+	h.OAuthCallback(cbRec, cbReq)
 	return cbRec
 }
 
-func TestGoogleCallback_HappyPath_NewUser(t *testing.T) {
+func TestOAuthCallback_HappyPath_NewUser(t *testing.T) {
 	fg := newFakeGoogle(t)
 	st := newFakeAuthStore()
 	h := newGoogleTestAuthHandler(t, st, fg)
@@ -237,7 +255,7 @@ func TestGoogleCallback_HappyPath_NewUser(t *testing.T) {
 	}
 }
 
-func TestGoogleCallback_ReturningUser_NoDuplicate(t *testing.T) {
+func TestOAuthCallback_ReturningUser_NoDuplicate(t *testing.T) {
 	fg := newFakeGoogle(t)
 	st := newFakeAuthStore()
 	existing := model.User{ID: "u_old", Email: "old@example.com", Provider: "google", ProviderID: "google-123"}
@@ -260,7 +278,7 @@ func TestGoogleCallback_ReturningUser_NoDuplicate(t *testing.T) {
 	}
 }
 
-func TestGoogleCallback_EmailCollision_LinksByEmail(t *testing.T) {
+func TestOAuthCallback_EmailCollision_LinksByEmail(t *testing.T) {
 	fg := newFakeGoogle(t)
 	st := newFakeAuthStore()
 	// User signed up via magic link first — same email, no provider id.
@@ -286,46 +304,46 @@ func TestGoogleCallback_EmailCollision_LinksByEmail(t *testing.T) {
 	}
 }
 
-func TestGoogleCallback_BadStateJSON(t *testing.T) {
+func TestOAuthCallback_BadStateJSON(t *testing.T) {
 	fg := newFakeGoogle(t)
 	h := newGoogleTestAuthHandler(t, newFakeAuthStore(), fg)
-	req := httptest.NewRequest(http.MethodGet, "/auth/google/callback?code=x&state=not-json", nil)
+	req := requestWithProvider(http.MethodGet, "/auth/google/callback?code=x&state=not-json", "google")
 	rec := httptest.NewRecorder()
-	h.GoogleCallback(rec, req)
+	h.OAuthCallback(rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status: %d", rec.Code)
 	}
 }
 
-func TestGoogleCallback_NonceMismatch(t *testing.T) {
+func TestOAuthCallback_NonceMismatch(t *testing.T) {
 	fg := newFakeGoogle(t)
 	h := newGoogleTestAuthHandler(t, newFakeAuthStore(), fg)
 	state, _ := json.Marshal(oauthState{Nonce: "expected", ReturnURL: "/"})
-	req := httptest.NewRequest(http.MethodGet,
-		"/auth/google/callback?code=x&state="+url.QueryEscape(string(state)), nil)
+	req := requestWithProvider(http.MethodGet,
+		"/auth/google/callback?code=x&state="+url.QueryEscape(string(state)), "google")
 	req.AddCookie(&http.Cookie{Name: "oauth_nonce", Value: "different"})
 	rec := httptest.NewRecorder()
-	h.GoogleCallback(rec, req)
+	h.OAuthCallback(rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status: %d", rec.Code)
 	}
 }
 
-func TestGoogleCallback_MissingCode(t *testing.T) {
+func TestOAuthCallback_MissingCode(t *testing.T) {
 	fg := newFakeGoogle(t)
 	h := newGoogleTestAuthHandler(t, newFakeAuthStore(), fg)
 	state, _ := json.Marshal(oauthState{Nonce: "n", ReturnURL: "/"})
-	req := httptest.NewRequest(http.MethodGet,
-		"/auth/google/callback?state="+url.QueryEscape(string(state)), nil)
+	req := requestWithProvider(http.MethodGet,
+		"/auth/google/callback?state="+url.QueryEscape(string(state)), "google")
 	req.AddCookie(&http.Cookie{Name: "oauth_nonce", Value: "n"})
 	rec := httptest.NewRecorder()
-	h.GoogleCallback(rec, req)
+	h.OAuthCallback(rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status: %d", rec.Code)
 	}
 }
 
-func TestGoogleCallback_TokenExchangeFails(t *testing.T) {
+func TestOAuthCallback_TokenExchangeFails(t *testing.T) {
 	fg := newFakeGoogle(t)
 	fg.tokenHandler = func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "boom", http.StatusInternalServerError)
@@ -335,7 +353,6 @@ func TestGoogleCallback_TokenExchangeFails(t *testing.T) {
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status: %d", rec.Code)
 	}
-	// No session leaked.
 	for _, c := range rec.Result().Cookies() {
 		if c.Name == "session" {
 			t.Fatal("session cookie set despite exchange failure")
@@ -343,22 +360,27 @@ func TestGoogleCallback_TokenExchangeFails(t *testing.T) {
 	}
 }
 
-func TestGoogleCallback_UserInfoFails(t *testing.T) {
+func TestOAuthCallback_UserInfoFails(t *testing.T) {
 	fg := newFakeGoogle(t)
 	fg.userInfoHandler = func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "boom", http.StatusInternalServerError)
 	}
 	h := newGoogleTestAuthHandler(t, newFakeAuthStore(), fg)
 	rec := driveLoginThenCallback(t, h, "abc")
-	// userinfo non-2xx still decodes into zero values, so the handler proceeds
-	// to user creation. That is current behaviour — locked in here so a future
-	// strictening shows up as a test change rather than a silent regression.
-	if rec.Code != http.StatusTemporaryRedirect && rec.Code != http.StatusInternalServerError {
-		t.Fatalf("unexpected status: %d", rec.Code)
+	// Identify now returns an error on non-2xx userinfo responses, so the
+	// callback short-circuits with 500. (Previously the handler silently
+	// decoded zero values and proceeded — the seam lets us tighten this.)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status: %d", rec.Code)
+	}
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == "session" {
+			t.Fatal("session cookie set despite userinfo failure")
+		}
 	}
 }
 
-func TestGoogleCallback_UserInfoMalformedJSON(t *testing.T) {
+func TestOAuthCallback_UserInfoMalformedJSON(t *testing.T) {
 	fg := newFakeGoogle(t)
 	fg.userInfoHandler = func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -371,12 +393,12 @@ func TestGoogleCallback_UserInfoMalformedJSON(t *testing.T) {
 	}
 }
 
-func TestGoogleCallback_NotConfigured(t *testing.T) {
-	h := &AuthHandler{logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
-	req := httptest.NewRequest(http.MethodGet, "/auth/google/callback", nil)
+func TestOAuthCallback_UnknownProvider(t *testing.T) {
+	h := emptyAuthHandler()
+	req := requestWithProvider(http.MethodGet, "/auth/nope/callback", "nope")
 	rec := httptest.NewRecorder()
-	h.GoogleCallback(rec, req)
-	if rec.Code != http.StatusServiceUnavailable {
+	h.OAuthCallback(rec, req)
+	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status: %d", rec.Code)
 	}
 }

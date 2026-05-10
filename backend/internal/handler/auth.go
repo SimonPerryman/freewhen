@@ -12,12 +12,10 @@ import (
 	"strings"
 
 	"github.com/freewhen/backend/internal/config"
+	"github.com/freewhen/backend/internal/idprovider"
 	"github.com/freewhen/backend/internal/limits"
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/store"
-
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 )
 
 // AuthStore defines the data operations the auth handler needs.
@@ -44,8 +42,7 @@ type EmailSender interface {
 type AuthHandler struct {
 	store             AuthStore
 	email             EmailSender
-	oauth             *oauth2.Config
-	userInfoURL       string // overridable for tests
+	idProviders       *idprovider.Registry
 	frontendURL       string
 	cookieDomain      string
 	secureCookie      bool
@@ -54,50 +51,20 @@ type AuthHandler struct {
 	trustedProxyDepth int
 }
 
-const defaultGoogleUserInfoURL = "https://www.googleapis.com/oauth2/v3/userinfo"
-
 // maxConcurrentSessionsPerUser caps active sessions per user (auth audit F11).
 // Bounds attacker accumulation of parallel sessions within the F2 absolute
 // expiry window, while staying loose enough that a real user on phone +
 // laptop + work laptop + tablet doesn't get bumped on a fresh login.
 const maxConcurrentSessionsPerUser = 10
 
-// AuthOption configures optional AuthHandler fields. Production callers pass
-// none — these exist so tests can point the OAuth/userinfo URLs at an
-// httptest.Server without also faking out the network.
-type AuthOption func(*AuthHandler)
-
-// WithOAuthEndpoint overrides the OAuth token/auth endpoint (default: google.Endpoint).
-func WithOAuthEndpoint(ep oauth2.Endpoint) AuthOption {
-	return func(h *AuthHandler) {
-		if h.oauth != nil {
-			h.oauth.Endpoint = ep
-		}
+func NewAuth(s AuthStore, emailSender EmailSender, idProviders *idprovider.Registry, cfg *config.Config, logger *slog.Logger) *AuthHandler {
+	if idProviders == nil {
+		idProviders = idprovider.NewRegistry()
 	}
-}
-
-// WithUserInfoURL overrides the userinfo URL (default: Google's v3 userinfo).
-func WithUserInfoURL(u string) AuthOption {
-	return func(h *AuthHandler) { h.userInfoURL = u }
-}
-
-func NewAuth(s AuthStore, emailSender EmailSender, cfg *config.Config, logger *slog.Logger, opts ...AuthOption) *AuthHandler {
-	var oauthCfg *oauth2.Config
-	if cfg.GoogleClientID != "" {
-		oauthCfg = &oauth2.Config{
-			ClientID:     cfg.GoogleClientID,
-			ClientSecret: cfg.GoogleClientSecret,
-			RedirectURL:  cfg.GoogleRedirectURL,
-			Scopes:       []string{"openid", "email", "profile"},
-			Endpoint:     google.Endpoint,
-		}
-	}
-
-	h := &AuthHandler{
+	return &AuthHandler{
 		store:             s,
 		email:             emailSender,
-		oauth:             oauthCfg,
-		userInfoURL:       defaultGoogleUserInfoURL,
+		idProviders:       idProviders,
 		frontendURL:       cfg.FrontendURL,
 		cookieDomain:      cfg.CookieDomain,
 		secureCookie:      cfg.SecureCookies,
@@ -105,10 +72,6 @@ func NewAuth(s AuthStore, emailSender EmailSender, cfg *config.Config, logger *s
 		magicLimiter:      newMagicLinkLimiter(),
 		trustedProxyDepth: cfg.TrustedProxyDepth,
 	}
-	for _, opt := range opts {
-		opt(h)
-	}
-	return h
 }
 
 // oauthState is encoded as JSON in the OAuth state parameter.
@@ -117,10 +80,38 @@ type oauthState struct {
 	ReturnURL string `json:"return_url,omitempty"`
 }
 
-// GoogleLogin redirects to the Google OAuth consent screen.
-func (h *AuthHandler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
-	if h.oauth == nil {
-		respondError(w, http.StatusServiceUnavailable, "service_unavailable", "Google OAuth not configured")
+// providerFromRequest resolves the `{provider}` path param against the
+// registry. Returns nil after writing a response if the provider is unknown
+// or unconfigured.
+func (h *AuthHandler) providerFromRequest(w http.ResponseWriter, r *http.Request) idprovider.Provider {
+	name := r.PathValue("provider")
+	if name == "" {
+		respondError(w, http.StatusNotFound, "not_found", "unknown identity provider")
+		return nil
+	}
+	p, ok := h.idProviders.Get(name)
+	if !ok {
+		respondError(w, http.StatusNotFound, "not_found", "unknown identity provider")
+		return nil
+	}
+	if p.OAuthConfig() == nil {
+		respondError(w, http.StatusServiceUnavailable, "service_unavailable", "identity provider not configured")
+		return nil
+	}
+	return p
+}
+
+// oauthNonceCookiePath scopes the OAuth nonce cookie to the per-provider
+// callback path so different providers' callbacks can't see each other's
+// nonces.
+func oauthNonceCookiePath(providerName string) string {
+	return "/auth/" + providerName + "/callback"
+}
+
+// OAuthLogin redirects to the selected provider's OAuth consent screen.
+func (h *AuthHandler) OAuthLogin(w http.ResponseWriter, r *http.Request) {
+	provider := h.providerFromRequest(w, r)
+	if provider == nil {
 		return
 	}
 
@@ -140,7 +131,7 @@ func (h *AuthHandler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "oauth_nonce",
 		Value:    nonce,
-		Path:     "/auth/google/callback",
+		Path:     oauthNonceCookiePath(provider.Name()),
 		MaxAge:   600, // 10 minutes
 		HttpOnly: true,
 		Secure:   h.secureCookie,
@@ -148,21 +139,14 @@ func (h *AuthHandler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 		Domain:   h.cookieDomain,
 	})
 
-	url := h.oauth.AuthCodeURL(string(state))
+	url := provider.OAuthConfig().AuthCodeURL(string(state))
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
-// googleUserInfo is the response from Google's userinfo endpoint.
-type googleUserInfo struct {
-	Sub   string `json:"sub"`
-	Email string `json:"email"`
-	Name  string `json:"name"`
-}
-
-// GoogleCallback handles the Google OAuth callback.
-func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
-	if h.oauth == nil {
-		respondError(w, http.StatusServiceUnavailable, "service_unavailable", "Google OAuth not configured")
+// OAuthCallback handles the OAuth callback for any registered provider.
+func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
+	provider := h.providerFromRequest(w, r)
+	if provider == nil {
 		return
 	}
 
@@ -183,7 +167,7 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "oauth_nonce",
 		Value:    "",
-		Path:     "/auth/google/callback",
+		Path:     oauthNonceCookiePath(provider.Name()),
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   h.secureCookie,
@@ -198,30 +182,21 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.oauth.Exchange(r.Context(), code)
+	token, err := provider.OAuthConfig().Exchange(r.Context(), code)
 	if err != nil {
 		respondInternalError(r, w, err, "internal_error", "authentication failed")
 		return
 	}
 
-	// Fetch user info from Google
-	client := h.oauth.Client(r.Context(), token)
-	resp, err := client.Get(h.userInfoURL)
+	identity, err := provider.Identify(r.Context(), token)
 	if err != nil {
 		respondInternalError(r, w, err, "internal_error", "authentication failed")
 		return
 	}
-	defer func() { _ = resp.Body.Close() }()
-
-	var info googleUserInfo
-	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
-		respondInternalError(r, w, err, "internal_error", "authentication failed")
-		return
-	}
-	info.Email = normalizeEmail(info.Email)
+	identity.Email = normalizeEmail(identity.Email)
 
 	// Create or find user
-	user, err := h.findOrCreateUser(r.Context(), info)
+	user, err := h.findOrCreateUser(r.Context(), provider.Name(), identity)
 	if err != nil {
 		respondInternalError(r, w, err, "internal_error", "authentication failed")
 		return
@@ -235,7 +210,7 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.store.PruneSessionsForUser(r.Context(), user.ID, maxConcurrentSessionsPerUser); err != nil {
-		h.logger.Error("failed to prune sessions on google login", "error", err)
+		h.logger.Error("failed to prune sessions on oauth login", "error", err)
 	}
 
 	h.setSessionCookie(w, sessionToken)
@@ -507,9 +482,9 @@ func (h *AuthHandler) findOrCreateEmailUser(ctx context.Context, emailAddr strin
 	return h.store.CreateUser(ctx, emailAddr, "", "email", "")
 }
 
-func (h *AuthHandler) findOrCreateUser(ctx context.Context, info googleUserInfo) (model.User, error) {
+func (h *AuthHandler) findOrCreateUser(ctx context.Context, providerName string, id idprovider.Identity) (model.User, error) {
 	// Try to find by provider ID first
-	user, err := h.store.FindUserByProviderID(ctx, "google", info.Sub)
+	user, err := h.store.FindUserByProviderID(ctx, providerName, id.Sub)
 	if err == nil {
 		return user, nil
 	}
@@ -518,7 +493,7 @@ func (h *AuthHandler) findOrCreateUser(ctx context.Context, info googleUserInfo)
 	}
 
 	// Try to find by email (user may have signed up via magic link previously)
-	user, err = h.store.FindUserByEmail(ctx, info.Email)
+	user, err = h.store.FindUserByEmail(ctx, id.Email)
 	if err == nil {
 		return user, nil
 	}
@@ -527,7 +502,7 @@ func (h *AuthHandler) findOrCreateUser(ctx context.Context, info googleUserInfo)
 	}
 
 	// Create new user
-	return h.store.CreateUser(ctx, info.Email, info.Name, "google", info.Sub)
+	return h.store.CreateUser(ctx, id.Email, id.Name, providerName, id.Sub)
 }
 
 func (h *AuthHandler) setSessionCookie(w http.ResponseWriter, token string) {

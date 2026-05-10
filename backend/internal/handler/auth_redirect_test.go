@@ -61,13 +61,13 @@ func TestIsRelativePath(t *testing.T) {
 	}
 }
 
-// TestGoogleCallback_RedirectLocationStaysOnFrontend pins the integration-
+// TestOAuthCallback_RedirectLocationStaysOnFrontend pins the integration-
 // shape invariant: regardless of what the attacker stuffs into state.ReturnURL,
 // the final Location header always starts with `frontendURL + "/"`. This is
-// belt-and-braces over isRelativePath — if someone refactors GoogleCallback
+// belt-and-braces over isRelativePath — if someone refactors OAuthCallback
 // and accidentally drops the `isRelativePath` guard, this test catches it
 // because the Location prefix would no longer hold for malicious inputs.
-func TestGoogleCallback_RedirectLocationStaysOnFrontend(t *testing.T) {
+func TestOAuthCallback_RedirectLocationStaysOnFrontend(t *testing.T) {
 	const frontend = "https://app.test"
 
 	inputs := []string{
@@ -96,11 +96,11 @@ func TestGoogleCallback_RedirectLocationStaysOnFrontend(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			req := httptest.NewRequest(http.MethodGet,
-				"/auth/google/callback?code=abc&state="+url.QueryEscape(string(state)), nil)
+			req := requestWithProvider(http.MethodGet,
+				"/auth/google/callback?code=abc&state="+url.QueryEscape(string(state)), "google")
 			req.AddCookie(&http.Cookie{Name: "oauth_nonce", Value: "n"})
 			rec := httptest.NewRecorder()
-			h.GoogleCallback(rec, req)
+			h.OAuthCallback(rec, req)
 
 			if rec.Code != http.StatusTemporaryRedirect {
 				t.Fatalf("status: got %d body=%s", rec.Code, rec.Body.String())

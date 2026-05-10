@@ -11,6 +11,7 @@ import (
 	"github.com/freewhen/backend/internal/email"
 	"github.com/freewhen/backend/internal/flags"
 	"github.com/freewhen/backend/internal/handler"
+	"github.com/freewhen/backend/internal/idprovider"
 	"github.com/freewhen/backend/internal/notifications"
 	"github.com/freewhen/backend/internal/realtime"
 	"github.com/freewhen/backend/internal/service"
@@ -117,7 +118,12 @@ func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 	} else if !cfg.AuthEmailDisabled {
 		emailSender = email.NewSender(cfg.ResendAPIKey, cfg.MagicLinkFromEmail)
 	}
-	ah := handler.NewAuth(st, emailSender, cfg, logger)
+	// Identity providers drive sign-in. Sibling registry to calProviders so a
+	// new provider lands as one entry here, not a handler edit.
+	idProviders := idprovider.NewRegistry(
+		idprovider.NewGoogle(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURL),
+	)
+	ah := handler.NewAuth(st, emailSender, idProviders, cfg, logger)
 	mh := handler.NewMetrics(st, hub)
 	if notifSvc != nil {
 		mh.WithNotificationCounters(notifSvc.Counters())
@@ -182,8 +188,8 @@ func (s *Server) routes() {
 	s.handlePublic("GET /health", s.handleHealth)
 
 	// Auth routes
-	s.handlePublic("GET /auth/google", s.auth.GoogleLogin)
-	s.handlePublic("GET /auth/google/callback", s.auth.GoogleCallback)
+	s.handlePublic("GET /auth/{provider}", s.auth.OAuthLogin)
+	s.handlePublic("GET /auth/{provider}/callback", s.auth.OAuthCallback)
 	s.handlePublic("GET /auth/me", s.auth.Me)
 	s.handleAuth("PATCH /auth/me", s.auth.UpdateMe)
 	s.handlePublic("POST /auth/logout", s.auth.Logout)
