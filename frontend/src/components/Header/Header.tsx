@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider/AuthProvider";
+import { ColorSchemeIconButton } from "@/components/ColorSchemeToggle/ColorSchemeToggle";
 import UserMenu from "@/components/UserMenu/UserMenu";
 import styles from "./Header.module.css";
 
@@ -30,12 +31,17 @@ export default function Header() {
             <UserMenu />
           </>
         ) : (
-          <a
-            href={pathname === "/" ? "/login" : `/login?return_url=${encodeURIComponent(pathname)}`}
-            className={styles.signInLink}
-          >
-            Sign in
-          </a>
+          <>
+            <ColorSchemeIconButton />
+            <a
+              href={
+                pathname === "/" ? "/login" : `/login?return_url=${encodeURIComponent(pathname)}`
+              }
+              className={styles.signInLink}
+            >
+              Sign in
+            </a>
+          </>
         )}
       </nav>
     </header>

@@ -1,6 +1,6 @@
 # Theme refresh — Paper default + light/dark toggle
 
-Status: pending
+Status: done
 
 ## Goal
 
@@ -12,7 +12,10 @@ Two themes: **Paper (new light)** and **current dark (unchanged)**. The dark
 palette is already dialled in — only light is being redesigned. No per-user
 theme library beyond that.
 
-Comparison mock: `plans/ui/mocks/themes-compare.html`.
+Comparison mocks:
+
+- `plans/ui/mocks/theme-before-after.html` — current light vs Paper light, with dark for reference and a diff strip of what's changing.
+- `plans/ui/mocks/themes-compare.html` — Paper light next to current dark.
 
 ## Context
 
@@ -63,12 +66,15 @@ Comparison mock: `plans/ui/mocks/themes-compare.html`.
      FOUC / flicker.
 
 4. **Toggle UI**
-   - Add a light/dark toggle. Location TBD during build — likely in
-     `UserMenu` (signed-in) and a small icon button for anon users, either in
-     the header or inside the "My calendars" sheet. Mobile-first: tap target
-     ≥44px, icon-only is fine.
-   - Writes `localStorage.colorScheme` and updates `data-color-scheme` on
-     `<html>`.
+   - Signed-in: new "Appearance" row inside the `UserMenu` panel (between the
+     identity block and "My calendars"), as a segmented Light / Dark control
+     with sun/moon icons — same `menuItem` slot pattern as the rows below it.
+   - Anon: icon-only sun/moon button in `Header` actions next to the "Sign in"
+     link. Toggles directly (no menu). ≥44px tap target.
+   - Both entry points share one handler that writes
+     `localStorage.colorScheme` and updates `data-color-scheme` on `<html>`.
+   - Not in the "My calendars" sheet — it isn't reachable from login / join /
+     public calendar pages, where anon users most need the toggle.
 
 5. **Typography (deferred decision)**
    - Mock uses Instrument Serif for display + Geist for body. Current app uses
@@ -105,7 +111,72 @@ Comparison mock: `plans/ui/mocks/themes-compare.html`.
 - Changes to per-calendar accent theme UI.
 - Typography overhaul (see step 5).
 
+## Amendment — 2026-05-10: split `--card-bg` into inline vs floating surfaces
+
+The original Paper brief specified `--bg-raised: #FAF6ED` for all raised
+surfaces. In the live calendar grid this reads too bright: tiles look like
+SaaS cards-on-background rather than a single planner page. The metaphor
+the theme is selling is *paper* — one sheet, where cells are defined by ink
+rules and hairlines, not by being a brighter object stuck on top. The mock
+was authored on isolated dense cells, so the issue didn't surface until the
+full 7×N grid of mostly-empty cells was rendered.
+
+Root cause: one `--card-bg` token is being asked to serve two jobs that want
+opposite treatments.
+
+- **Inline surfaces** (date tiles, Weekends/Weekdays/Clear pills, anything
+  that's part of the page): should tone *into* the page with a hairline
+  border, no shadow. The dates **are** the paper.
+- **Floating surfaces** (UserMenu panel, day-detail sheet, modals, toasts):
+  should lift off the page, earn a soft shadow, stay near the current
+  `#faf6ed`.
+
+### Changes
+
+1. Add `--tile-bg` token:
+   - Light: `#ece5d5` (slightly *darker* than `--background` `#f3eee4`).
+   - Dark: pick a value slightly lighter than `--dk-bg` but darker than
+     `--dk-paper` — likely around `#1a1713` — so dark tiles also tone into
+     the page rather than lifting.
+2. Keep `--card-bg` as-is for floating surfaces.
+3. Swap `--card-bg` → `--tile-bg` in the calendar cell, the
+   Weekends/Weekdays/Clear pills, and any other "inline" raised surface that
+   currently reads as a card. UserMenu panel, sheets, hero "Best day" card,
+   toasts stay on `--card-bg`.
+4. Tile borders use `--border-soft` (already exists). No shadow on tiles.
+5. Update `plans/v2/t3/mocks/calendar-integrations-cell-states.html` and
+   `plans/ui/mocks/theme-before-after.html` to reflect the split — the
+   original mock's `--bg-raised: #FAF6ED` for cells was the part of the brief
+   that didn't survive contact with the real grid.
+
+### Out of scope for this amendment
+
+- Re-evaluating shadow tokens.
+- Per-calendar accent themes (still on `data-theme`, unaffected).
+
 ## Log
 
 - 2026-04-21 23:25 — Created plan
 - 2026-04-21 23:40 — Decided to keep current dark palette; only light is being redesigned. Added `plans/ui/mocks/themes-compare.html` as side-by-side reference.
+- 2026-05-10 — Added `plans/ui/mocks/theme-before-after.html` showing current light vs Paper light, with the dark panel for reference and a diff strip of what's changing.
+- 2026-05-10 — Locked in toggle placement: Appearance row inside `UserMenu` for signed-in users, icon-only sun/moon button in `Header` for anon users.
+- 2026-05-10 19:36 — Implemented:
+  - Rewrote `globals.css` with the Paper light palette + dark scheme, dark moved from `@media (prefers-color-scheme: dark)` to `[data-color-scheme="dark"]`.
+  - Added `--border-soft` and `--text-faint` tokens; dropped legacy brand vars (`--cream`, `--ink`, `--ink-2`, `--terra`, `--paper`, `--terra-soft`).
+  - Updated `HeroLiveGrid` and `BestDay` CSS modules to consume semantic tokens (`--accent`, `--card-bg`, `--text-secondary`) instead of the removed brand vars; their dark-mode media queries became `[data-color-scheme="dark"]` selectors.
+  - New `src/lib/colorScheme.ts` (read/persist/apply + `COLOR_SCHEME_INIT_SCRIPT`).
+  - New `ColorSchemeToggle` component exposing `ColorSchemeSegmented` (UserMenu) and `ColorSchemeIconButton` (Header). 44px tap target on icon button.
+  - `UserMenu` shows the segmented Light/Dark control between identity and "My calendars".
+  - `Header` shows the icon button next to the "Sign in" link for anon users.
+  - Inline blocking `<script>` in `layout.tsx` `<head>` reads `localStorage.colorScheme` and falls back to `prefers-color-scheme` — sets `data-color-scheme` before paint to avoid FOUC.
+  - `manifest.ts` and viewport `themeColor` updated to the Paper bg (`#f3eee4`) for light; dark stays `#141210`.
+  - `data-theme` per-calendar accent system referenced in the plan does not yet exist in the codebase, so the composition concern was moot — `data-color-scheme` is the only attribute currently used.
+  - Typography swap (Instrument Serif headings) deferred per plan.
+  - `pnpm exec oxlint` clean; `pnpm exec vitest run` 259/259 passing.
+- 2026-05-10 — Amendment added: split `--card-bg` into `--card-bg` (floating) and `--tile-bg` (inline). Original `#FAF6ED` raised tone made calendar cells read as SaaS cards rather than paper-on-paper; mock was authored on isolated dense cells so the issue didn't surface until the full grid was live. See Amendment section above.
+- 2026-05-10 — Implemented amendment:
+  - Added `--paper-tile: #ece5d5` and `--dk-tile: #1a1713` raw tokens; new semantic `--tile-bg` mapped per scheme.
+  - `CalendarGrid` `.day`, `.toolbarButton` (Weekends/Weekdays/Clear), and `.navButton` (prev/next chevrons) switched to `--tile-bg` + `--border-soft` and dropped `box-shadow` — they now tone into the page rather than lifting off it.
+  - `.suggestedFree` color-mix base and the JS heat-map `backgroundColor` in `CalendarGrid.tsx` updated to mix against `--tile-bg` so heat blending stays consistent.
+  - Floating surfaces (UserMenu, sheets, toasts, hero card, etc.) untouched — still on `--card-bg`. Mock files not touched in this pass.
+  - `pnpm exec oxlint` clean; `pnpm exec vitest run` 259/259 passing.

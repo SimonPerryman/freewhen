@@ -1,37 +1,49 @@
 :root {
-  /* Brand palette */
-  --cream: #faf9f7;
-  --ink: #1a1a1a;
-  --ink-2: #7a7168;
-  --terra: #e06449;
-  --terra-2: #c9553c;
-  --terra-soft: #fdf0ed;
-  --paper: #ffffff;
+  /* Light "Paper" palette */
+  --paper-bg: #f3eee4;
+  --paper-raised: #faf6ed;
+  --paper-tile: #ece5d5;
+  --paper-ink: #1a1814;
+  --paper-muted: #6b6358;
+  --paper-faint: #9a9183;
+  --paper-border: #d8d1c5;
+  --paper-border-soft: #e6dfd1;
+  --paper-accent: #0f7566;
+  --paper-accent-strong: #0c5e52;
+  --paper-accent-tint: rgba(15, 117, 102, 0.12);
 
-  /* Semantic tokens (light) */
-  --background: var(--cream);
-  --foreground: var(--ink);
-  --page-bg: var(--cream);
-  --card-bg: var(--paper);
-  --border: #e8e4df;
-  --text-primary: var(--ink);
-  --text-secondary: var(--ink-2);
-  --accent: var(--terra);
-  --accent-hover: var(--terra-2);
-  --accent-text: #fff;
-  --accent-subtle: var(--terra-soft);
-  --note-accent: #2a5d8f;
-  --note-accent-subtle: #eaf2fa;
-  --error: #c2185b;
-
-  /* Dark palette (referenced by dark media query) */
+  /* Dark "Ink" palette */
   --dk-bg: #141210;
   --dk-bg-2: #1c1915;
   --dk-paper: #2c2720;
+  --dk-tile: #1a1713;
   --dk-border: #4a443d;
+  --dk-border-soft: #38332d;
   --dk-text: #edebe8;
   --dk-text-2: #9e9688;
-  --dk-terra: #e8755e;
+  --dk-faint: #7a7168;
+  --dk-accent: #e8755e;
+  --dk-accent-strong: #f0917e;
+  --dk-accent-tint: rgba(232, 117, 94, 0.14);
+
+  /* Semantic tokens — light is default; [data-color-scheme="dark"] overrides */
+  --background: var(--paper-bg);
+  --foreground: var(--paper-ink);
+  --page-bg: var(--paper-bg);
+  --card-bg: var(--paper-raised);
+  --tile-bg: var(--paper-tile);
+  --border: var(--paper-border);
+  --border-soft: var(--paper-border-soft);
+  --text-primary: var(--paper-ink);
+  --text-secondary: var(--paper-muted);
+  --text-faint: var(--paper-faint);
+  --accent: var(--paper-accent);
+  --accent-hover: var(--paper-accent-strong);
+  --accent-text: var(--paper-raised);
+  --accent-subtle: var(--paper-accent-tint);
+  --note-accent: #2a5d8f;
+  --note-accent-subtle: #eaf2fa;
+  --error: #c2185b;
 
   /* Spacing */
   --space-xs: 4px;
@@ -58,26 +70,28 @@
   --font-stack-accent: var(--font-accent), "Instrument Serif", Georgia, serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: var(--dk-bg);
-    --foreground: var(--dk-text);
-    --page-bg: var(--dk-bg);
-    --card-bg: var(--dk-paper);
-    --border: var(--dk-border);
-    --text-primary: var(--dk-text);
-    --text-secondary: var(--dk-text-2);
-    --accent: var(--dk-terra);
-    --accent-hover: #f0917e;
-    --accent-text: var(--dk-bg);
-    --accent-subtle: #3a2820;
-    --note-accent: #8fb8e0;
-    --note-accent-subtle: #1e2c3d;
-    --error: #f06292;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.5);
-  }
+[data-color-scheme="dark"] {
+  --background: var(--dk-bg);
+  --foreground: var(--dk-text);
+  --page-bg: var(--dk-bg);
+  --card-bg: var(--dk-paper);
+  --tile-bg: var(--dk-tile);
+  --border: var(--dk-border);
+  --border-soft: var(--dk-border-soft);
+  --text-primary: var(--dk-text);
+  --text-secondary: var(--dk-text-2);
+  --text-faint: var(--dk-faint);
+  --accent: var(--dk-accent);
+  --accent-hover: var(--dk-accent-strong);
+  --accent-text: var(--dk-bg);
+  --accent-subtle: var(--dk-accent-tint);
+  --note-accent: #8fb8e0;
+  --note-accent-subtle: #1e2c3d;
+  --error: #f06292;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
 }
 
 html {
@@ -103,38 +117,36 @@ body {
   color: var(--foreground);
   background: var(--background);
   background-image:
-    radial-gradient(1200px 600px at 110% -10%, rgba(224, 100, 73, 0.08), transparent 60%),
-    radial-gradient(900px 500px at -10% 30%, rgba(107, 142, 90, 0.06), transparent 60%);
+    radial-gradient(900px 600px at 80% -10%, var(--accent-subtle), transparent 60%),
+    radial-gradient(700px 500px at -10% 110%, rgba(0, 0, 0, 0.04), transparent 70%);
   background-attachment: fixed;
   font-family: var(--font-stack-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-@media (prefers-color-scheme: dark) {
-  body {
-    background:
-      radial-gradient(60% 80% at 100% 0%, rgba(232, 117, 94, 0.1), transparent 60%),
-      radial-gradient(40% 60% at 0% 100%, rgba(232, 117, 94, 0.06), transparent 60%),
-      var(--background);
-    background-attachment: fixed;
-  }
-
-  body::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    opacity: 0.025;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-    background-repeat: repeat;
-    background-size: 256px 256px;
-    z-index: 9999;
-  }
+[data-color-scheme="dark"] body {
+  background:
+    radial-gradient(60% 80% at 100% 0%, var(--accent-subtle), transparent 60%),
+    radial-gradient(40% 60% at 0% 100%, rgba(232, 117, 94, 0.06), transparent 60%),
+    var(--background);
+  background-attachment: fixed;
 }
 
-@media (prefers-color-scheme: dark) and (prefers-reduced-motion: reduce) {
-  body::after {
+[data-color-scheme="dark"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+  z-index: 9999;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-color-scheme="dark"] body::after {
     display: none;
   }
 }
@@ -161,7 +173,7 @@ h3 {
   font-optical-sizing: auto;
 }
 
-/* Italic accent: Instrument Serif italic in terracotta. Apply via
+/* Italic accent: Instrument Serif italic in accent. Apply via
    <em class="serif-accent">word</em> on hero/title accents. */
 .serif-accent {
   font-family: var(--font-stack-accent);
@@ -170,8 +182,7 @@ h3 {
   color: var(--accent);
 }
 
-/* Wordmark — "Free<span class="serif-accent">When</span>".
-   Used on every rendered surface where the product is named. */
+/* Wordmark — "Free<span class="serif-accent">When</span>". */
 .wordmark {
   font-family: var(--font-stack-display);
   font-weight: 500;
@@ -179,11 +190,6 @@ h3 {
   color: var(--text-primary);
 }
 
-/* Instrument Serif italic's cap-height per em is larger than the display
-   sans, AND the font sits higher within its em box, so at 1em "When"
-   floats above "Free" on both cap-top and baseline. Size down to match
-   cap-height; translate down to match baseline. Scoped to .wordmark
-   only — other .serif-accent uses (titles, headings) are unaffected. */
 .wordmark .serif-accent {
   display: inline-block;
   font-size: 0.92em;
@@ -213,14 +219,11 @@ h3 {
   font-size: 12px;
 }
 
-@media (prefers-color-scheme: dark) {
-  .pill {
-    color: color-mix(in oklab, var(--accent) 70%, white);
-  }
+[data-color-scheme="dark"] .pill {
+  color: color-mix(in oklab, var(--accent) 70%, white);
 }
 
-/* Global focus indicator. Any component that overrides outline must provide
-   its own visible :focus-visible style. */
+/* Global focus indicator. */
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -244,12 +247,6 @@ h3 {
 
 .skip-link:focus {
   transform: translateY(0);
-}
-
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

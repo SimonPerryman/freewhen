@@ -471,7 +471,7 @@ export default function CalendarGrid({
             ["--entrance-delay" as string]: `${visibleIndex * 15}ms`,
           };
           if (heatPercent > 0 && !everyoneFree) {
-            cellStyle.backgroundColor = `color-mix(in srgb, var(--accent) ${heatPercent}%, var(--card-bg))`;
+            cellStyle.backgroundColor = `color-mix(in srgb, var(--accent) ${heatPercent}%, var(--tile-bg))`;
           }
 
           const alreadySelected = isSelectedForCurrent(dateStr);
