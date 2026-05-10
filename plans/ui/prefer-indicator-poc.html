@@ -1,0 +1,720 @@
+<!doctype html>
+<html lang="en" data-color-scheme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prefer indicator — POC v2</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Instrument+Serif:ital@0;1&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --paper-bg: #f3eee4;
+        --paper-raised: #faf6ed;
+        --paper-tile: #ece5d5;
+        --paper-ink: #1a1814;
+        --paper-muted: #6b6358;
+        --paper-faint: #9a9183;
+        --paper-border: #d8d1c5;
+        --paper-border-soft: #e6dfd1;
+        --paper-accent: #0f7566;
+        --paper-accent-tint: rgba(15, 117, 102, 0.12);
+
+        --dk-bg: #141210;
+        --dk-paper: #2c2720;
+        --dk-tile: #1a1713;
+        --dk-border: #4a443d;
+        --dk-border-soft: #38332d;
+        --dk-text: #edebe8;
+        --dk-text-2: #9e9688;
+        --dk-faint: #7a7168;
+        --dk-accent: #e8755e;
+        --dk-accent-tint: rgba(232, 117, 94, 0.14);
+
+        --background: var(--paper-bg);
+        --foreground: var(--paper-ink);
+        --card-bg: var(--paper-raised);
+        --tile-bg: var(--paper-tile);
+        --border: var(--paper-border);
+        --border-soft: var(--paper-border-soft);
+        --text-primary: var(--paper-ink);
+        --text-secondary: var(--paper-muted);
+        --text-faint: var(--paper-faint);
+        --accent: var(--paper-accent);
+        --accent-subtle: var(--paper-accent-tint);
+
+        --font-display: "Fraunces", Georgia, serif;
+        --font-body: "DM Sans", system-ui, sans-serif;
+        --font-accent: "Instrument Serif", Georgia, serif;
+      }
+      [data-color-scheme="dark"] {
+        --background: var(--dk-bg);
+        --foreground: var(--dk-text);
+        --card-bg: var(--dk-paper);
+        --tile-bg: var(--dk-tile);
+        --border: var(--dk-border);
+        --border-soft: var(--dk-border-soft);
+        --text-primary: var(--dk-text);
+        --text-secondary: var(--dk-text-2);
+        --text-faint: var(--dk-faint);
+        --accent: var(--dk-accent);
+        --accent-subtle: var(--dk-accent-tint);
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: var(--font-body);
+        background: var(--background);
+        background-image:
+          radial-gradient(900px 600px at 80% -10%, var(--accent-subtle), transparent 60%),
+          radial-gradient(700px 500px at -10% 110%, rgba(0, 0, 0, 0.04), transparent 70%);
+        background-attachment: fixed;
+        color: var(--text-primary);
+        min-height: 100vh;
+        padding: 40px 24px 100px;
+        -webkit-font-smoothing: antialiased;
+      }
+      [data-color-scheme="dark"] body {
+        background:
+          radial-gradient(60% 80% at 100% 0%, var(--accent-subtle), transparent 60%),
+          radial-gradient(40% 60% at 0% 100%, rgba(232, 117, 94, 0.06), transparent 60%),
+          var(--background);
+      }
+      .shell {
+        max-width: 980px;
+        margin: 0 auto;
+      }
+      header.page {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 32px;
+        margin-bottom: 40px;
+        flex-wrap: wrap;
+      }
+      .titleblock {
+        max-width: 60ch;
+      }
+      .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-size: 11px;
+        color: var(--accent);
+        font-weight: 600;
+        margin-bottom: 10px;
+      }
+      .titleblock h1 {
+        font-family: var(--font-display);
+        font-weight: 400;
+        font-size: clamp(30px, 4.5vw, 48px);
+        letter-spacing: -0.02em;
+        line-height: 1;
+      }
+      .titleblock h1 em {
+        font-family: var(--font-accent);
+        font-style: italic;
+        color: var(--accent);
+      }
+      .titleblock p {
+        margin-top: 14px;
+        color: var(--text-secondary);
+        font-size: 14.5px;
+        line-height: 1.55;
+      }
+      .toggle {
+        display: inline-flex;
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 99px;
+        padding: 4px;
+        gap: 2px;
+      }
+      .toggle button {
+        font: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        padding: 8px 16px;
+        border-radius: 99px;
+        border: 0;
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+      }
+      .toggle button[aria-pressed="true"] {
+        background: var(--accent);
+        color: var(--card-bg);
+      }
+      [data-color-scheme="dark"] .toggle button[aria-pressed="true"] {
+        color: var(--dk-bg);
+      }
+
+      /* state matrix — heat-only deep dive */
+      .matrix {
+        margin-bottom: 56px;
+        padding-bottom: 40px;
+        border-bottom: 1px solid var(--border-soft);
+      }
+      .matrixHead {
+        max-width: 60ch;
+        margin-bottom: 28px;
+      }
+      .matrixTitle {
+        font-family: var(--font-display);
+        font-weight: 400;
+        font-size: 28px;
+        letter-spacing: -0.01em;
+        line-height: 1.1;
+      }
+      .matrixTitle em {
+        font-family: var(--font-accent);
+        font-style: italic;
+        color: var(--accent);
+      }
+      .matrixDesc {
+        margin-top: 10px;
+        font-size: 14px;
+        line-height: 1.55;
+        color: var(--text-secondary);
+      }
+      .matrixGrid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 18px;
+        max-width: 720px;
+      }
+      @media (max-width: 720px) {
+        .matrixGrid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      .matrixItem {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .matrixItem .label {
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        line-height: 1.3;
+        min-height: 28px;
+      }
+      .matrixItem .label strong {
+        display: block;
+        color: var(--text-primary);
+        font-weight: 600;
+        margin-bottom: 2px;
+        font-size: 12px;
+      }
+      .matrixItem .cellWrap {
+        background: var(--card-bg);
+        border: 1px solid var(--border-soft);
+        border-radius: 14px;
+        padding: 18px;
+        display: flex;
+        justify-content: center;
+      }
+      /* zoom the matrix cells 2× so they're easy to inspect */
+      .matrixItem .cell {
+        width: 92px;
+        min-height: 110px;
+        padding: 10px 6px 8px;
+        border-radius: 14px;
+      }
+      .matrixItem .cell .day {
+        font-size: 20px;
+      }
+      .matrixItem .cell .note-dot {
+        top: 8px;
+        right: 8px;
+        width: 9px;
+        height: 9px;
+        box-shadow: 0 0 0 1.5px var(--card-bg);
+      }
+      .matrixItem .cell .slots {
+        margin-top: 6px;
+      }
+      .matrixItem .cell .slot {
+        min-height: 12px;
+      }
+      .matrixItem .cell.pref::after {
+        content: "";
+        position: absolute;
+        inset: 1px;
+        border-radius: 13px;
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 38%, transparent);
+        pointer-events: none;
+      }
+
+      /* phone frame for honesty */
+      .stage {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+        gap: 36px;
+      }
+      .option {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .option .head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .option h2 {
+        font-family: var(--font-display);
+        font-weight: 500;
+        font-size: 22px;
+        letter-spacing: -0.01em;
+      }
+      .option h2 em {
+        font-family: var(--font-accent);
+        font-style: italic;
+        font-weight: 400;
+        color: var(--accent);
+      }
+      .option .tag {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--text-faint);
+        font-weight: 600;
+      }
+      .option p.desc {
+        font-size: 13.5px;
+        line-height: 1.55;
+        color: var(--text-secondary);
+        max-width: 44ch;
+      }
+
+      .phone {
+        background: var(--card-bg);
+        border: 1px solid var(--border-soft);
+        border-radius: 22px;
+        padding: 18px 16px 16px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        width: 100%;
+        max-width: 375px; /* iPhone mobile width */
+      }
+      .phoneCaption {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--text-faint);
+        font-weight: 600;
+        margin-bottom: 10px;
+      }
+      .weekHeader {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 3px;
+        margin-bottom: 4px;
+      }
+      .weekHeader span {
+        text-align: center;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        padding: 2px 0 6px;
+      }
+      .strip {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 3px;
+      }
+
+      /* date line (~17px) + 3 slot rows (~6px each) + 2 gaps + padding ≈ 60-64px */
+      .cell {
+        position: relative;
+        min-height: 64px;
+        background: var(--tile-bg);
+        border: 1px solid var(--border-soft);
+        border-radius: 10px;
+        padding: 6px 4px 6px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        overflow: hidden;
+      }
+      .cell .day {
+        font-family: var(--font-body);
+        font-weight: 500;
+        font-size: 14px;
+        line-height: 1.2;
+        color: var(--text-primary);
+      }
+      .cell.heat-1 {
+        background: color-mix(in srgb, var(--accent) 12%, var(--tile-bg));
+      }
+      .cell.heat-2 {
+        background: color-mix(in srgb, var(--accent) 22%, var(--tile-bg));
+      }
+      .cell.heat-3 {
+        background: color-mix(in srgb, var(--accent) 34%, var(--tile-bg));
+      }
+      .cell.heat-4 {
+        background: color-mix(in srgb, var(--accent) 48%, var(--tile-bg));
+      }
+
+      .note-dot {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--note-dot-colour, var(--text-secondary));
+        box-shadow: 0 0 0 1px var(--card-bg);
+      }
+      /* 3 participants → 1 col × 3 rows: horizontal stacked rectangles */
+      .slots {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-rows: repeat(3, 1fr);
+        gap: 1px;
+        margin-top: 4px;
+        width: 100%;
+        flex: 1;
+      }
+      .slot {
+        border-radius: 1px;
+        min-height: 4px;
+      }
+      .slot.faint {
+        opacity: 0.22;
+      }
+
+      /* ============ variant marks ============ */
+
+      /* A. STAR — current shipping */
+      .v-star .pref .badge {
+        position: absolute;
+        bottom: 3px;
+        right: 4px;
+        font-size: 10px;
+        line-height: 1;
+        color: var(--text-secondary);
+        display: inline-flex;
+        align-items: center;
+        gap: 1px;
+      }
+      .v-star .pref .badge .count {
+        font-size: 9px;
+        font-weight: 600;
+      }
+
+      /* B. HEAT-ONLY — preference adds to the existing tint, no mark */
+      .v-heat .pref {
+        /* the .heat-4 class on the preferred cell does the work */
+      }
+      .v-heat .pref::after {
+        content: "";
+        position: absolute;
+        inset: 1px;
+        border-radius: 9px;
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+        pointer-events: none;
+      }
+
+      /* C. ACCENT STRIPE — 1.5px bottom rule, no glyph */
+      .v-stripe .pref::after {
+        content: "";
+        position: absolute;
+        left: 8px;
+        right: 8px;
+        bottom: 3px;
+        height: 1.5px;
+        background: var(--accent);
+        border-radius: 1px;
+      }
+
+      /* D. SERIF DATE — preference recasts the date number in italic serif */
+      .v-serif .pref .day {
+        font-family: var(--font-accent);
+        font-style: italic;
+        font-weight: 400;
+        color: var(--accent);
+        font-size: 17px;
+        line-height: 1;
+        transform: translateY(1px);
+      }
+
+      /* layout: each option stacks BEFORE then AFTER, full phone width each */
+      .pair {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 18px;
+      }
+      .pairCell {
+        display: flex;
+        flex-direction: column;
+      }
+      .pairLabel {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--text-faint);
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+      .recommendation {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+      .recommendation::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="page">
+        <div class="titleblock">
+          <div class="eyebrow">UI exploration · v2</div>
+          <h1>Showing <em>preferred</em> days, quietly</h1>
+          <p>
+            Each option below shows the same week — left strip is the baseline (no preference),
+            right strip has <strong>Wed 13</strong> marked as preferred by two people. Cells render
+            at production scale. Toggle the theme to compare.
+          </p>
+        </div>
+        <div class="toggle" role="group" aria-label="Theme">
+          <button type="button" data-theme="light" aria-pressed="true">Light</button>
+          <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
+        </div>
+      </header>
+
+      <section class="matrix">
+        <div class="matrixHead">
+          <div class="eyebrow">Heat-only · state matrix</div>
+          <h2 class="matrixTitle">
+            How a cell looks across <em>note</em> × <em>preferred</em>
+          </h2>
+          <p class="matrixDesc">
+            Same cell, four states. Note dot (top-right) keeps its existing job. Preference adds
+            weight to the heat tint and a faint inset border. They don't compete because they
+            occupy different visual channels — corner glyph vs. background warmth.
+          </p>
+        </div>
+        <div class="matrixGrid" id="matrixGrid"></div>
+      </section>
+
+      <section class="stage" id="stage"></section>
+    </div>
+
+    <template id="week-template">
+      <div class="weekHeader">
+        <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span
+        ><span>S</span>
+      </div>
+      <div class="strip">
+        <div class="cell heat-1">
+          <span class="day">11</span>
+          <div class="slots">
+            <span class="slot faint" style="background: #d97706"></span>
+            <span class="slot" style="background: #2563eb"></span>
+            <span class="slot faint" style="background: #be185d"></span>
+          </div>
+        </div>
+        <div class="cell heat-2">
+          <span class="day">12</span>
+          <div class="slots">
+            <span class="slot" style="background: #d97706"></span>
+            <span class="slot" style="background: #2563eb"></span>
+            <span class="slot faint" style="background: #be185d"></span>
+          </div>
+        </div>
+        <div class="cell heat-3 wed">
+          <span class="day">13</span>
+          <span class="note-dot" style="--note-dot-colour: #2563eb"></span>
+          <div class="slots">
+            <span class="slot" style="background: #d97706"></span>
+            <span class="slot" style="background: #2563eb"></span>
+            <span class="slot" style="background: #be185d"></span>
+          </div>
+        </div>
+        <div class="cell heat-1">
+          <span class="day">14</span>
+          <div class="slots">
+            <span class="slot faint" style="background: #d97706"></span>
+            <span class="slot" style="background: #2563eb"></span>
+            <span class="slot faint" style="background: #be185d"></span>
+          </div>
+        </div>
+        <div class="cell heat-2">
+          <span class="day">15</span>
+          <span class="note-dot" style="--note-dot-colour: #be185d"></span>
+          <div class="slots">
+            <span class="slot" style="background: #d97706"></span>
+            <span class="slot faint" style="background: #2563eb"></span>
+            <span class="slot" style="background: #be185d"></span>
+          </div>
+        </div>
+        <div class="cell">
+          <span class="day">16</span>
+          <div class="slots">
+            <span class="slot faint" style="background: #d97706"></span>
+            <span class="slot faint" style="background: #2563eb"></span>
+            <span class="slot" style="background: #be185d"></span>
+          </div>
+        </div>
+        <div class="cell">
+          <span class="day">17</span>
+          <div class="slots">
+            <span class="slot faint" style="background: #d97706"></span>
+            <span class="slot faint" style="background: #2563eb"></span>
+            <span class="slot faint" style="background: #be185d"></span>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <script>
+      const OPTIONS = [
+        {
+          id: "star",
+          title: "★ Star",
+          tag: "current",
+          desc: "Today's shipping mark. Loud, glyphy, sits next to the note dot — two competing icons in one tile.",
+        },
+        {
+          id: "heat",
+          title: "Heat-only",
+          tag: "no new mark",
+          recommend: true,
+          desc: "Preference simply contributes more weight to the existing heat tint. No new element on the cell. Detail (who, why) lives in the day sheet. A faint inner border on the preferred cell gives a little extra definition.",
+        },
+        {
+          id: "stripe",
+          title: "Bottom stripe",
+          tag: "minimal mark",
+          desc: "A 1.5px accent rule along the bottom edge. Reads as a quiet underline, doesn't fight the note dot, and you can still glance and find the preferred day at speed.",
+        },
+        {
+          id: "serif",
+          title: "Italic serif date",
+          tag: "typographic",
+          desc: "The date number itself recasts to Instrument Serif italic in the accent colour. Most distinctive, on-brand with the wordmark, but the date sometimes carries other weight (today, finalised) — so this competes with those states.",
+        },
+      ];
+
+      const tpl = document.getElementById("week-template");
+      const stage = document.getElementById("stage");
+
+      function makeStrip(withPref) {
+        const wrap = document.createElement("div");
+        wrap.appendChild(tpl.content.cloneNode(true));
+        const wed = wrap.querySelector(".wed");
+        if (withPref) {
+          wed.classList.add("pref");
+          wed.classList.remove("heat-3");
+          wed.classList.add("heat-4");
+        }
+        return wrap;
+      }
+
+      for (const opt of OPTIONS) {
+        const card = document.createElement("article");
+        card.className = `option v-${opt.id}`;
+        card.innerHTML = `
+          <div class="head">
+            <h2>${opt.title}</h2>
+            <span class="tag">${
+              opt.recommend ? '<span class="recommendation">Recommend</span>' : opt.tag
+            }</span>
+          </div>
+          <div class="phone">
+            <div class="pair">
+              <div class="pairCell">
+                <div class="pairLabel">Baseline</div>
+                <div class="stripWrap" data-pos="before"></div>
+              </div>
+              <div class="pairCell">
+                <div class="pairLabel">Wed 13 preferred</div>
+                <div class="stripWrap" data-pos="after"></div>
+              </div>
+            </div>
+          </div>
+          <p class="desc">${opt.desc}</p>
+        `;
+        card.querySelector('[data-pos="before"]').appendChild(makeStrip(false));
+        card.querySelector('[data-pos="after"]').appendChild(makeStrip(true));
+        stage.appendChild(card);
+      }
+
+      // build state matrix
+      const MATRIX = [
+        { note: false, pref: false, heat: 1, label: "<strong>Neutral</strong>2 of 3 free, no note" },
+        {
+          note: true,
+          pref: false,
+          heat: 1,
+          label: "<strong>Note attached</strong>Same heat, dot in corner",
+        },
+        {
+          note: false,
+          pref: true,
+          heat: 3,
+          label: "<strong>Preferred</strong>Heavier heat + soft inset",
+        },
+        {
+          note: true,
+          pref: true,
+          heat: 3,
+          label: "<strong>Note + preferred</strong>Both channels, no conflict",
+        },
+      ];
+      const matrixGrid = document.getElementById("matrixGrid");
+      for (const m of MATRIX) {
+        const item = document.createElement("div");
+        item.className = "matrixItem";
+        item.innerHTML = `
+          <div class="label">${m.label}</div>
+          <div class="cellWrap">
+            <div class="cell heat-${m.heat}${m.pref ? " pref" : ""}">
+              <span class="day">13</span>
+              ${
+                m.note
+                  ? `<span class="note-dot" style="--note-dot-colour: #2563eb"></span>`
+                  : ""
+              }
+              <div class="slots">
+                <span class="slot" style="background: #d97706"></span>
+                <span class="slot" style="background: #2563eb"></span>
+                <span class="slot" style="background: #be185d"></span>
+              </div>
+            </div>
+          </div>
+        `;
+        matrixGrid.appendChild(item);
+      }
+
+      const buttons = document.querySelectorAll(".toggle button");
+      buttons.forEach((b) =>
+        b.addEventListener("click", () => {
+          document.documentElement.setAttribute("data-color-scheme", b.dataset.theme);
+          buttons.forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+        }),
+      );
+    </script>
+  </body>
+</html>
