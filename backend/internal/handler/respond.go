@@ -1,10 +1,29 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
 )
+
+// CalendarLookup is the narrow read surface respondCalendarMissing needs to
+// distinguish 404 (typo / never existed) from 410 (existed once, soft-deleted).
+type CalendarLookup interface {
+	IsCalendarSoftDeleted(ctx context.Context, calendarID string) (bool, error)
+}
+
+// respondCalendarMissing handles store.ErrNotFound on a `/calendars/{id}/...`
+// mutating path. If the row exists but is soft-deleted, returns 410 Gone
+// with `calendar_unavailable`; otherwise the standard 404. Frontend maps
+// 410+code to a "calendar gone" toast and routes back to /calendars.
+func respondCalendarMissing(r *http.Request, w http.ResponseWriter, lookup CalendarLookup, calendarID string) {
+	if soft, err := lookup.IsCalendarSoftDeleted(r.Context(), calendarID); err == nil && soft {
+		respondError(w, http.StatusGone, "calendar_unavailable", "this calendar is no longer available")
+		return
+	}
+	respondError(w, http.StatusNotFound, "not_found", "calendar not found")
+}
 
 func respondJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")

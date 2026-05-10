@@ -92,7 +92,7 @@ func (s *Store) AddInvites(ctx context.Context, calendarID string, names []strin
 
 	// Verify calendar exists.
 	var exists bool
-	err = tx.QueryRowContext(ctx, `SELECT TRUE FROM calendars WHERE id = $1`, calendarID).Scan(&exists)
+	err = tx.QueryRowContext(ctx, `SELECT TRUE FROM calendars WHERE id = $1 AND deleted_at IS NULL`, calendarID).Scan(&exists)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return res, ErrNotFound
@@ -284,7 +284,7 @@ func (s *Store) ParticipantsWithNoAvailability(ctx context.Context, calendarID s
 		`SELECT p.id, p.calendar_id, p.name, p.colour, p.user_id
 		 FROM participants p
 		 LEFT JOIN availability a ON a.participant_id = p.id
-		 WHERE p.calendar_id = $1
+		 WHERE p.calendar_id = $1 AND p.deleted_at IS NULL
 		 GROUP BY p.id
 		 HAVING COUNT(a.participant_id) = 0
 		 ORDER BY p.name ASC`, calendarID,

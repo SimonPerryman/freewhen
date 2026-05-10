@@ -16,6 +16,7 @@ import (
 // owner-only access. Implemented by *service.Service.
 type CalendarOwnerLookup interface {
 	GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error)
+	IsCalendarSoftDeleted(ctx context.Context, calendarID string) (bool, error)
 }
 
 // NotificationsHandler serves the unsubscribe + nudge endpoints. Lives outside
@@ -75,7 +76,7 @@ func (h *NotificationsHandler) Nudge(w http.ResponseWriter, r *http.Request) {
 	cal, err := h.calendarStore.GetCalendarOnly(r.Context(), calendarID)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
+			respondCalendarMissing(r, w, h.calendarStore, calendarID)
 			return
 		}
 		respondInternalError(r, w, err, "internal_error", "failed to load calendar")

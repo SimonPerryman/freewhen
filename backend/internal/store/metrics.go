@@ -26,7 +26,7 @@ func (s *Store) CountUsersSince(ctx context.Context, t time.Time) (int, error) {
 
 func (s *Store) CountCalendars(ctx context.Context) (int, error) {
 	var n int
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM calendars`).Scan(&n)
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM calendars WHERE deleted_at IS NULL`).Scan(&n)
 	if err != nil {
 		return 0, fmt.Errorf("count calendars: %w", err)
 	}
@@ -35,7 +35,7 @@ func (s *Store) CountCalendars(ctx context.Context) (int, error) {
 
 func (s *Store) CountCalendarsSince(ctx context.Context, t time.Time) (int, error) {
 	var n int
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM calendars WHERE created_at >= $1`, t).Scan(&n)
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM calendars WHERE created_at >= $1 AND deleted_at IS NULL`, t).Scan(&n)
 	if err != nil {
 		return 0, fmt.Errorf("count calendars since: %w", err)
 	}
@@ -44,7 +44,7 @@ func (s *Store) CountCalendarsSince(ctx context.Context, t time.Time) (int, erro
 
 func (s *Store) CountParticipants(ctx context.Context) (int, error) {
 	var n int
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM participants`).Scan(&n)
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM participants WHERE deleted_at IS NULL`).Scan(&n)
 	if err != nil {
 		return 0, fmt.Errorf("count participants: %w", err)
 	}
@@ -54,7 +54,7 @@ func (s *Store) CountParticipants(ctx context.Context) (int, error) {
 func (s *Store) AvgParticipantsPerCalendar(ctx context.Context) (float64, error) {
 	var avg *float64
 	err := s.db.QueryRowContext(ctx,
-		`SELECT AVG(cnt) FROM (SELECT COUNT(*) AS cnt FROM participants GROUP BY calendar_id) sub`,
+		`SELECT AVG(cnt) FROM (SELECT COUNT(*) AS cnt FROM participants WHERE deleted_at IS NULL GROUP BY calendar_id) sub`,
 	).Scan(&avg)
 	if err != nil {
 		return 0, fmt.Errorf("avg participants per calendar: %w", err)
@@ -73,7 +73,8 @@ func (s *Store) ActiveCalendars(ctx context.Context, days int) (int, error) {
 		 FROM calendars c
 		 JOIN participants p ON p.calendar_id = c.id
 		 JOIN availability a ON a.participant_id = p.id
-		 WHERE c.created_at >= NOW() - MAKE_INTERVAL(days => $1)`,
+		 WHERE c.created_at >= NOW() - MAKE_INTERVAL(days => $1)
+		   AND c.deleted_at IS NULL AND p.deleted_at IS NULL`,
 		days,
 	).Scan(&n)
 	if err != nil {

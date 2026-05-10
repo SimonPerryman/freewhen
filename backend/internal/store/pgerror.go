@@ -18,7 +18,14 @@ func isUniqueViolation(err error) bool {
 func isDuplicateName(err error) bool {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
-		return pgErr.Code == "23505" && strings.Contains(pgErr.ConstraintName, "calendar_id")
+		// Matches the partial unique index added in migration 026 plus the
+		// legacy table-level UNIQUE constraint name (kept for the brief
+		// upgrade window where both could appear in error output).
+		if pgErr.Code != "23505" {
+			return false
+		}
+		return strings.Contains(pgErr.ConstraintName, "participants_calendar_name_active_idx") ||
+			strings.Contains(pgErr.ConstraintName, "participants_calendar_id_name")
 	}
 	return false
 }

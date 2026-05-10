@@ -73,6 +73,9 @@ type Store interface {
 	DeleteInvite(ctx context.Context, inviteID string) error
 	SetInviteMatch(ctx context.Context, inviteID string, participantID *string) (model.Invite, error)
 	ParticipantsWithNoAvailability(ctx context.Context, calendarID string) ([]model.Participant, error)
+	SoftDeleteCalendar(ctx context.Context, calendarID string) error
+	SoftDeleteParticipantsForUser(ctx context.Context, calendarID, userID string) (int64, error)
+	IsCalendarSoftDeleted(ctx context.Context, calendarID string) (bool, error)
 }
 
 type Service struct {
@@ -446,6 +449,69 @@ func (s *Service) RemoveParticipant(ctx context.Context, calendarID, participant
 	}
 	s.touch(ctx, calendarID)
 	s.pub.Publish(calendarID, realtime.EventParticipantRemoved)
+	return nil
+}
+
+// IsCalendarSoftDeleted reports whether a calendar id refers to a row that
+// has been soft-deleted. Used by mutating handlers to map ErrNotFound to
+// 410 Gone (vs the default 404).
+func (s *Service) IsCalendarSoftDeleted(ctx context.Context, calendarID string) (bool, error) {
+	return s.store.IsCalendarSoftDeleted(ctx, calendarID)
+}
+
+// DeleteCalendar soft-deletes a calendar after verifying that the caller
+// is the current owner. Idempotent — deleting an already-deleted calendar
+// returns nil. Returns ErrForbidden if the caller is not the owner, or
+// ErrNotFound if the calendar never existed.
+func (s *Service) DeleteCalendar(ctx context.Context, calendarID, userID string) error {
+	cal, err := s.store.GetCalendarOnly(ctx, calendarID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			// Distinguish 404 (never existed) from 410 (was deleted).
+			soft, sErr := s.store.IsCalendarSoftDeleted(ctx, calendarID)
+			if sErr == nil && soft {
+				// Already deleted — idempotent success.
+				return nil
+			}
+		}
+		return err
+	}
+	if cal.OwnerID != userID {
+		return ErrForbidden
+	}
+	if err := s.store.SoftDeleteCalendar(ctx, calendarID); err != nil {
+		return err
+	}
+	s.pub.Publish(calendarID, realtime.EventCalendarUpdated)
+	return nil
+}
+
+// LeaveCalendar soft-deletes every live participant row for (calendarID,
+// userID). Idempotent. Owners cannot leave their own calendar — they must
+// Delete instead — and get back ErrCannotLeaveOwnedCalendar in that case.
+func (s *Service) LeaveCalendar(ctx context.Context, calendarID, userID string) error {
+	cal, err := s.store.GetCalendarOnly(ctx, calendarID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			soft, sErr := s.store.IsCalendarSoftDeleted(ctx, calendarID)
+			if sErr == nil && soft {
+				// Calendar is gone — leaving is trivially satisfied.
+				return nil
+			}
+		}
+		return err
+	}
+	if cal.OwnerID == userID {
+		return store.ErrCannotLeaveOwnedCalendar
+	}
+	rows, err := s.store.SoftDeleteParticipantsForUser(ctx, calendarID, userID)
+	if err != nil {
+		return err
+	}
+	if rows > 0 {
+		s.touch(ctx, calendarID)
+		s.pub.Publish(calendarID, realtime.EventParticipantRemoved)
+	}
 	return nil
 }
 

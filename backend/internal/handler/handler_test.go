@@ -159,6 +159,18 @@ func (m *mockService) GetInvite(_ context.Context, _ string) (model.Invite, erro
 	return model.Invite{}, nil
 }
 
+func (m *mockService) DeleteCalendar(_ context.Context, _, _ string) error {
+	return nil
+}
+
+func (m *mockService) LeaveCalendar(_ context.Context, _, _ string) error {
+	return nil
+}
+
+func (m *mockService) IsCalendarSoftDeleted(_ context.Context, _ string) (bool, error) {
+	return false, nil
+}
+
 func jsonBody(t *testing.T, v any) *bytes.Reader {
 	t.Helper()
 	b, err := json.Marshal(v)

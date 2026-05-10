@@ -17,6 +17,7 @@ import {
   rotateCalendarPassphrase,
   clearCalendarPassphrase,
   ApiError,
+  CalendarUnavailableError,
 } from "@/lib/api";
 import { clearCalendarAccessToken } from "@/lib/calendarAccess";
 import PassphraseGate from "@/components/PassphraseGate/PassphraseGate";
@@ -301,6 +302,11 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
         }
       } catch (err) {
         if (cancelled) return;
+        if (err instanceof CalendarUnavailableError) {
+          showToast({ message: "This calendar is no longer available." });
+          router.replace("/calendars");
+          return;
+        }
         if (err instanceof ApiError && err.status === 404) {
           setError("not-found");
         } else {
@@ -351,10 +357,15 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
         setNotesByDate(refreshed);
         setVotesByDate(refreshedVotes);
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof CalendarUnavailableError) {
+        showToast({ message: "This calendar is no longer available." });
+        router.replace("/calendars");
+        return;
+      }
       // Transient refresh failure; next event or the polling fallback retries.
     }
-  }, [calendarId]);
+  }, [calendarId, showToast, router]);
 
   const { status: streamStatus } = useCalendarEvents(
     calendar ? calendarId : "",

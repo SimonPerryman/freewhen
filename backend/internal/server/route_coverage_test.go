@@ -48,6 +48,8 @@ func TestRouteCoverage_AuthClassMatchesAllowList(t *testing.T) {
 		"POST /calendars/{id}/duplicate":                          authRequired,
 		"GET /calendars/{id}":                                     authOptional,
 		"PATCH /calendars/{id}":                                   authRequired,
+		"DELETE /calendars/{id}":                                  authRequired,
+		"DELETE /calendars/{id}/participants/me":                  authRequired,
 		"POST /calendars/{id}/participants":                       authOptional,
 		"POST /calendars/{id}/participants/{participantId}/claim": authRequired,
 		"DELETE /calendars/{id}/participants/{participantId}":     authRequired,

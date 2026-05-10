@@ -35,7 +35,7 @@ func (h *Handler) Unlock(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
-			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
+			respondCalendarMissing(r, w, h.service, id)
 		case errors.Is(err, service.ErrNotPassphraseProtected):
 			respondError(w, http.StatusBadRequest, "no_passphrase", "calendar is not passphrase protected")
 		case errors.Is(err, service.ErrPassphraseInvalid):
@@ -66,7 +66,7 @@ func (h *Handler) SetPassphrase(w http.ResponseWriter, r *http.Request) {
 	cal, err := h.service.GetCalendarOnly(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
+			respondCalendarMissing(r, w, h.service, id)
 			return
 		}
 		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
@@ -100,7 +100,7 @@ func (h *Handler) ClearPassphrase(w http.ResponseWriter, r *http.Request) {
 	cal, err := h.service.GetCalendarOnly(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
+			respondCalendarMissing(r, w, h.service, id)
 			return
 		}
 		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
@@ -132,7 +132,7 @@ func (h *Handler) requireCalendarAccess(w http.ResponseWriter, r *http.Request, 
 	cal, err := h.service.GetCalendarOnly(r.Context(), calendarID)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
+			respondCalendarMissing(r, w, h.service, calendarID)
 			return false, err
 		}
 		respondInternalError(r, w, err, "internal_error", "failed to load calendar")

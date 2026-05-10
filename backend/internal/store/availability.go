@@ -23,7 +23,7 @@ func (s *Store) SetAvailability(ctx context.Context, participantID string, dates
 	err := s.db.QueryRowContext(ctx,
 		`SELECT p.calendar_id, c.finalised_date::text
 		 FROM participants p JOIN calendars c ON c.id = p.calendar_id
-		 WHERE p.id = $1`, participantID,
+		 WHERE p.id = $1 AND p.deleted_at IS NULL AND c.deleted_at IS NULL`, participantID,
 	).Scan(&calendarID, &finalisedDate)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
