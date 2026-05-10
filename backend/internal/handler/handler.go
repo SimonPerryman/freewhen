@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/freewhen/backend/internal/calprovider"
 	"github.com/freewhen/backend/internal/flags"
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/service"
@@ -65,10 +66,23 @@ type Handler struct {
 	// embedded in exported events. Empty in environments without a public URL
 	// configured — the link is omitted in that case.
 	frontendURL string
+	// calProviders is the registry of configured calendar providers used by
+	// the export deep-link endpoint. Nil-safe — an empty registry returns 404
+	// for any provider name.
+	calProviders *calprovider.Registry
 }
 
 func New(s CalendarService) *Handler {
-	return &Handler{service: s, flags: flags.Noop{}}
+	return &Handler{service: s, flags: flags.Noop{}, calProviders: calprovider.NewRegistry()}
+}
+
+// WithCalendarProviders attaches the calendar-provider registry used by the
+// export deep-link endpoint.
+func (h *Handler) WithCalendarProviders(r *calprovider.Registry) *Handler {
+	if r != nil {
+		h.calProviders = r
+	}
+	return h
 }
 
 // WithFlags swaps the flag evaluator. Call once during server setup; the

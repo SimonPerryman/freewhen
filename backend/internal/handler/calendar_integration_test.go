@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/freewhen/backend/internal/availability"
+	"github.com/freewhen/backend/internal/calprovider"
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/ratelimit"
 	"github.com/freewhen/backend/internal/store"
@@ -35,16 +36,31 @@ func (f *fakeCalIntegrationStore) SetCalendarImportConsentAck(_ context.Context,
 	return nil
 }
 
-func newCalIntegrationHandler(t *testing.T, st CalendarIntegrationStore, cal CalendarService, fg *fakeGoogle, fb FreeBusyFetcher) *CalendarIntegrationHandler {
-	t.Helper()
-	if fb == nil {
-		fb = func(_ context.Context, _ string, _, _ time.Time, _ string) ([]availability.TimeRange, error) {
-			return nil, nil
-		}
+// fakeProvider is an in-test Provider implementation. The OAuth endpoint
+// points at the shared fakeGoogle httptest server; FreeBusy is a stubbable
+// func so individual cases can assert calls or inject errors.
+type fakeProvider struct {
+	name     string
+	oauth    *oauth2.Config
+	freeBusy func(ctx context.Context, token string, start, end time.Time, tz string) ([]availability.TimeRange, error)
+}
+
+func (p *fakeProvider) Name() string                { return p.name }
+func (p *fakeProvider) OAuthConfig() *oauth2.Config { return p.oauth }
+func (p *fakeProvider) AddEventURL(_ calprovider.ExportEvent) string {
+	return "https://example.test/add?stub"
+}
+
+func (p *fakeProvider) FreeBusy(ctx context.Context, token string, start, end time.Time, tz string) ([]availability.TimeRange, error) {
+	if p.freeBusy == nil {
+		return nil, nil
 	}
-	h := &CalendarIntegrationHandler{
-		store: st,
-		cal:   cal,
+	return p.freeBusy(ctx, token, start, end, tz)
+}
+
+func newFakeProvider(fg *fakeGoogle, fb func(ctx context.Context, token string, start, end time.Time, tz string) ([]availability.TimeRange, error)) *fakeProvider {
+	return &fakeProvider{
+		name: "google",
 		oauth: &oauth2.Config{
 			ClientID:     "test",
 			ClientSecret: "secret",
@@ -52,13 +68,32 @@ func newCalIntegrationHandler(t *testing.T, st CalendarIntegrationStore, cal Cal
 			Scopes:       []string{"https://www.googleapis.com/auth/calendar.freebusy"},
 			Endpoint:     fg.endpoint(),
 		},
+		freeBusy: fb,
+	}
+}
+
+// newCalIntegrationHandler wires a CalendarIntegrationHandler with a fake
+// Provider registered under "google". Tests pass `nil` for fb to get a
+// no-op FreeBusy.
+func newCalIntegrationHandler(t *testing.T, st CalendarIntegrationStore, cal CalendarService, fg *fakeGoogle, fb func(ctx context.Context, token string, start, end time.Time, tz string) ([]availability.TimeRange, error)) *CalendarIntegrationHandler {
+	t.Helper()
+	p := newFakeProvider(fg, fb)
+	return &CalendarIntegrationHandler{
+		store:        st,
+		cal:          cal,
+		providers:    calprovider.NewRegistry(p),
 		frontendURL:  "https://app.test",
 		secureCookie: false,
 		logger:       slog.New(slog.NewTextHandler(io.Discard, nil)),
 		limiter:      ratelimit.New(10, time.Hour),
-		freeBusy:     fb,
 	}
-	return h
+}
+
+// withProvider sets the {provider} path value on a request so handler routing
+// works in tests that bypass the mux.
+func withProvider(r *http.Request, name string) *http.Request {
+	r.SetPathValue("provider", name)
+	return r
 }
 
 // --- ConsentAck ---
@@ -101,8 +136,21 @@ func TestConsentAck_StoreFailure(t *testing.T) {
 // --- Connect ---
 
 func TestConnect_NotConfigured(t *testing.T) {
-	h := &CalendarIntegrationHandler{logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
-	req := withUser(httptest.NewRequest(http.MethodGet, "/auth/google/calendar/connect", nil), testUser)
+	h := &CalendarIntegrationHandler{
+		providers: calprovider.NewRegistry(),
+		logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	req := withProvider(withUser(httptest.NewRequest(http.MethodGet, "/auth/google/calendar/connect", nil), testUser), "google")
+	rec := httptest.NewRecorder()
+	h.Connect(rec, req)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status: %d", rec.Code)
+	}
+}
+
+func TestConnect_UnknownProvider(t *testing.T) {
+	h := newCalIntegrationHandler(t, &fakeCalIntegrationStore{}, &mockService{}, newFakeGoogle(t), nil)
+	req := withProvider(withUser(httptest.NewRequest(http.MethodGet, "/auth/apple/calendar/connect?calendar_id=cal1", nil), testUser), "apple")
 	rec := httptest.NewRecorder()
 	h.Connect(rec, req)
 	if rec.Code != http.StatusServiceUnavailable {
@@ -112,7 +160,7 @@ func TestConnect_NotConfigured(t *testing.T) {
 
 func TestConnect_MissingCalendarID(t *testing.T) {
 	h := newCalIntegrationHandler(t, &fakeCalIntegrationStore{}, &mockService{}, newFakeGoogle(t), nil)
-	req := withUser(httptest.NewRequest(http.MethodGet, "/auth/google/calendar/connect", nil), testUser)
+	req := withProvider(withUser(httptest.NewRequest(http.MethodGet, "/auth/google/calendar/connect", nil), testUser), "google")
 	rec := httptest.NewRecorder()
 	h.Connect(rec, req)
 	if rec.Code != http.StatusBadRequest {
@@ -123,8 +171,8 @@ func TestConnect_MissingCalendarID(t *testing.T) {
 func TestConnect_HappyPath_RedirectsAndSetsNonce(t *testing.T) {
 	fg := newFakeGoogle(t)
 	h := newCalIntegrationHandler(t, &fakeCalIntegrationStore{}, &mockService{}, fg, nil)
-	req := withUser(httptest.NewRequest(http.MethodGet,
-		"/auth/google/calendar/connect?calendar_id=cal1&return_url=/calendars/cal1&tz=UTC", nil), testUser)
+	req := withProvider(withUser(httptest.NewRequest(http.MethodGet,
+		"/auth/google/calendar/connect?calendar_id=cal1&return_url=/calendars/cal1&tz=UTC", nil), testUser), "google")
 	rec := httptest.NewRecorder()
 	h.Connect(rec, req)
 	if rec.Code != http.StatusTemporaryRedirect {
@@ -155,13 +203,18 @@ func TestConnect_HappyPath_RedirectsAndSetsNonce(t *testing.T) {
 	if nonce == nil || nonce.Value != s.Nonce {
 		t.Fatalf("nonce cookie missing or mismatched")
 	}
+	// Cookie path is derived from provider name — guards against a future
+	// hardcoded path regression when adding a second provider.
+	if nonce.Path != "/auth/google/calendar/callback" {
+		t.Errorf("nonce cookie path = %q, want /auth/google/calendar/callback", nonce.Path)
+	}
 }
 
 func TestConnect_AbsoluteReturnURL_Coerced(t *testing.T) {
 	fg := newFakeGoogle(t)
 	h := newCalIntegrationHandler(t, &fakeCalIntegrationStore{}, &mockService{}, fg, nil)
-	req := withUser(httptest.NewRequest(http.MethodGet,
-		"/auth/google/calendar/connect?calendar_id=cal1&return_url=https://evil/x", nil), testUser)
+	req := withProvider(withUser(httptest.NewRequest(http.MethodGet,
+		"/auth/google/calendar/connect?calendar_id=cal1&return_url=https://evil/x", nil), testUser), "google")
 	rec := httptest.NewRecorder()
 	h.Connect(rec, req)
 	parsed, _ := url.Parse(rec.Header().Get("Location"))
@@ -180,16 +233,16 @@ func TestConnect_RateLimited(t *testing.T) {
 	h.limiter = ratelimit.New(2, time.Hour)
 
 	for i := 0; i < 2; i++ {
-		req := withUser(httptest.NewRequest(http.MethodGet,
-			"/auth/google/calendar/connect?calendar_id=cal1", nil), testUser)
+		req := withProvider(withUser(httptest.NewRequest(http.MethodGet,
+			"/auth/google/calendar/connect?calendar_id=cal1", nil), testUser), "google")
 		rec := httptest.NewRecorder()
 		h.Connect(rec, req)
 		if rec.Code != http.StatusTemporaryRedirect {
 			t.Fatalf("call %d status: %d", i, rec.Code)
 		}
 	}
-	req := withUser(httptest.NewRequest(http.MethodGet,
-		"/auth/google/calendar/connect?calendar_id=cal1", nil), testUser)
+	req := withProvider(withUser(httptest.NewRequest(http.MethodGet,
+		"/auth/google/calendar/connect?calendar_id=cal1", nil), testUser), "google")
 	rec := httptest.NewRecorder()
 	h.Connect(rec, req)
 	if rec.Code != http.StatusTooManyRequests {
@@ -199,13 +252,13 @@ func TestConnect_RateLimited(t *testing.T) {
 
 // --- Callback ---
 
-// driveConnectThenCallback runs Connect, then issues Callback with the captured
+// driveCalendarCallback runs Connect, then issues Callback with the captured
 // nonce cookie + an explicit state override (tests can pass nil to use the
 // real one).
 func driveCalendarCallback(t *testing.T, h *CalendarIntegrationHandler, code string, stateOverride []byte) *httptest.ResponseRecorder {
 	t.Helper()
-	connReq := withUser(httptest.NewRequest(http.MethodGet,
-		"/auth/google/calendar/connect?calendar_id=cal1&return_url=/calendars/cal1&tz=UTC", nil), testUser)
+	connReq := withProvider(withUser(httptest.NewRequest(http.MethodGet,
+		"/auth/google/calendar/connect?calendar_id=cal1&return_url=/calendars/cal1&tz=UTC", nil), testUser), "google")
 	connRec := httptest.NewRecorder()
 	h.Connect(connRec, connReq)
 	if connRec.Code != http.StatusTemporaryRedirect {
@@ -223,8 +276,8 @@ func driveCalendarCallback(t *testing.T, h *CalendarIntegrationHandler, code str
 			nonce = c
 		}
 	}
-	cbReq := withUser(httptest.NewRequest(http.MethodGet,
-		"/auth/google/calendar/callback?code="+code+"&state="+url.QueryEscape(stateParam), nil), testUser)
+	cbReq := withProvider(withUser(httptest.NewRequest(http.MethodGet,
+		"/auth/google/calendar/callback?code="+code+"&state="+url.QueryEscape(stateParam), nil), testUser), "google")
 	if nonce != nil {
 		cbReq.AddCookie(nonce)
 	}
@@ -269,8 +322,8 @@ func TestCallback_HappyPath_SetsSuggestionCookie(t *testing.T) {
 func TestCallback_BadBase64State(t *testing.T) {
 	fg := newFakeGoogle(t)
 	h := newCalIntegrationHandler(t, &fakeCalIntegrationStore{}, &mockService{}, fg, nil)
-	req := withUser(httptest.NewRequest(http.MethodGet,
-		"/auth/google/calendar/callback?code=x&state=!!not-base64!!", nil), testUser)
+	req := withProvider(withUser(httptest.NewRequest(http.MethodGet,
+		"/auth/google/calendar/callback?code=x&state=!!not-base64!!", nil), testUser), "google")
 	rec := httptest.NewRecorder()
 	h.Callback(rec, req)
 	if rec.Code != http.StatusBadRequest {
@@ -282,8 +335,8 @@ func TestCallback_BadJSONState(t *testing.T) {
 	fg := newFakeGoogle(t)
 	h := newCalIntegrationHandler(t, &fakeCalIntegrationStore{}, &mockService{}, fg, nil)
 	bad := base64.RawURLEncoding.EncodeToString([]byte("{not json"))
-	req := withUser(httptest.NewRequest(http.MethodGet,
-		"/auth/google/calendar/callback?code=x&state="+bad, nil), testUser)
+	req := withProvider(withUser(httptest.NewRequest(http.MethodGet,
+		"/auth/google/calendar/callback?code=x&state="+bad, nil), testUser), "google")
 	rec := httptest.NewRecorder()
 	h.Callback(rec, req)
 	if rec.Code != http.StatusBadRequest {
