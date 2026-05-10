@@ -1372,6 +1372,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
                 calendarEmoji={calendarEmoji}
                 finalisedDate={finalisedDate}
                 passphrase={calendar.calendar.passphrase ?? null}
+                state="finalised"
               />
               <ParticipantList
                 participants={calendar.participants}
