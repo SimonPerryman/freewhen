@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import CalendarGrid from "./CalendarGrid";
+import CalendarGrid, { computeHeatPercent } from "./CalendarGrid";
 import { COLOUR_PALETTE, textOnColour } from "@/lib/overlap";
 import type { Participant } from "@/lib/types";
 
@@ -831,14 +831,36 @@ describe("CalendarGrid", () => {
     expect(onToggle).not.toHaveBeenCalled();
   });
 
-  describe("vote badge", () => {
-    it("does not render when count is 0", () => {
-      const ps = makeParticipants(1);
+  describe("preference heat", () => {
+    function findCell(date: string): HTMLElement {
+      const d = new Date(`${date}T00:00:00`);
+      const monthName = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ][d.getMonth()];
+      return screen.getByRole("button", {
+        name: new RegExp(`${monthName} ${d.getDate()}, ${d.getFullYear()}`),
+      });
+    }
+
+    it("does not render the legacy vote badge", () => {
+      const ps = makeParticipants(2);
+      const futureDate = futureDateStr(3);
       render(
         <CalendarGrid
           participants={ps}
-          freeByDate={new Map()}
-          voteCountsByDate={new Map()}
+          freeByDate={new Map([[futureDate, new Set([ps[0].id])]])}
+          voteCountsByDate={new Map([[futureDate, 2]])}
           currentParticipantId={null}
           onToggle={onToggle}
           joined={false}
@@ -847,74 +869,35 @@ describe("CalendarGrid", () => {
       expect(screen.queryAllByTestId("vote-badge")).toHaveLength(0);
     });
 
-    it("renders a bare ★ when exactly one vote", () => {
-      const ps = makeParticipants(1);
+    it("computeHeatPercent folds free + preference using half-weight preference", () => {
+      // No participants → no heat
+      expect(computeHeatPercent(0, 0, 0)).toBe(0);
+      // Free votes alone: 1/2 → 0.5 * 14 = 7
+      expect(computeHeatPercent(2, 1, 0)).toBe(7);
+      // Free + half-weight preference: 0.5 + 0.5 * 0.5 = 0.75 → 11 (rounded)
+      expect(computeHeatPercent(2, 1, 1)).toBe(11);
+      // Preference only nudges from cold: 0.5 * 1/4 = 0.125 → 2
+      expect(computeHeatPercent(4, 0, 1)).toBe(2);
+      // Capped at the 14% accent-mix ceiling even when preferences pile on
+      expect(computeHeatPercent(2, 2, 2)).toBe(14);
+      expect(computeHeatPercent(2, 2, 10)).toBe(14);
+    });
+
+    it("includes preference count in the aria-label", () => {
+      const ps = makeParticipants(2);
       const futureDate = futureDateStr(3);
       render(
         <CalendarGrid
           participants={ps}
           freeByDate={new Map([[futureDate, new Set([ps[0].id])]])}
-          voteCountsByDate={new Map([[futureDate, 1]])}
+          voteCountsByDate={new Map([[futureDate, 2]])}
           currentParticipantId={null}
           onToggle={onToggle}
           joined={false}
         />,
       );
-      const badges = screen.getAllByTestId("vote-badge");
-      expect(badges).toHaveLength(1);
-      expect(badges[0]).toHaveAttribute("aria-label", "1 person prefers this date");
-      expect(badges[0]).toHaveTextContent("★");
-    });
-
-    it("renders ★N when count > 1", () => {
-      const ps = makeParticipants(3);
-      const futureDate = futureDateStr(3);
-      render(
-        <CalendarGrid
-          participants={ps}
-          freeByDate={new Map([[futureDate, new Set([ps[0].id, ps[1].id])]])}
-          voteCountsByDate={new Map([[futureDate, 3]])}
-          currentParticipantId={null}
-          onToggle={onToggle}
-          joined={false}
-        />,
-      );
-      const badge = screen.getByTestId("vote-badge");
-      expect(badge).toHaveTextContent("3");
-      expect(badge).toHaveAttribute("aria-label", "3 people prefer this date");
-    });
-
-    it("does not render on past cells", () => {
-      const ps = makeParticipants(1);
-      const pastDate = pastDateStr(1);
-      render(
-        <CalendarGrid
-          participants={ps}
-          freeByDate={new Map()}
-          voteCountsByDate={new Map([[pastDate, 2]])}
-          currentParticipantId={null}
-          onToggle={onToggle}
-          joined={false}
-        />,
-      );
-      expect(screen.queryAllByTestId("vote-badge")).toHaveLength(0);
-    });
-
-    it("renders on finalised cells", () => {
-      const ps = makeParticipants(1);
-      const futureDate = futureDateStr(3);
-      render(
-        <CalendarGrid
-          participants={ps}
-          freeByDate={new Map([[futureDate, new Set([ps[0].id])]])}
-          voteCountsByDate={new Map([[futureDate, 1]])}
-          currentParticipantId={null}
-          onToggle={onToggle}
-          joined={true}
-          finalisedDate={futureDate}
-        />,
-      );
-      expect(screen.getAllByTestId("vote-badge")).toHaveLength(1);
+      const cell = findCell(futureDate);
+      expect(cell.getAttribute("aria-label")).toContain("Preferred by 2 people.");
     });
   });
 

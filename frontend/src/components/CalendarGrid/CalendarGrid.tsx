@@ -62,7 +62,8 @@ interface CalendarGridProps {
   // multiple authors → neutral.
   noteAuthorsByDate?: Map<string, Set<string>>;
   // voteCountsByDate[date] = number of participants who have marked this date
-  // as preferred. Renders a ★ badge in the cell's bottom-right.
+  // as preferred. Folded into the cell's heat tint as half-weight warmth on top
+  // of the free-vote ratio (see plans/ui/prefer-indicator-rework.md).
   voteCountsByDate?: Map<string, number>;
   currentParticipantId: string | null;
   // Inline Google Calendar import suggestions. When present, cells for these
@@ -112,13 +113,37 @@ function addDays(date: Date, days: number): Date {
   return d;
 }
 
-function buildAriaLabel(dateLabel: string, sorted: Participant[], freeIds: Set<string>): string {
+// Free votes carry full weight; preference votes add half-weight warmth on top,
+// capped at the same 14% accent-mix ceiling. See plans/ui/prefer-indicator-rework.md.
+export function computeHeatPercent(
+  participantCount: number,
+  freeCount: number,
+  preferCount: number,
+): number {
+  if (participantCount <= 0) return 0;
+  const freeRatio = freeCount / participantCount;
+  const preferRatio = preferCount / participantCount;
+  const heatRatio = Math.min(1, freeRatio + 0.5 * preferRatio);
+  return Math.round(heatRatio * 14);
+}
+
+function buildAriaLabel(
+  dateLabel: string,
+  sorted: Participant[],
+  freeIds: Set<string>,
+  preferCount: number,
+): string {
   if (sorted.length === 0) return dateLabel;
   const free = sorted.filter((p) => freeIds.has(p.id)).map((p) => p.name);
   const notFree = sorted.filter((p) => !freeIds.has(p.id)).map((p) => p.name);
   const parts = [dateLabel];
   if (free.length > 0) parts.push(`Free: ${free.join(", ")}.`);
   if (notFree.length > 0) parts.push(`Not free: ${notFree.join(", ")}.`);
+  if (preferCount > 0) {
+    parts.push(
+      preferCount === 1 ? "Preferred by 1 person." : `Preferred by ${preferCount} people.`,
+    );
+  }
   return parts.join(" ");
 }
 
@@ -440,12 +465,10 @@ export default function CalendarGrid({
           const freeIds = freeByDate.get(dateStr) ?? new Set<string>();
           const { everyoneFree } = classifyDay(sorted, freeIds);
 
-          // Heat map: intensity from 0 (no one free) to 1 (everyone free)
-          const heatRatio = sorted.length > 0 ? freeIds.size / sorted.length : 0;
-          const heatPercent = Math.round(heatRatio * 14); // max 14% mix for subtle tint
-
           const isFinalised = finalisedDate === dateStr;
           const voteCount = voteCountsByDate?.get(dateStr) ?? 0;
+
+          const heatPercent = computeHeatPercent(sorted.length, freeIds.size, voteCount);
           const classNames = [styles.day, styles.cellEntrance];
           if (isToday) classNames.push(styles.today);
           if (joined && !locked) classNames.push(styles.clickable);
@@ -458,7 +481,7 @@ export default function CalendarGrid({
           if (isSuggestedBusy) classNames.push(styles.suggestedBusy);
 
           const dateLabel = formatDateLabel(date);
-          const ariaLabel = buildAriaLabel(dateLabel, sorted, freeIds);
+          const ariaLabel = buildAriaLabel(dateLabel, sorted, freeIds, voteCount);
 
           const visibleIndex = i - firstVisibleIdx;
           const cellStyle: React.CSSProperties = {
@@ -526,24 +549,6 @@ export default function CalendarGrid({
                       : undefined
                   }
                 />
-              ) : null}
-              {voteCount > 0 ? (
-                <span
-                  className={styles.voteBadge}
-                  data-testid="vote-badge"
-                  aria-label={
-                    voteCount === 1
-                      ? "1 person prefers this date"
-                      : `${voteCount} people prefer this date`
-                  }
-                >
-                  <span className={styles.voteBadgeStar} aria-hidden="true">
-                    ★
-                  </span>
-                  {voteCount > 1 ? (
-                    <span className={styles.voteBadgeCount}>{voteCount}</span>
-                  ) : null}
-                </span>
               ) : null}
               {sorted.length > 0 ? (
                 <div
