@@ -947,7 +947,7 @@ describe("CalendarGrid", () => {
     });
   });
 
-describe("first-mark coachmark", () => {
+  describe("first-mark coachmark", () => {
     beforeEach(() => {
       try {
         localStorage.clear();
