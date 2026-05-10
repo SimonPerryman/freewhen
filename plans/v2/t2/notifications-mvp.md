@@ -1,6 +1,6 @@
 # Notifications MVP — Decision Email + Optional Email Capture
 
-Status: in-progress
+Status: done
 
 ## Goal
 

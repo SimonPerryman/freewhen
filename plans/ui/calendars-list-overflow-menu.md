@@ -1,6 +1,6 @@
 # Calendars list — overflow menu for row actions
 
-Status: in-progress
+Status: done
 
 ## Goal
 

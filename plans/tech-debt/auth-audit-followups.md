@@ -1,6 +1,6 @@
 # Auth audit follow-ups (F12–F17)
 
-Status: pending
+Status: done
 
 ## Goal
 
