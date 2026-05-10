@@ -102,10 +102,10 @@ describe("Home (calendar creation page)", () => {
     renderWithAuth();
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /sign in to create/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^create/i })).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole("button", { name: /sign in to create/i }));
+    await user.click(screen.getByRole("button", { name: /^create/i }));
 
     expect(pushMock).toHaveBeenCalledWith("/login");
   });
