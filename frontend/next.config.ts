@@ -31,7 +31,7 @@ if (process.env.VERCEL_ENV === "production" || process.env.VERCEL_ENV === "previ
     throw new Error(
       `Vercel build has empty NEXT_PUBLIC_* env var(s): ${broken.join(", ")}. ` +
         "Likely cause: the var was added without --no-sensitive, so `vercel pull` " +
-        "cannot read it and writes \"\" to the build env. Run " +
+        'cannot read it and writes "" to the build env. Run ' +
         "`vercel env rm <NAME> <env>` and re-add with `--no-sensitive`. " +
         "To intentionally disable an optional var, remove it entirely (do not set it to empty). " +
         "See docs/deploy-checklist.md.",

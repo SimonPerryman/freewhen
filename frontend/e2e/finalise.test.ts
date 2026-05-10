@@ -53,7 +53,10 @@ test("owner can finalise an everyone-free date; non-owners cannot", async ({
   await page.goto(`/calendars/${calendar.id}`);
   await expect(page.getByRole("heading", { level: 1, name: calendar.name })).toBeVisible();
 
-  await page.getByRole("button", { name: /^Finalise / }).first().click();
+  await page
+    .getByRole("button", { name: /^Finalise / })
+    .first()
+    .click();
   await page.getByRole("button", { name: /^Confirm / }).click();
 
   // Finalised banner replaces the summary; "Confirmed" is its top-line label.
