@@ -445,7 +445,6 @@ export default function CalendarGrid({
           const heatPercent = Math.round(heatRatio * 14); // max 14% mix for subtle tint
 
           const isFinalised = finalisedDate === dateStr;
-          const isOwnFree = !!currentParticipantId && freeIds.has(currentParticipantId);
           const voteCount = voteCountsByDate?.get(dateStr) ?? 0;
           const classNames = [styles.day, styles.cellEntrance];
           if (isToday) classNames.push(styles.today);
@@ -453,10 +452,6 @@ export default function CalendarGrid({
           if (everyoneFree) classNames.push(styles.everyoneFree);
           if (isFinalised) classNames.push(styles.finalised);
           if (pulsing === dateStr) classNames.push(styles.toggle);
-          if (isOwnFree && !isFinalised) {
-            classNames.push(styles.mine);
-            if (voteCount > 0) classNames.push(styles.hasBottomRightBadge);
-          }
           const isSuggestedFree = !!suggestedFreeDates?.has(dateStr);
           const isSuggestedBusy = !isSuggestedFree && !!suggestedBusyDates?.has(dateStr);
           if (isSuggestedFree) classNames.push(styles.suggestedFree);

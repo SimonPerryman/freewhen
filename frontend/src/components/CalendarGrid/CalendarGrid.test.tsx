@@ -947,44 +947,7 @@ describe("CalendarGrid", () => {
     });
   });
 
-  describe("own-free chevron affordance", () => {
-    it("adds the mine class to cells where the current participant is free", () => {
-      const ps = makeParticipants(1);
-      const futureDate = futureDateStr(3);
-      const freeByDate = new Map([[futureDate, new Set([ps[0].id])]]);
-      const { container } = render(
-        <CalendarGrid
-          participants={ps}
-          freeByDate={freeByDate}
-          currentParticipantId={ps[0].id}
-          onToggle={onToggle}
-          joined={true}
-        />,
-      );
-      const mineCells = container.querySelectorAll('[class*="mine"]');
-      expect(mineCells.length).toBe(1);
-    });
-
-    it("suppresses the chevron when a vote badge occupies the bottom-right", () => {
-      const ps = makeParticipants(1);
-      const futureDate = futureDateStr(3);
-      const freeByDate = new Map([[futureDate, new Set([ps[0].id])]]);
-      const { container } = render(
-        <CalendarGrid
-          participants={ps}
-          freeByDate={freeByDate}
-          voteCountsByDate={new Map([[futureDate, 1]])}
-          currentParticipantId={ps[0].id}
-          onToggle={onToggle}
-          joined={true}
-        />,
-      );
-      const mineCells = container.querySelectorAll('[class*="hasBottomRightBadge"]');
-      expect(mineCells.length).toBe(1);
-    });
-  });
-
-  describe("first-mark coachmark", () => {
+describe("first-mark coachmark", () => {
     beforeEach(() => {
       try {
         localStorage.clear();
