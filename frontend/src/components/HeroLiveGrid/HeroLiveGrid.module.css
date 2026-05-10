@@ -2,20 +2,12 @@
 
 .card {
   position: relative;
-  background: var(--paper);
+  background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 14px;
   overflow: hidden;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-
-@media (prefers-color-scheme: dark) {
-  .card {
-    background: var(--card-bg);
-    border-color: var(--border);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  }
+  box-shadow: var(--shadow-sm);
 }
 
 .card::before {
@@ -24,7 +16,7 @@
   inset: 0;
   background: radial-gradient(
     120px 80px at 80% 10%,
-    color-mix(in oklab, var(--terra) 20%, transparent),
+    color-mix(in oklab, var(--accent) 20%, transparent),
     transparent 70%
   );
   pointer-events: none;
@@ -71,7 +63,7 @@
 .cell {
   height: 14px;
   border-radius: 3px;
-  --target: color-mix(in oklab, var(--paper) 92%, var(--ink-2));
+  --target: color-mix(in oklab, var(--card-bg) 92%, var(--text-secondary));
   background: var(--target);
   animation: fillIn 1.4s ease both;
   animation-delay: calc(60ms * var(--i) + 200ms);
@@ -85,34 +77,16 @@
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  .cell {
-    --target: color-mix(in oklab, var(--card-bg) 80%, var(--text-secondary));
-  }
-}
-
 .cellH1 {
-  --target: color-mix(in oklab, var(--terra) 22%, var(--paper));
+  --target: color-mix(in oklab, var(--accent) 22%, var(--card-bg));
 }
 
 .cellH2 {
-  --target: color-mix(in oklab, var(--terra) 50%, var(--paper));
+  --target: color-mix(in oklab, var(--accent) 50%, var(--card-bg));
 }
 
 .cellH3 {
-  --target: color-mix(in oklab, var(--terra) 100%, var(--paper));
-}
-
-@media (prefers-color-scheme: dark) {
-  .cellH1 {
-    --target: color-mix(in oklab, var(--terra) 22%, var(--card-bg));
-  }
-  .cellH2 {
-    --target: color-mix(in oklab, var(--terra) 50%, var(--card-bg));
-  }
-  .cellH3 {
-    --target: color-mix(in oklab, var(--terra) 100%, var(--card-bg));
-  }
+  --target: color-mix(in oklab, var(--accent) 100%, var(--card-bg));
 }
 
 .cellH1,
@@ -123,11 +97,11 @@
 
 @keyframes fillIn {
   from {
-    background: color-mix(in oklab, var(--paper) 92%, var(--ink-2));
+    background: color-mix(in oklab, var(--card-bg) 92%, var(--text-secondary));
     transform: scale(0.9);
   }
   to {
-    background: var(--target, color-mix(in oklab, var(--paper) 92%, var(--ink-2)));
+    background: var(--target, color-mix(in oklab, var(--card-bg) 92%, var(--text-secondary)));
     transform: scale(1);
   }
 }

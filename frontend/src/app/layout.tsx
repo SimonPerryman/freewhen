@@ -4,6 +4,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import AnalyticsProvider from "@/components/AnalyticsProvider/AnalyticsProvider";
 import AuthProvider from "@/components/AuthProvider/AuthProvider";
 import Header from "@/components/Header/Header";
+import { COLOR_SCHEME_INIT_SCRIPT } from "@/lib/colorScheme";
 import { ToastProvider } from "@/lib/toast";
 import "./globals.css";
 
@@ -33,7 +34,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#e06449" },
+    { media: "(prefers-color-scheme: light)", color: "#f3eee4" },
     { media: "(prefers-color-scheme: dark)", color: "#141210" },
   ],
 };
@@ -69,8 +70,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${body.variable} ${display.variable} ${accent.variable}`}>
+    <html
+      lang="en"
+      className={`${body.variable} ${display.variable} ${accent.variable}`}
+      suppressHydrationWarning
+    >
       <body>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: COLOR_SCHEME_INIT_SCRIPT,
+          }}
+        />
         <a href="#main" className="skip-link">
           Skip to content
         </a>

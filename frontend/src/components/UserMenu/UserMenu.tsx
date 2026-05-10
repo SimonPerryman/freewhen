@@ -10,6 +10,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useAuth } from "@/components/AuthProvider/AuthProvider";
+import { ColorSchemeSegmented } from "@/components/ColorSchemeToggle/ColorSchemeToggle";
 import { updateMe, logoutEverywhere, ApiError } from "@/lib/api";
 import { MAX_USER_NAME_LENGTH } from "@/lib/limits";
 import log from "@/lib/log";
@@ -288,6 +289,13 @@ export default function UserMenu() {
                   </>
                 )}
               </div>
+            </div>
+
+            <div className={styles.divider} aria-hidden="true" />
+
+            <div className={styles.appearanceRow}>
+              <span className={styles.appearanceLabel}>Appearance</span>
+              <ColorSchemeSegmented />
             </div>
 
             <div className={styles.divider} aria-hidden="true" />
