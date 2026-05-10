@@ -1,10 +1,6 @@
 import { test, expect } from "./fixtures";
 
-test("anonymous joiner opens share link and joins with a name", async ({
-  page,
-  api,
-  calendar,
-}) => {
+test("anonymous joiner opens share link and joins with a name", async ({ page, api, calendar }) => {
   // Browser context is not signed in (no test-login call). Open the share URL.
   await page.goto(`/calendars/${calendar.id}`);
 

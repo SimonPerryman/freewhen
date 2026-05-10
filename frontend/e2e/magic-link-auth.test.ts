@@ -19,7 +19,9 @@ test("magic-link: request a link, fetch it from the captured-email endpoint, cli
   // The capturing email sender stored the link instead of sending it. The
   // link itself goes through the frontend bridge page, which redirects to
   // the backend callback, which redirects back to the frontend root.
-  const linkRes = await page.request.get(`${BACKEND_URL}/test/magic-link?email=${encodeURIComponent(email)}`);
+  const linkRes = await page.request.get(
+    `${BACKEND_URL}/test/magic-link?email=${encodeURIComponent(email)}`,
+  );
   expect(linkRes.ok(), `magic link should be captured for ${email}`).toBeTruthy();
   const { link } = (await linkRes.json()) as { link: string };
   expect(link).toContain("/auth/magic-link/callback?token=");
@@ -36,7 +38,9 @@ test("magic-link: request a link, fetch it from the captured-email endpoint, cli
   await expect(page).toHaveURL(/\/$/);
 
   const me = await api.get(`/auth/me`, {
-    headers: { Cookie: (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join("; ") },
+    headers: {
+      Cookie: (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join("; "),
+    },
   });
   expect(me.ok(), `auth/me should return 200 after magic-link auth`).toBeTruthy();
   const body = (await me.json()) as { email: string };

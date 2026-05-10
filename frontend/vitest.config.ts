@@ -3,15 +3,15 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 
 export default defineConfig({
-	plugins: [react()],
-	test: {
-		environment: "happy-dom",
-		setupFiles: ["./vitest.setup.ts"],
-		exclude: ["**/node_modules/**", "**/dist/**", "e2e/**"],
-	},
-	resolve: {
-		alias: {
-			"@": path.resolve(__dirname, "./src"),
-		},
-	},
+  plugins: [react()],
+  test: {
+    environment: "happy-dom",
+    setupFiles: ["./vitest.setup.ts"],
+    exclude: ["**/node_modules/**", "**/dist/**", "e2e/**"],
+  },
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
 });
