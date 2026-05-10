@@ -1,0 +1,876 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FreeWhen — A Field Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..700,0..100&family=Instrument+Serif:ital@0;1&family=DM+Sans:opsz,wght@9..40,300..700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --paper-bg:        #f3eee4;
+    --paper-raised:    #faf6ed;
+    --paper-tile:      #ece5d5;
+    --paper-ink:       #1a1814;
+    --paper-muted:     #6b6358;
+    --paper-faint:     #9a9183;
+    --paper-border:    #d8d1c5;
+    --paper-border-soft:#e6dfd1;
+    --accent:          #0f7566;
+    --accent-strong:   #0c5e52;
+    --accent-tint:     rgba(15, 117, 102, 0.12);
+    --note:            #2a5d8f;
+    --note-tint:       #eaf2fa;
+    --warm:            #c2185b;
+    --gold:            #b8893a;
+
+    --display: "Fraunces", Georgia, serif;
+    --accent-italic: "Instrument Serif", Georgia, serif;
+    --body: "DM Sans", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--paper-bg);
+    background-image:
+      radial-gradient(900px 600px at 80% -10%, var(--accent-tint), transparent 60%),
+      radial-gradient(700px 500px at -10% 110%, rgba(0,0,0,0.04), transparent 70%);
+    background-attachment: fixed;
+    color: var(--paper-ink);
+    font: 16px/1.65 var(--body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  main { max-width: 1080px; margin: 0 auto; padding: 64px 28px 120px; }
+
+  /* ── Masthead ────────────────────────────────────────────────── */
+  .masthead {
+    border-top: 2px solid var(--paper-ink);
+    border-bottom: 1px solid var(--paper-ink);
+    padding: 18px 0 22px;
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 24px; flex-wrap: wrap;
+  }
+  .masthead .left { font-family: var(--display); font-weight: 500; font-size: 14px;
+                    text-transform: uppercase; letter-spacing: 0.18em; }
+  .masthead .right { font-family: var(--body); font-size: 12px; color: var(--paper-muted);
+                     text-transform: uppercase; letter-spacing: 0.18em; }
+  .wordmark { font-family: var(--display); font-weight: 500; }
+  .wordmark em { font-family: var(--accent-italic); font-style: italic;
+                 color: var(--accent); font-weight: 400; }
+
+  /* ── Hero ────────────────────────────────────────────────────── */
+  .hero { padding: 56px 0 28px; border-bottom: 1px solid var(--paper-border); }
+  .eyebrow {
+    font-family: var(--body); font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.22em; color: var(--accent);
+    margin-bottom: 16px;
+  }
+  h1.title {
+    font-family: var(--display); font-weight: 350;
+    font-size: clamp(48px, 8vw, 96px); line-height: 0.95; letter-spacing: -0.035em;
+    margin: 0 0 20px;
+    font-variation-settings: "SOFT" 60;
+  }
+  h1.title em {
+    font-family: var(--accent-italic); font-style: italic;
+    color: var(--accent); font-weight: 400; letter-spacing: -0.02em;
+  }
+  .deck {
+    font-family: var(--display); font-weight: 350; font-size: 22px; line-height: 1.4;
+    color: var(--paper-muted); max-width: 60ch; margin: 0 0 28px;
+  }
+  .byline {
+    font-family: var(--body); font-size: 12px; color: var(--paper-faint);
+    text-transform: uppercase; letter-spacing: 0.2em;
+    border-top: 1px solid var(--paper-border-soft);
+    padding-top: 14px;
+  }
+
+  /* ── Contents ────────────────────────────────────────────────── */
+  .toc {
+    margin: 36px 0 0; padding: 24px 28px;
+    background: var(--paper-raised); border: 1px solid var(--paper-border);
+    border-radius: 14px;
+  }
+  .toc-title {
+    font-family: var(--body); text-transform: uppercase; letter-spacing: 0.18em;
+    font-size: 11px; color: var(--paper-muted); margin-bottom: 14px; font-weight: 600;
+  }
+  .toc ol { list-style: none; padding: 0; margin: 0; columns: 2; column-gap: 36px; }
+  @media (max-width: 700px) { .toc ol { columns: 1; } }
+  .toc li {
+    display: flex; align-items: baseline; gap: 12px;
+    padding: 6px 0; border-bottom: 1px dotted var(--paper-border);
+    break-inside: avoid;
+  }
+  .toc .num {
+    font-family: var(--accent-italic); font-style: italic;
+    color: var(--accent); font-size: 18px; min-width: 24px;
+  }
+  .toc a { color: var(--paper-ink); text-decoration: none; font-family: var(--display);
+           font-size: 17px; flex: 1; }
+  .toc a:hover { color: var(--accent); }
+  .toc .dots { flex: 1; border-bottom: 1px dotted var(--paper-border-soft);
+               transform: translateY(-4px); }
+  .toc .pageno { font-family: var(--mono); color: var(--paper-faint); font-size: 12px; }
+
+  /* ── Section headers ─────────────────────────────────────────── */
+  section { margin-top: 88px; }
+  .section-head { display: grid; grid-template-columns: 80px 1fr; gap: 20px;
+                  align-items: end; margin-bottom: 28px;
+                  border-bottom: 1px solid var(--paper-ink); padding-bottom: 14px; }
+  .section-head .num {
+    font-family: var(--accent-italic); font-style: italic;
+    font-size: 64px; color: var(--accent); line-height: 0.8;
+  }
+  .section-head h2 {
+    font-family: var(--display); font-weight: 400; font-size: 38px;
+    letter-spacing: -0.02em; margin: 0; line-height: 1;
+  }
+  .section-head h2 em {
+    font-family: var(--accent-italic); font-style: italic; color: var(--accent);
+    font-weight: 400;
+  }
+  .standfirst { font-family: var(--display); font-size: 19px; line-height: 1.5;
+                color: var(--paper-muted); max-width: 65ch; margin: 0 0 20px;
+                font-weight: 350; }
+
+  h3.kicker {
+    font-family: var(--body); font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.2em; color: var(--accent);
+    margin: 28px 0 10px;
+  }
+
+  p { margin: 0 0 14px; }
+
+  /* ── Cards & panels ──────────────────────────────────────────── */
+  .panel {
+    background: var(--paper-raised); border: 1px solid var(--paper-border);
+    border-radius: 14px; padding: 22px 24px; margin: 14px 0;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    overflow-x: auto;
+  }
+  .panel.diagram { padding: 28px; }
+  .panel.tile { background: var(--paper-tile); }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  /* ── Inline code ─────────────────────────────────────────────── */
+  code, kbd {
+    font-family: var(--mono); font-size: 0.86em;
+    background: var(--paper-tile); color: var(--paper-ink);
+    padding: 1px 7px; border-radius: 5px;
+    border: 1px solid var(--paper-border-soft);
+  }
+
+  /* ── Tables ──────────────────────────────────────────────────── */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  thead th {
+    text-align: left; padding: 10px 12px;
+    font-family: var(--body); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.14em; font-size: 11px;
+    color: var(--paper-muted);
+    border-bottom: 1.5px solid var(--paper-ink);
+  }
+  tbody td {
+    padding: 10px 12px; border-bottom: 1px solid var(--paper-border-soft);
+    vertical-align: top;
+  }
+  tbody tr:hover td { background: rgba(15, 117, 102, 0.04); }
+  td.method { font-family: var(--mono); font-weight: 700; font-size: 12px;
+              color: var(--paper-ink); white-space: nowrap; }
+  td.path   { font-family: var(--mono); font-size: 13px; color: var(--accent-strong); }
+
+  /* ── Pills ───────────────────────────────────────────────────── */
+  .pill {
+    display: inline-block; padding: 2px 9px; border-radius: 999px;
+    font-family: var(--body); font-size: 10.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    background: var(--paper-tile); color: var(--paper-muted);
+    border: 1px solid var(--paper-border);
+  }
+  .pill.public { color: var(--accent-strong); background: var(--accent-tint);
+                 border-color: rgba(15,117,102,0.25); }
+  .pill.opt    { color: var(--note); background: var(--note-tint);
+                 border-color: rgba(42,93,143,0.25); }
+  .pill.auth   { color: var(--gold); background: rgba(184,137,58,0.12);
+                 border-color: rgba(184,137,58,0.3); }
+  .pill.owner  { color: var(--warm); background: rgba(194,24,91,0.08);
+                 border-color: rgba(194,24,91,0.25); }
+
+  ul.tight { margin: 8px 0; padding-left: 22px; }
+  ul.tight li { margin: 4px 0; }
+  ul.tight li::marker { color: var(--accent); }
+
+  .ascii {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.55;
+    white-space: pre; color: var(--paper-ink);
+    background: var(--paper-tile); border-radius: 10px; padding: 18px;
+    border: 1px solid var(--paper-border-soft);
+    overflow-x: auto;
+  }
+
+  /* ── Mermaid container ───────────────────────────────────────── */
+  .mermaid {
+    background: var(--paper-tile);
+    border-radius: 10px; padding: 24px;
+    border: 1px solid var(--paper-border-soft);
+    overflow-x: auto;
+    text-align: center;
+    font-family: var(--body) !important;
+  }
+  .mermaid svg { max-width: 100%; height: auto; }
+
+  /* ── Pull quotes / asides ────────────────────────────────────── */
+  .aside {
+    border-left: 3px solid var(--accent);
+    padding: 4px 0 4px 18px;
+    margin: 18px 0;
+    font-family: var(--accent-italic); font-style: italic;
+    font-size: 19px; line-height: 1.45; color: var(--paper-ink);
+  }
+
+  .colophon {
+    margin-top: 96px; padding-top: 24px;
+    border-top: 1px solid var(--paper-border);
+    font-family: var(--body); font-size: 12px; color: var(--paper-faint);
+    text-transform: uppercase; letter-spacing: 0.2em; text-align: center;
+  }
+  .colophon em { font-family: var(--accent-italic); font-style: italic;
+                 color: var(--accent); text-transform: none; letter-spacing: 0; font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+
+<!-- ─────────── Masthead ─────────── -->
+<div class="masthead">
+  <div class="left">
+    <span class="wordmark">Free<em>When</em></span> &nbsp;·&nbsp; A Field Guide
+  </div>
+  <div class="right">Vol. I &nbsp;·&nbsp; 2026 — 05 — 11</div>
+</div>
+
+<!-- ─────────── Hero ─────────── -->
+<div class="hero">
+  <div class="eyebrow">Onboarding documentation</div>
+  <h1 class="title">The whole<br/>system, <em>at a glance.</em></h1>
+  <p class="deck">
+    A guided tour of the data, the routes, the components, the deploy, the
+    integrations — and the abstractions holding it all together.
+  </p>
+  <div class="byline">For engineers · Source of truth: the code itself</div>
+</div>
+
+<!-- ─────────── Contents ─────────── -->
+<div class="toc">
+  <div class="toc-title">Contents</div>
+  <ol>
+    <li><span class="num">i.</span><a href="#arch">Architecture</a><span class="dots"></span><span class="pageno">01</span></li>
+    <li><span class="num">ii.</span><a href="#data">The Data Model</a><span class="dots"></span><span class="pageno">02</span></li>
+    <li><span class="num">iii.</span><a href="#api">API Routes</a><span class="dots"></span><span class="pageno">03</span></li>
+    <li><span class="num">iv.</span><a href="#frontend">The Frontend</a><span class="dots"></span><span class="pageno">04</span></li>
+    <li><span class="num">v.</span><a href="#flows">Key Flows</a><span class="dots"></span><span class="pageno">05</span></li>
+    <li><span class="num">vi.</span><a href="#hosting">Hosting &amp; Infrastructure</a><span class="dots"></span><span class="pageno">06</span></li>
+    <li><span class="num">vii.</span><a href="#third">Third-Party Integrations</a><span class="dots"></span><span class="pageno">07</span></li>
+    <li><span class="num">viii.</span><a href="#abstractions">Abstractions</a><span class="dots"></span><span class="pageno">08</span></li>
+    <li><span class="num">ix.</span><a href="#bonus">Conventions &amp; Conveniences</a><span class="dots"></span><span class="pageno">09</span></li>
+  </ol>
+</div>
+
+<!-- ─────────── 1. Architecture ─────────── -->
+<section id="arch">
+  <div class="section-head"><div class="num">i.</div><h2>Architecture, <em>top down.</em></h2></div>
+  <p class="standfirst">Three tiers, three vendors. The browser is the only thing that talks to both the API and to PostHog.</p>
+
+  <div class="panel diagram mermaid">
+flowchart LR
+  U(["Browser"])
+  FE["<b>Next.js</b> · Vercel<br/><span style='color:#6b6358;font-size:0.85em'>App Router · TS · oxlint</span>"]
+  BE["<b>Go API</b> · Cloud Run<br/><span style='color:#6b6358;font-size:0.85em'>net/http · slog · single binary</span>"]
+  DB[("<b>Postgres</b> · Neon")]
+  PH["<b>PostHog</b> EU<br/><span style='color:#6b6358;font-size:0.85em'>analytics + flags</span>"]
+  RS["<b>Resend</b><br/><span style='color:#6b6358;font-size:0.85em'>transactional email</span>"]
+  GO["<b>Google</b><br/><span style='color:#6b6358;font-size:0.85em'>OAuth + Calendar FreeBusy</span>"]
+  HUB(("<b>realtime.Hub</b><br/><span style='color:#6b6358;font-size:0.85em'>in-memory</span>"))
+
+  U -- "HTTPS · cookie" --> FE
+  U -- "SSE /events" --> BE
+  U -. "events" .-> PH
+  FE -- "fetch · creds" --> BE
+  BE -- "pgx" --> DB
+  BE -- "pub/sub" --> HUB
+  BE -- "POST /emails" --> RS
+  BE -- "freeBusy" --> GO
+  U -. "OAuth redirect" .-> GO
+
+  classDef user fill:#fff4d9,stroke:#b8893a,stroke-width:2px;
+  classDef internal fill:#faf6ed,stroke:#1a1814,stroke-width:2px;
+  classDef data fill:#eaf2fa,stroke:#2a5d8f,stroke-width:2px;
+  classDef external fill:#f6e6ec,stroke:#c2185b,stroke-width:2px;
+  classDef hub fill:#e3f1ee,stroke:#0f7566,stroke-width:2px;
+  class U user;
+  class FE,BE internal;
+  class DB data;
+  class HUB hub;
+  class PH,RS,GO external;
+  </div>
+
+  <h3 class="kicker">In a sentence each</h3>
+  <ul class="tight">
+    <li><strong>Frontend</strong> — Next.js 15, App Router, calls the API with cookie creds. Case-conversion (<code>snake_case ↔ camelCase</code>) happens at the JSON boundary in <code>src/lib/api.ts</code>.</li>
+    <li><strong>Backend</strong> — Single Go binary, stdlib router, layered as <code>handler → service → store</code>. Migrations run on boot.</li>
+    <li><strong>Realtime</strong> — In-process <code>realtime.Hub</code>, fan-out via SSE. Single Cloud Run instance keeps it simple; clients refetch on event (no CRDT).</li>
+  </ul>
+
+  <div class="aside">
+    The whole product runs from one Go binary, one Next app, and one Postgres. Anything more would be vanity.
+  </div>
+</section>
+
+<!-- ─────────── 2. Data Model ─────────── -->
+<section id="data">
+  <div class="section-head"><div class="num">ii.</div><h2>The data model.</h2></div>
+  <p class="standfirst">Eight tables. Soft-deletes on <code>calendars</code> and <code>participants</code> via <code>deleted_at IS NULL</code>. Sessions store <code>sha256(token)</code> — never plaintext.</p>
+
+  <div class="panel diagram mermaid">
+erDiagram
+  USERS ||--o{ SESSIONS : has
+  USERS ||--o{ CALENDARS : owns
+  USERS ||--o{ PARTICIPANTS : "may claim"
+  CALENDARS ||--o{ PARTICIPANTS : contains
+  CALENDARS ||--o{ CALENDAR_INVITES : tracks
+  PARTICIPANTS ||--o{ AVAILABILITY : marks
+  PARTICIPANTS ||--o{ CALENDAR_INVITES : "matched by"
+
+  USERS {
+    uuid id PK
+    text email UK
+    text name
+    text provider
+    text provider_id
+    bool is_admin
+    ts   calendar_import_consent_ack_at
+    ts   created_at
+  }
+  SESSIONS {
+    text token_hash PK
+    uuid user_id FK
+    ts   expires_at
+    ts   absolute_expires_at
+    ts   created_at
+  }
+  CALENDARS {
+    uuid id PK
+    text name
+    text emoji
+    uuid owner_id FK
+    date finalised_date
+    ts   finalised_at
+    text passphrase
+    int  access_epoch
+    ts   last_nudge_at
+    ts   deleted_at
+  }
+  PARTICIPANTS {
+    uuid id PK
+    uuid calendar_id FK
+    text name
+    text colour
+    uuid user_id FK
+    text email
+    ts   deleted_at
+  }
+  AVAILABILITY {
+    uuid participant_id PK_FK
+    uuid calendar_id PK_FK
+    date date PK
+    text note
+    bool preferred
+  }
+  CALENDAR_INVITES {
+    uuid id PK
+    uuid calendar_id FK
+    text name
+    uuid matched_participant_id FK
+    ts   created_at
+  }
+  MAGIC_LINK_TOKENS {
+    text token_hash PK
+    text email
+    text return_url
+    ts   expires_at
+  }
+  </div>
+
+  <h3 class="kicker">Subtleties worth knowing</h3>
+  <ul class="tight">
+    <li><strong>Anonymous participants</strong> — <code>participants.user_id</code> can be NULL. A signed-in user can later <em>claim</em> a participant, linking it to their account.</li>
+    <li><strong>Passphrase rotation</strong> — bumping <code>access_epoch</code> invalidates every previously-issued access token (the HMAC includes the epoch).</li>
+    <li><strong>Sliding + absolute session expiry</strong> — each request advances <code>expires_at</code> up to 30d, but never past <code>absolute_expires_at</code> (created_at + 90d).</li>
+  </ul>
+</section>
+
+<!-- ─────────── 3. API Routes ─────────── -->
+<section id="api">
+  <div class="section-head"><div class="num">iii.</div><h2>API routes.</h2></div>
+  <p class="standfirst">
+    Authorisation modes:
+    <span class="pill public">public</span>
+    <span class="pill opt">optional</span>
+    <span class="pill auth">required</span>
+    <span class="pill owner">owner</span>
+  </p>
+
+  <h3 class="kicker">Auth &amp; session</h3>
+  <div class="panel">
+    <table>
+      <thead><tr><th>Method</th><th>Path</th><th>Mode</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td class="method">GET</td><td class="path">/auth/google</td><td><span class="pill public">public</span></td><td>Start Google OAuth (login)</td></tr>
+        <tr><td class="method">GET</td><td class="path">/auth/google/callback</td><td><span class="pill public">public</span></td><td>OAuth callback → create user + session</td></tr>
+        <tr><td class="method">POST</td><td class="path">/auth/magic-link</td><td><span class="pill public">public</span></td><td>Email a magic-link token via Resend</td></tr>
+        <tr><td class="method">POST</td><td class="path">/auth/magic-link/verify</td><td><span class="pill public">public</span></td><td>Redeem token → session</td></tr>
+        <tr><td class="method">GET</td><td class="path">/auth/me</td><td><span class="pill opt">opt</span></td><td>Current user or 401</td></tr>
+        <tr><td class="method">PATCH</td><td class="path">/auth/me</td><td><span class="pill auth">auth</span></td><td>Update profile (name)</td></tr>
+        <tr><td class="method">POST</td><td class="path">/auth/logout</td><td><span class="pill auth">auth</span></td><td>Drop current session</td></tr>
+        <tr><td class="method">POST</td><td class="path">/auth/logout-all</td><td><span class="pill auth">auth</span></td><td>Drop every session for the user</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="kicker">Calendars</h3>
+  <div class="panel">
+    <table>
+      <thead><tr><th>Method</th><th>Path</th><th>Mode</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td class="method">POST</td><td class="path">/calendars</td><td><span class="pill auth">auth</span></td><td>Create + auto-join owner</td></tr>
+        <tr><td class="method">GET</td><td class="path">/calendars/{id}</td><td><span class="pill opt">opt</span></td><td>Read (passphrase-gated)</td></tr>
+        <tr><td class="method">PATCH</td><td class="path">/calendars/{id}</td><td><span class="pill owner">owner</span></td><td>Rename</td></tr>
+        <tr><td class="method">DELETE</td><td class="path">/calendars/{id}</td><td><span class="pill owner">owner</span></td><td>Soft-delete</td></tr>
+        <tr><td class="method">POST</td><td class="path">/calendars/{id}/duplicate</td><td><span class="pill owner">owner</span></td><td>Clone (optionally with participants)</td></tr>
+        <tr><td class="method">POST</td><td class="path">/calendars/{id}/finalise</td><td><span class="pill owner">owner</span></td><td>Lock to a date + email participants</td></tr>
+        <tr><td class="method">DELETE</td><td class="path">/calendars/{id}/finalise</td><td><span class="pill owner">owner</span></td><td>Unlock</td></tr>
+        <tr><td class="method">GET</td><td class="path">/calendars/{id}/events</td><td><span class="pill opt">opt</span></td><td>SSE stream of changes</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="kicker">Participants &amp; availability</h3>
+  <div class="panel">
+    <table>
+      <thead><tr><th>Method</th><th>Path</th><th>Mode</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td class="method">POST</td><td class="path">/calendars/{id}/participants</td><td><span class="pill opt">opt</span></td><td>Join (anon or signed-in)</td></tr>
+        <tr><td class="method">DELETE</td><td class="path">/calendars/{id}/participants/me</td><td><span class="pill auth">auth</span></td><td>Leave</td></tr>
+        <tr><td class="method">PATCH</td><td class="path">/calendars/{id}/participants/{pid}</td><td><span class="pill opt">opt</span></td><td>Rename (passphrase-gated)</td></tr>
+        <tr><td class="method">POST</td><td class="path">/calendars/{id}/participants/{pid}/claim</td><td><span class="pill auth">auth</span></td><td>Link anonymous row to user</td></tr>
+        <tr><td class="method">DELETE</td><td class="path">/calendars/{id}/participants/{pid}</td><td><span class="pill owner">owner</span></td><td>Remove</td></tr>
+        <tr><td class="method">PUT</td><td class="path">/calendars/{id}/availability</td><td><span class="pill opt">opt</span></td><td>Replace dates / notes / preferred</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="kicker">Passphrase, invites, integrations &amp; admin</h3>
+  <div class="panel">
+    <table>
+      <thead><tr><th>Method</th><th>Path</th><th>Mode</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td class="method">POST</td><td class="path">/calendars/{id}/passphrase</td><td><span class="pill owner">owner</span></td><td>Generate / rotate</td></tr>
+        <tr><td class="method">DELETE</td><td class="path">/calendars/{id}/passphrase</td><td><span class="pill owner">owner</span></td><td>Clear</td></tr>
+        <tr><td class="method">POST</td><td class="path">/calendars/{id}/unlock</td><td><span class="pill opt">opt</span></td><td>Submit passphrase → signed token</td></tr>
+        <tr><td class="method">GET</td><td class="path">/calendars/{id}/missing</td><td><span class="pill owner">owner</span></td><td>"Who's missing?" list</td></tr>
+        <tr><td class="method">POST</td><td class="path">/calendars/{id}/invites</td><td><span class="pill owner">owner</span></td><td>Add invite names</td></tr>
+        <tr><td class="method">PUT</td><td class="path">/calendars/{id}/invites/{iid}</td><td><span class="pill owner">owner</span></td><td>Rename</td></tr>
+        <tr><td class="method">DELETE</td><td class="path">/calendars/{id}/invites/{iid}</td><td><span class="pill owner">owner</span></td><td>Remove</td></tr>
+        <tr><td class="method">POST</td><td class="path">/calendars/{id}/invites/{iid}/match</td><td><span class="pill owner">owner</span></td><td>Link to participant</td></tr>
+        <tr><td class="method">POST</td><td class="path">/calendars/{id}/nudge</td><td><span class="pill owner">owner</span></td><td>Email reminder (cooldown)</td></tr>
+        <tr><td class="method">GET</td><td class="path">/calendars/{id}/export.ics</td><td><span class="pill public">public</span></td><td>ICS download (finalised)</td></tr>
+        <tr><td class="method">GET</td><td class="path">/calendars/{id}/export/{provider}</td><td><span class="pill public">public</span></td><td>Add-to-calendar URL (e.g. Google)</td></tr>
+        <tr><td class="method">POST</td><td class="path">/auth/{provider}/calendar/consent-ack</td><td><span class="pill auth">auth</span></td><td>Record import consent</td></tr>
+        <tr><td class="method">GET</td><td class="path">/auth/{provider}/calendar/connect</td><td><span class="pill auth">auth</span></td><td>OAuth for FreeBusy</td></tr>
+        <tr><td class="method">GET</td><td class="path">/auth/{provider}/calendar/callback</td><td><span class="pill auth">auth</span></td><td>OAuth callback</td></tr>
+        <tr><td class="method">GET</td><td class="path">/calendars/{id}/import/suggestions</td><td><span class="pill auth">auth</span></td><td>FreeBusy → suggested availability</td></tr>
+        <tr><td class="method">POST</td><td class="path">/calendars/{id}/availability/import</td><td><span class="pill auth">auth</span></td><td>Apply suggestions</td></tr>
+        <tr><td class="method">GET</td><td class="path">/unsubscribe</td><td><span class="pill public">public</span></td><td>One-click unsubscribe (HMAC token)</td></tr>
+        <tr><td class="method">GET</td><td class="path">/admin/metrics</td><td><span class="pill owner">admin</span></td><td>Product metrics</td></tr>
+        <tr><td class="method">GET</td><td class="path">/health</td><td><span class="pill public">public</span></td><td>Liveness + DB ping</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ─────────── 4. Frontend ─────────── -->
+<section id="frontend">
+  <div class="section-head"><div class="num">iv.</div><h2>The frontend.</h2></div>
+  <p class="standfirst">Next.js App Router. Folder-per-component. No barrels. Mobile-first at 375px.</p>
+
+  <h3 class="kicker">Pages</h3>
+  <div class="panel">
+    <table>
+      <thead><tr><th>Route</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td class="path">/</td><td>Landing page · create-calendar form · live preview hero</td></tr>
+        <tr><td class="path">/login</td><td>Google OAuth + magic-link entry</td></tr>
+        <tr><td class="path">/login/check-email</td><td>"Check your email" interstitial after magic-link request</td></tr>
+        <tr><td class="path">/auth/magic-link/callback</td><td>Redeem magic-link token</td></tr>
+        <tr><td class="path">/calendars</td><td>"My calendars" — owned + joined</td></tr>
+        <tr><td class="path">/calendars/[id]</td><td>The calendar view: grid · participants · summary · share</td></tr>
+        <tr><td class="path">/unsubscribe</td><td>Email unsubscribe confirmation</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="kicker">The calendar page, decomposed</h3>
+  <div class="ascii">src/app/calendars/[id]/page.tsx
+└── &lt;AuthProvider&gt;                   ← session context (useAuth)
+    └── &lt;Header&gt;                      ← title · user menu · share
+    └── &lt;PassphraseGate&gt;              ← unlock UI if locked
+        └── &lt;CalendarGrid&gt;            ← THE main UI: dates × participants
+            ├── &lt;PreferencePill&gt;
+            └── &lt;NotesPill&gt;
+        └── &lt;ParticipantList&gt;         ← sidebar w/ colours
+        └── &lt;SummaryView&gt;
+            └── &lt;BestDay&gt;
+        └── &lt;WhosMissingPanel&gt;        ← invite tracking
+        └── &lt;ImportFromGoogle&gt;        ← consent → OAuth → FreeBusy
+        └── &lt;FinalisedBanner&gt;         ← read-only overlay when locked
+        └── &lt;ShareButton&gt;
+        └── &lt;LiveStatusDot&gt;           ← SSE connection indicator
+&lt;ToastProvider&gt;       ← in root layout
+&lt;AnalyticsProvider&gt;   ← in root layout (PostHog)</div>
+
+  <h3 class="kicker">House rules</h3>
+  <ul class="tight">
+    <li>Folder-per-component: <code>src/components/Foo/Foo.tsx</code> — no barrel files.</li>
+    <li>API client in <code>src/lib/api.ts</code> auto-converts case at the JSON boundary.</li>
+    <li>Logging via <code>src/lib/log.ts</code> wrapper, never <code>console.*</code>.</li>
+    <li>Reversible actions use the <code>Toast</code> primitive with an <em>Undo</em> action — never <code>window.confirm</code>.</li>
+  </ul>
+</section>
+
+<!-- ─────────── 5. Flows ─────────── -->
+<section id="flows">
+  <div class="section-head"><div class="num">v.</div><h2>Key flows.</h2></div>
+  <p class="standfirst">Three sequence diagrams that explain most of the system's behaviour.</p>
+
+  <h3 class="kicker">A. Magic-link login</h3>
+  <div class="panel diagram mermaid">
+sequenceDiagram
+  participant U as Browser
+  participant FE as Next.js
+  participant BE as Go API
+  participant DB as Postgres
+  participant RS as Resend
+
+  U->>FE: enters email
+  FE->>BE: POST /auth/magic-link {email, return_url}
+  BE->>DB: insert magic_link_tokens (sha256)
+  BE->>RS: send email w/ raw token in URL
+  RS-->>U: email
+  U->>FE: clicks link → /auth/magic-link/callback?token=...
+  FE->>BE: POST /auth/magic-link/verify
+  BE->>DB: lookup hash · create user if new · create session
+  BE-->>FE: 200 + Set-Cookie session
+  FE->>FE: redirect to return_url
+  </div>
+
+  <h3 class="kicker">B. Marking availability + realtime fan-out</h3>
+  <div class="panel diagram mermaid">
+sequenceDiagram
+  participant A as User A
+  participant B as User B
+  participant BE as Go API
+  participant DB as Postgres
+  participant H as realtime.Hub
+
+  Note over B,BE: B already subscribed via SSE GET /calendars/{id}/events
+
+  A->>BE: PUT /calendars/{id}/availability
+  BE->>DB: upsert availability rows
+  BE->>H: publish "availability.changed" {calendar_id}
+  H-->>B: SSE event
+  B->>BE: GET /calendars/{id}    (refetch)
+  BE-->>B: full calendar state
+  B->>B: re-render grid
+  </div>
+
+  <h3 class="kicker">C. Google Calendar import (FreeBusy)</h3>
+  <div class="panel diagram mermaid">
+sequenceDiagram
+  participant U as Browser
+  participant BE as Go API
+  participant CP as calprovider.Google
+  participant G as Google API
+
+  U->>BE: POST /auth/google/calendar/consent-ack
+  U->>BE: GET /auth/google/calendar/connect
+  BE-->>U: redirect to Google OAuth
+  U->>G: consent (calendar.freebusy)
+  G-->>BE: GET /auth/google/calendar/callback?code=...
+  BE->>CP: exchange code · store token
+  U->>BE: GET /calendars/{id}/import/suggestions
+  BE->>CP: FreeBusy(start, end, tz)
+  CP->>G: POST /freeBusy
+  G-->>CP: busy time ranges
+  CP-->>BE: []TimeRange
+  BE-->>U: suggested free dates
+  U->>BE: POST /calendars/{id}/availability/import
+  </div>
+</section>
+
+<!-- ─────────── 6. Hosting ─────────── -->
+<section id="hosting">
+  <div class="section-head"><div class="num">vi.</div><h2>Hosting &amp; infrastructure.</h2></div>
+  <p class="standfirst">Everything in GCP and GitHub is HCL in <code>infra/</code>. Console edits get reverted on the next <code>terraform apply</code>.</p>
+
+  <div class="panel diagram mermaid">
+flowchart TB
+  subgraph Vercel
+    FE["Next.js frontend<br/>auto-deploy from main"]
+  end
+  subgraph GCP["Google Cloud · Terraform-managed"]
+    direction TB
+    CR["<b>Cloud Run</b><br/><span style='color:#6b6358;font-size:0.85em'>max 3 · scale-to-zero<br/>25s graceful shutdown</span>"]
+    AR["<b>Artifact Registry</b><br/><span style='color:#6b6358;font-size:0.85em'>container image</span>"]
+    SM["<b>Secret Manager</b><br/><span style='color:#6b6358;font-size:0.85em'>OAuth · HMAC · Resend</span>"]
+    WIF["<b>Workload Identity Federation</b><br/><span style='color:#6b6358;font-size:0.85em'>GH Actions → GCP, no static keys</span>"]
+  end
+  subgraph Neon
+    PG[("Postgres<br/>migrations on boot")]
+  end
+  CF["Cloudflare<br/>DNS + SPF/DKIM"]
+  RS["Resend"]
+  PH["PostHog EU"]
+  GA["GitHub Actions"]
+
+  GA -- "WIF" --> CR
+  GA -- "vercel deploy" --> FE
+  CR --> AR
+  CR --> SM
+  CR --> PG
+  FE --> CR
+  CR --> RS
+  CR -. "events" .-> PH
+  CF --> FE
+  CF --> RS
+
+  classDef internal fill:#faf6ed,stroke:#1a1814,stroke-width:2px;
+  classDef data fill:#eaf2fa,stroke:#2a5d8f,stroke-width:2px;
+  classDef external fill:#f6e6ec,stroke:#c2185b,stroke-width:2px;
+  classDef ci fill:#fff4d9,stroke:#b8893a,stroke-width:2px;
+  class FE,CR,AR,SM,WIF internal;
+  class PG data;
+  class CF,RS,PH external;
+  class GA ci;
+  </div>
+
+  <ul class="tight">
+    <li><strong>Cost cap</strong> — Cloud Run capped at 3 instances + £5/month budget alerts (50/90/100/150%).</li>
+    <li><strong>Migrations</strong> — <code>store.Migrate()</code> runs on boot from <code>backend/internal/store/migrations/</code>.</li>
+    <li><strong>Plans</strong> — <code>make tf-plan</code> posts the Terraform plan as a PR comment.</li>
+  </ul>
+</section>
+
+<!-- ─────────── 7. Third-party ─────────── -->
+<section id="third">
+  <div class="section-head"><div class="num">vii.</div><h2>Third-party integrations.</h2></div>
+  <p class="standfirst">Eight services hold the system together. Each one earns its place.</p>
+
+  <div class="panel">
+    <table>
+      <thead><tr><th>Service</th><th>Used for</th><th>Where it lives</th></tr></thead>
+      <tbody>
+        <tr><td>Google OAuth</td><td>Login</td><td><code>handler/auth.go</code></td></tr>
+        <tr><td>Google Calendar (FreeBusy)</td><td>Import busy times → suggested availability</td><td><code>calprovider/google.go</code></td></tr>
+        <tr><td>Resend</td><td>Magic-link emails · finalised notifications · nudges</td><td><code>notifications/</code></td></tr>
+        <tr><td>PostHog (EU)</td><td>Analytics · session replay · feature flags</td><td><code>flags/</code> + <code>AnalyticsProvider</code></td></tr>
+        <tr><td>Neon</td><td>Managed Postgres</td><td><code>DATABASE_URL</code></td></tr>
+        <tr><td>Vercel</td><td>Frontend hosting</td><td>auto from <code>main</code></td></tr>
+        <tr><td>Google Cloud Run</td><td>Backend hosting</td><td><code>infra/</code></td></tr>
+        <tr><td>Cloudflare</td><td>DNS + email auth records</td><td>console-managed</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ─────────── 8. Abstractions ─────────── -->
+<section id="abstractions">
+  <div class="section-head"><div class="num">viii.</div><h2>Abstractions.</h2></div>
+  <p class="standfirst">The seams in the codebase. Each one earned its place; none of them are ceremony.</p>
+
+  <div class="panel diagram mermaid">
+flowchart LR
+  H["handler/<br/><span style='color:#6b6358;font-size:0.85em'>HTTP · auth · JSON</span>"]
+  S["service/<br/><span style='color:#6b6358;font-size:0.85em'>orchestration</span>"]
+  ST["store/<br/><span style='color:#6b6358;font-size:0.85em'>SQL · soft-delete</span>"]
+  DB[(Postgres)]
+  CP["calprovider/<br/><span style='color:#6b6358;font-size:0.85em'>Provider iface</span>"]
+  RT["realtime.Hub<br/><span style='color:#6b6358;font-size:0.85em'>pub/sub</span>"]
+  N["notifications/<br/><span style='color:#6b6358;font-size:0.85em'>Resend + HMAC</span>"]
+  AC["access/<br/><span style='color:#6b6358;font-size:0.85em'>HMAC tokens</span>"]
+  FL["flags/<br/><span style='color:#6b6358;font-size:0.85em'>Evaluator iface</span>"]
+
+  H --> S
+  S --> ST
+  ST --> DB
+  S --> CP
+  S --> RT
+  S --> N
+  H --> AC
+  H --> FL
+
+  classDef layer fill:#faf6ed,stroke:#1a1814,stroke-width:2px;
+  classDef seam fill:#fff4d9,stroke:#b8893a,stroke-width:2px;
+  classDef data fill:#eaf2fa,stroke:#2a5d8f,stroke-width:2px;
+  class H,S,ST layer;
+  class DB data;
+  class CP,RT,N,AC,FL seam;
+  </div>
+
+  <h3 class="kicker">The <code>calprovider</code> abstraction</h3>
+  <p>Recently extracted (commit <code>70b7641</code>). The point: adding Microsoft, Apple, or CalDAV later is one new file plus one registry entry — zero changes to handlers or routes.</p>
+  <div class="ascii">type Provider interface {
+    Name()        string                                              // "google"
+    OAuthConfig() *oauth2.Config                                      // login + scopes
+    FreeBusy(ctx, token, start, end, tz) ([]availability.TimeRange, error)
+    AddEventURL(event) string                                         // deep link
+}
+
+Registry := calprovider.NewRegistry(google)
+// routed via /auth/{provider}/calendar/...
+//          and /calendars/{id}/export/{provider}</div>
+
+  <h3 class="kicker">Other notable seams</h3>
+  <ul class="tight">
+    <li><strong><code>store/</code></strong> — typed methods per resource; soft-delete filtering lives here. Mocked in tests via interfaces.</li>
+    <li><strong><code>service/</code></strong> — stateless orchestration: <em>"finalise calendar"</em> = update DB + publish event + send emails.</li>
+    <li><strong><code>realtime.Hub</code></strong> — in-process; fine because we cap Cloud Run instances. Replace with Redis pub/sub if we ever scale horizontally.</li>
+    <li><strong><code>access/</code></strong> — HMAC-signed tokens with embedded <code>access_epoch</code> so passphrase rotation invalidates everything atomically.</li>
+    <li><strong><code>flags/</code></strong> — <code>Evaluator</code> interface with PostHog and Noop impls. Flags are <em>temporary</em> per AGENTS.md — delete once rolled out.</li>
+  </ul>
+</section>
+
+<!-- ─────────── 9. Bonus ─────────── -->
+<section id="bonus">
+  <div class="section-head"><div class="num">ix.</div><h2>Conventions &amp; <em>conveniences.</em></h2></div>
+
+  <h3 class="kicker">Testing</h3>
+  <ul class="tight">
+    <li><strong>Backend unit</strong> — <code>go test ./...</code> · fast · no DB.</li>
+    <li><strong>Backend integration</strong> — <code>make test-integration</code> · embedded Postgres downloaded to <code>~/.embedded-postgres-go/</code> · <code>integration</code> build tag.</li>
+    <li><strong>Frontend unit</strong> — vitest + jsdom · <code>@</code> alias to <code>src/</code>.</li>
+    <li><strong>E2E</strong> — Playwright spins up embedded Postgres + Go (<code>E2E_TEST_MODE=true</code>) + Next.js dev server.</li>
+    <li><strong>PII linting</strong> — <code>make lint-pii</code> blocks logger calls with <code>email</code>/<code>phone</code>/<code>ip</code> fields.</li>
+  </ul>
+
+  <h3 class="kicker">Environment variables</h3>
+  <div class="grid-2">
+    <div class="panel tile">
+      <strong style="font-family: var(--display); font-size: 16px;">Backend</strong>
+      <ul class="tight">
+        <li><code>DATABASE_URL</code> · <code>PORT</code> · <code>CORS_ORIGIN</code> · <code>LOG_LEVEL</code></li>
+        <li><code>SECURE_COOKIES</code> · <code>COOKIE_DOMAIN</code></li>
+        <li><code>GOOGLE_CLIENT_ID</code> / <code>SECRET</code> / <code>REDIRECT_URL</code></li>
+        <li><code>GOOGLE_CALENDAR_REDIRECT_URL</code></li>
+        <li><code>RESEND_API_KEY</code> · <code>MAGIC_LINK_FROM_EMAIL</code></li>
+        <li><code>CALENDAR_ACCESS_SECRET</code> (HMAC, ≥32B)</li>
+        <li><code>NOTIFICATIONS_HMAC_SECRET</code></li>
+        <li><code>POSTHOG_KEY</code> / <code>HOST</code> / <code>PERSONAL_API_KEY</code></li>
+        <li><code>E2E_TEST_MODE</code> · <code>AUTH_EMAIL_DISABLED</code></li>
+      </ul>
+    </div>
+    <div class="panel tile">
+      <strong style="font-family: var(--display); font-size: 16px;">Frontend</strong>
+      <ul class="tight">
+        <li><code>NEXT_PUBLIC_API_URL</code></li>
+        <li><code>NEXT_PUBLIC_LOG_LEVEL</code></li>
+        <li><code>NEXT_PUBLIC_POSTHOG_KEY</code></li>
+        <li><code>NEXT_PUBLIC_POSTHOG_HOST</code></li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 class="kicker">Repo principles</h3>
+  <ul class="tight">
+    <li><strong>12-factor config</strong> — branch on explicit vars (<code>POSTHOG_KEY</code> set/unset), never on <code>NODE_ENV</code> or a generic <code>ENV=prod</code> label.</li>
+    <li><strong>Plans first</strong> — every piece of work has a markdown plan in <code>plans/&lt;category&gt;/</code> with a timestamped <code>Log</code>.</li>
+    <li><strong>Mobile first</strong> — design at 375px, enhance up.</li>
+    <li><strong>Flags are temporary</strong> — delete once rolled out.</li>
+  </ul>
+
+  <div class="aside">
+    The fastest way to keep this document honest is to throw it away and regenerate.
+  </div>
+</section>
+
+<div class="colophon">
+  Set in <em>Fraunces</em>, <em>Instrument Serif</em> &amp; <em>DM Sans</em> · A snapshot in time
+</div>
+
+</main>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    securityLevel: "loose",
+    fontFamily: '"DM Sans", system-ui, sans-serif',
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "base",
+    flowchart: { curve: "basis", htmlLabels: true, padding: 16, nodeSpacing: 50, rankSpacing: 60 },
+    sequence:  { actorMargin: 60, boxMargin: 12, messageMargin: 36, mirrorActors: false, useMaxWidth: true },
+    er:        { useMaxWidth: true, layoutDirection: "LR", entityPadding: 12 },
+    themeVariables: {
+      // surfaces — warm "ink on paper"
+      background:        "#f3eee4",
+      mainBkg:           "#faf6ed",
+      secondBkg:         "#f3eee4",
+      tertiaryBkg:       "#ece5d5",
+      // ink
+      primaryColor:      "#faf6ed",
+      primaryTextColor:  "#1a1814",
+      primaryBorderColor:"#1a1814",
+      secondaryColor:    "#eaf2fa",
+      secondaryTextColor:"#1a1814",
+      secondaryBorderColor:"#2a5d8f",
+      tertiaryColor:     "#fff4d9",
+      tertiaryTextColor: "#1a1814",
+      tertiaryBorderColor:"#b8893a",
+      // text & lines — slightly soft so strokes feel like marker
+      textColor:         "#1a1814",
+      lineColor:         "#3a3530",
+      // ER diagram
+      nodeBorder:        "#1a1814",
+      clusterBkg:        "#f6efe1",
+      clusterBorder:     "#b3a994",
+      // Sequence diagram — actors as soft sticky-notes, not solid green
+      actorBkg:          "#faf6ed",
+      actorBorder:       "#1a1814",
+      actorTextColor:    "#1a1814",
+      actorLineColor:    "#6b6358",
+      signalColor:       "#1a1814",
+      signalTextColor:   "#1a1814",
+      labelBoxBkgColor:  "#fff4d9",
+      labelBoxBorderColor:"#b8893a",
+      labelTextColor:    "#1a1814",
+      loopTextColor:     "#1a1814",
+      noteBkgColor:      "#eaf2fa",
+      noteTextColor:     "#1a1814",
+      noteBorderColor:   "#2a5d8f",
+      activationBkgColor:"#0f7566",
+      activationBorderColor:"#0c5e52",
+      sequenceNumberColor:"#faf6ed",
+      // ER specifics
+      attributeBackgroundColorOdd: "#faf6ed",
+      attributeBackgroundColorEven: "#f3eee4",
+    }
+  });
+</script>
+</body>
+</html>

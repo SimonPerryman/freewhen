@@ -15,6 +15,7 @@ Group availability coordination tool. Go backend + Next.js frontend + Postgres.
 - `docs/` - Project documentation (read these for context)
   - `docs/api.md` - API endpoint reference
   - `docs/infra-notes.md` - Hosting, deploy, and first-time setup
+  - `docs/onboarding.html` - Field-guide overview of the project. When changing architecture, routing, API endpoints, env vars, or anything covered in the sections above, update this file too.
 
 ## Runtime & Tooling
 
