@@ -76,7 +76,7 @@ func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 		}
 	}
 
-	h := handler.New(svc).WithFlags(flagEval).WithTrustedProxyDepth(cfg.TrustedProxyDepth)
+	h := handler.New(svc).WithFlags(flagEval).WithTrustedProxyDepth(cfg.TrustedProxyDepth).WithFrontendURL(cfg.FrontendURL)
 	eh := handler.NewEvents(hub, svc, logger)
 
 	var notifSvc *notifications.Service

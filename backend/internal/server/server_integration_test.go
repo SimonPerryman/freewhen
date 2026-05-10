@@ -53,6 +53,7 @@ func setupTestServer(t *testing.T) *testServer {
 	cfg := &config.Config{
 		CORSOrigin:           "*",
 		CalendarAccessSecret: "test-secret-at-least-32-bytes-long-xx",
+		FrontendURL:          "https://freewhen.test",
 	}
 	ts := httptest.NewServer(server.New(db, logger, cfg))
 	t.Cleanup(ts.Close)
