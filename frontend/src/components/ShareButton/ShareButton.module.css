@@ -30,16 +30,113 @@
   transform: scale(0.98);
 }
 
-.icon {
-  flex-shrink: 0;
+.card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  margin-top: 20px;
+  padding: 14px 16px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: var(--tile-bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    transform 120ms ease;
 }
 
-@media (min-width: 640px) {
-  .button.default {
-    width: auto;
-    min-width: 180px;
-    max-width: 260px;
-    margin-right: auto;
-    padding: 10px 20px;
+.card:hover {
+  background: var(--accent-subtle);
+  border-color: color-mix(in oklab, var(--accent) 35%, var(--border));
+}
+
+.card:active {
+  transform: translateY(1px);
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.kicker {
+  font-family: var(--font-stack-accent);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.headline {
+  font-family: var(--font-stack-display);
+  font-weight: 600;
+  font-size: 17px;
+  line-height: 1.25;
+  letter-spacing: -0.005em;
+  margin-top: 3px;
+  color: var(--text-primary);
+}
+
+.chip {
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  white-space: nowrap;
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease,
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.card:hover .chip {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.card.copied .chip {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
+  animation: chip-pop 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes chip-pop {
+  0% {
+    transform: scale(0.96);
+  }
+  60% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card.copied .chip {
+    animation: none;
   }
 }

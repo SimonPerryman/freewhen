@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Share — refined</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Instrument+Serif:ital@0;1&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        /* light "Paper" */
+        --paper-bg: #f3eee4;
+        --paper-raised: #faf6ed;
+        --paper-tile: #ece5d5;
+        --paper-ink: #1a1814;
+        --paper-muted: #6b6358;
+        --paper-faint: #9a9183;
+        --paper-border: #d8d1c5;
+        --paper-border-soft: #e6dfd1;
+        --paper-accent: #0f7566;
+        --paper-accent-strong: #0c5e52;
+        --paper-accent-subtle: rgba(15, 117, 102, 0.12);
+
+        /* dark "Ink" */
+        --dk-bg: #141210;
+        --dk-paper: #2c2720;
+        --dk-tile: #1a1713;
+        --dk-border: #4a443d;
+        --dk-border-soft: #38332d;
+        --dk-text: #edebe8;
+        --dk-text-2: #9e9688;
+        --dk-faint: #7a7168;
+        --dk-accent: #e8755e;
+        --dk-accent-strong: #f0917e;
+        --dk-accent-subtle: rgba(232, 117, 94, 0.14);
+
+        --bg: var(--paper-bg);
+        --card-bg: var(--paper-raised);
+        --tile-bg: var(--paper-tile);
+        --border: var(--paper-border);
+        --border-soft: var(--paper-border-soft);
+        --ink: var(--paper-ink);
+        --muted: var(--paper-muted);
+        --faint: var(--paper-faint);
+        --accent: var(--paper-accent);
+        --accent-strong: var(--paper-accent-strong);
+        --accent-subtle: var(--paper-accent-subtle);
+        --accent-text: var(--paper-raised);
+
+        /* The salmon banner uses the warm coral regardless of theme */
+        --banner-bg: var(--dk-accent);
+        --banner-ink: #2a1408;
+        --banner-ink-soft: #5a2a18;
+
+        --radius-md: 10px;
+        --radius-lg: 14px;
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+        --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+        --font-body:
+          "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        --font-display: "Fraunces", Georgia, serif;
+        --font-accent: "Instrument Serif", Georgia, serif;
+      }
+
+      [data-theme="dark"] {
+        --bg: var(--dk-bg);
+        --card-bg: var(--dk-paper);
+        --tile-bg: var(--dk-tile);
+        --border: var(--dk-border);
+        --border-soft: var(--dk-border-soft);
+        --ink: var(--dk-text);
+        --muted: var(--dk-text-2);
+        --faint: var(--dk-faint);
+        --accent: var(--dk-accent);
+        --accent-strong: var(--dk-accent-strong);
+        --accent-subtle: var(--dk-accent-subtle);
+        --accent-text: var(--dk-bg);
+        color-scheme: dark;
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        font-family: var(--font-body);
+        color: var(--ink);
+        background: var(--bg);
+        background-image:
+          radial-gradient(
+            900px 600px at 80% -10%,
+            color-mix(in oklab, var(--accent) 12%, transparent),
+            transparent 60%
+          ),
+          radial-gradient(
+            700px 500px at -10% 110%,
+            color-mix(in oklab, var(--accent) 8%, transparent),
+            transparent 60%
+          );
+        min-height: 100vh;
+        padding: 48px 16px 96px;
+      }
+
+      .toolbar {
+        max-width: 540px;
+        margin: 0 auto 36px;
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 16px;
+      }
+      .toolbar h1 {
+        font-family: var(--font-display);
+        font-weight: 600;
+        font-size: 28px;
+        letter-spacing: -0.01em;
+        margin: 0;
+      }
+      .toolbar h1 em {
+        font-family: var(--font-accent);
+        font-style: italic;
+        font-weight: 400;
+        color: var(--accent);
+      }
+      .toolbar button {
+        font: inherit;
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 8px 14px;
+        cursor: pointer;
+      }
+      .toolbar button:hover {
+        color: var(--ink);
+        border-color: var(--ink);
+      }
+
+      section {
+        max-width: 540px;
+        margin: 0 auto 28px;
+      }
+      .section-head {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        margin: 0 4px 10px;
+      }
+      .section-head .num {
+        font-family: var(--font-accent);
+        font-style: italic;
+        font-size: 22px;
+        color: var(--accent);
+        line-height: 1;
+      }
+      .section-head h2 {
+        font-family: var(--font-display);
+        font-weight: 600;
+        font-size: 17px;
+        margin: 0;
+        letter-spacing: -0.005em;
+      }
+      .section-head .note {
+        font-size: 12.5px;
+        color: var(--muted);
+        margin-left: auto;
+        font-style: italic;
+        font-family: var(--font-accent);
+      }
+
+      .page {
+        background: var(--card-bg);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius-lg);
+        padding: 18px;
+        box-shadow: var(--shadow-sm);
+      }
+
+      /* FinalisedBanner (mirrors the live one closely enough for context) */
+      .banner {
+        background: var(--banner-bg);
+        color: var(--banner-ink);
+        border-radius: var(--radius-lg);
+        padding: 18px 20px 20px;
+      }
+      .banner .kicker {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--banner-ink-soft);
+      }
+      .banner .date {
+        font-family: var(--font-display);
+        font-weight: 600;
+        font-size: 26px;
+        line-height: 1.1;
+        margin: 4px 0 10px;
+      }
+      .banner .meta {
+        font-size: 13.5px;
+        color: var(--banner-ink-soft);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+      .banner .meta em {
+        font-family: var(--font-accent);
+        font-style: italic;
+        font-weight: 400;
+      }
+      .banner .meta .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--banner-ink);
+        opacity: 0.6;
+      }
+      .banner .exports {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .banner .exports button {
+        font: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        padding: 8px 14px;
+        background: transparent;
+        color: var(--banner-ink);
+        border: 1.5px solid var(--banner-ink);
+        border-radius: var(--radius-md);
+        cursor: pointer;
+      }
+
+      /* ============================================================
+         ShareCard — the recommended design
+         ============================================================ */
+      .share {
+        margin-top: 20px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 16px;
+        width: 100%;
+        padding: 14px 16px;
+        text-align: left;
+        font: inherit;
+        color: inherit;
+        background: var(--tile-bg);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius-lg);
+        cursor: pointer;
+        transition:
+          background 180ms ease,
+          border-color 180ms ease,
+          transform 120ms ease;
+      }
+      .share:hover {
+        background: var(--accent-subtle);
+        border-color: color-mix(in oklab, var(--accent) 35%, var(--border));
+      }
+      .share:active { transform: translateY(1px); }
+      .share:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      .share .kicker {
+        font-family: var(--font-accent);
+        font-style: italic;
+        font-weight: 400;
+        font-size: 14px;
+        color: var(--muted);
+        line-height: 1.1;
+      }
+      .share .label {
+        font-family: var(--font-display);
+        font-weight: 600;
+        font-size: 17px;
+        line-height: 1.25;
+        letter-spacing: -0.005em;
+        margin-top: 3px;
+        color: var(--ink);
+      }
+
+      .share .chip {
+        font-family: var(--font-body);
+        font-size: 12.5px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: 1.5px solid var(--accent);
+        background: transparent;
+        color: var(--accent);
+        white-space: nowrap;
+        transition:
+          background 180ms ease,
+          color 180ms ease,
+          border-color 180ms ease,
+          transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      .share:hover .chip {
+        background: var(--accent);
+        color: var(--accent-text);
+      }
+
+      /* Copied feedback — chip swells in */
+      .share.copied .chip {
+        background: var(--accent);
+        color: var(--accent-text);
+        border-color: var(--accent);
+        animation: chip-pop 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      @keyframes chip-pop {
+        0%   { transform: scale(0.96); }
+        60%  { transform: scale(1.03); }
+        100% { transform: scale(1); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .share.copied .chip { animation: none; }
+      }
+
+      .footnote {
+        font-family: var(--font-accent);
+        font-style: italic;
+        font-size: 13px;
+        color: var(--muted);
+        margin: 12px 4px 0;
+      }
+      .footnote code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-style: normal;
+        font-size: 12px;
+        background: color-mix(in oklab, var(--tile-bg) 70%, transparent);
+        padding: 1px 6px;
+        border-radius: 4px;
+        border: 1px solid var(--border-soft);
+      }
+    </style>
+  </head>
+  <body data-theme="dark">
+    <div class="toolbar">
+      <h1>Share <em>— refined</em></h1>
+      <button id="themeToggle" type="button">Toggle theme</button>
+    </div>
+
+    <section>
+      <header class="section-head">
+        <span class="num">i.</span>
+        <h2>Finalised — tell the group the news</h2>
+        <span class="note">post-finalisation copy</span>
+      </header>
+      <div class="page">
+        <div class="banner">
+          <div class="kicker">🌻 Confirmed</div>
+          <div class="date">Saturday 23 May</div>
+          <div class="meta">
+            <span class="dot"></span> Simon Perryman — <em>only after 6</em>
+          </div>
+          <div class="exports">
+            <button type="button">Add to Google Calendar</button>
+            <button type="button">Download .ics</button>
+          </div>
+        </div>
+        <button class="share" type="button" id="shareReal">
+          <span>
+            <span class="kicker">Tell everyone the date</span>
+            <div class="label">Send the link to the group</div>
+          </span>
+          <span class="chip">Share</span>
+        </button>
+        <p class="footnote">
+          Click the card to see the <code>Copied!</code> chip-pop animation.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <header class="section-head">
+        <span class="num">ii.</span>
+        <h2>Pre-finalisation — invite more people</h2>
+        <span class="note">state-aware kicker swap</span>
+      </header>
+      <div class="page" style="padding-bottom: 24px;">
+        <div
+          style="
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 22px;
+            margin: 4px 4px 6px;
+            letter-spacing: -0.005em;
+          "
+        >Friday 12 June ish?</div>
+        <div
+          style="
+            font-family: var(--font-accent);
+            font-style: italic;
+            font-size: 14px;
+            color: var(--muted);
+            margin: 0 4px 12px;
+          "
+        >2 of 4 invited · still gathering availability</div>
+        <button class="share" type="button">
+          <span>
+            <span class="kicker">Invite the rest of the group</span>
+            <div class="label">Send the link to the group</div>
+          </span>
+          <span class="chip">Share</span>
+        </button>
+      </div>
+    </section>
+
+    <section>
+      <header class="section-head">
+        <span class="num">iii.</span>
+        <h2>Copied feedback (animated)</h2>
+        <span class="note">chip-pop on .copied</span>
+      </header>
+      <div class="page">
+        <div class="banner">
+          <div class="kicker">🌻 Confirmed</div>
+          <div class="date">Saturday 23 May</div>
+          <div class="meta">
+            <span class="dot"></span> Simon Perryman — <em>only after 6</em>
+          </div>
+          <div class="exports">
+            <button type="button">Add to Google Calendar</button>
+            <button type="button">Download .ics</button>
+          </div>
+        </div>
+        <button class="share copied" type="button">
+          <span>
+            <span class="kicker">Tell everyone the date</span>
+            <div class="label">Send the link to the group</div>
+          </span>
+          <span class="chip">Copied!</span>
+        </button>
+      </div>
+    </section>
+
+    <section>
+      <header class="section-head">
+        <span class="num">iv.</span>
+        <h2>Hover state (forced)</h2>
+        <span class="note">--accent-subtle wash, filled accent chip</span>
+      </header>
+      <div class="page">
+        <div class="banner">
+          <div class="kicker">🌻 Confirmed</div>
+          <div class="date">Saturday 23 May</div>
+          <div class="meta">
+            <span class="dot"></span> Simon Perryman — <em>only after 6</em>
+          </div>
+          <div class="exports">
+            <button type="button">Add to Google Calendar</button>
+            <button type="button">Download .ics</button>
+          </div>
+        </div>
+        <button
+          class="share"
+          type="button"
+          style="
+            background: var(--accent-subtle);
+            border-color: color-mix(in oklab, var(--accent) 35%, var(--border));
+          "
+        >
+          <span>
+            <span class="kicker">Tell everyone the date</span>
+            <div class="label">Send the link to the group</div>
+          </span>
+          <span
+            class="chip"
+            style="
+              background: var(--accent);
+              color: var(--accent-text);
+              border-color: var(--accent);
+            "
+          >Share</span>
+        </button>
+      </div>
+    </section>
+
+    <script>
+      const toggle = document.getElementById("themeToggle");
+      toggle.addEventListener("click", () => {
+        const next =
+          document.body.dataset.theme === "dark" ? "light" : "dark";
+        document.body.dataset.theme = next;
+      });
+
+      const realShare = document.getElementById("shareReal");
+      realShare.addEventListener("click", () => {
+        realShare.classList.add("copied");
+        realShare.querySelector(".chip").textContent = "Copied!";
+        setTimeout(() => {
+          realShare.classList.remove("copied");
+          realShare.querySelector(".chip").textContent = "Share";
+        }, 1800);
+      });
+    </script>
+  </body>
+</html>

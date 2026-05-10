@@ -5,10 +5,10 @@ vi.mock("@/lib/analytics", () => ({
   default: { init: vi.fn(), identify: vi.fn(), reset: vi.fn(), capture: vi.fn() },
 }));
 
+import analytics from "@/lib/analytics";
 import ShareButton from "./ShareButton";
 
 beforeEach(() => {
-  // jsdom doesn't implement navigator.clipboard — define it with a stub
   if (!navigator.clipboard) {
     Object.defineProperty(navigator, "clipboard", {
       value: {
@@ -25,10 +25,10 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("ShareButton", () => {
+describe("ShareButton (hero variant)", () => {
   it("copies URL to clipboard and shows feedback when share API is unavailable", async () => {
     const user = userEvent.setup();
-    render(<ShareButton calendarName="Weekend trip" />);
+    render(<ShareButton calendarName="Weekend trip" variant="hero" />);
 
     const button = await screen.findByRole("button", { name: /copy link/i });
     await user.click(button);
@@ -38,10 +38,10 @@ describe("ShareButton", () => {
     });
   });
 
-  it("reverts text after 2 seconds", async () => {
+  it("reverts text after the feedback window", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    render(<ShareButton calendarName="Weekend trip" />);
+    render(<ShareButton calendarName="Weekend trip" variant="hero" />);
 
     const button = await screen.findByRole("button", { name: /copy link/i });
     await user.click(button);
@@ -51,11 +51,16 @@ describe("ShareButton", () => {
     });
 
     act(() => {
-      vi.advanceTimersByTime(2100);
+      vi.advanceTimersByTime(2000);
     });
 
     expect(button).toHaveTextContent("Copy link");
     vi.useRealTimers();
+  });
+
+  it("renders no share icon SVG", () => {
+    const { container } = render(<ShareButton calendarName="Weekend trip" variant="hero" />);
+    expect(container.querySelector("svg")).toBeNull();
   });
 
   it("uses native share with the pre-finalise message when available", async () => {
@@ -67,7 +72,7 @@ describe("ShareButton", () => {
     });
 
     const user = userEvent.setup();
-    render(<ShareButton calendarName="Weekend trip" calendarEmoji="🏕️" />);
+    render(<ShareButton calendarName="Weekend trip" calendarEmoji="🏕️" variant="hero" />);
 
     const button = await screen.findByRole("button", { name: /share/i });
     await user.click(button);
@@ -78,7 +83,6 @@ describe("ShareButton", () => {
       url: expect.any(String),
     });
 
-    // Clean up
     Object.defineProperty(navigator, "share", {
       value: undefined,
       configurable: true,
@@ -96,7 +100,12 @@ describe("ShareButton", () => {
 
     const user = userEvent.setup();
     render(
-      <ShareButton calendarName="Weekend trip" calendarEmoji="🏕️" finalisedDate="2026-05-01" />,
+      <ShareButton
+        calendarName="Weekend trip"
+        calendarEmoji="🏕️"
+        finalisedDate="2026-05-01"
+        variant="hero"
+      />,
     );
 
     const button = await screen.findByRole("button", { name: /share/i });
@@ -108,11 +117,59 @@ describe("ShareButton", () => {
       url: expect.any(String),
     });
 
-    // Clean up
     Object.defineProperty(navigator, "share", {
       value: undefined,
       configurable: true,
       writable: true,
+    });
+  });
+});
+
+describe("ShareButton (default variant)", () => {
+  it("shows the pre-finalisation kicker by default", async () => {
+    render(<ShareButton calendarName="Weekend trip" />);
+    expect(await screen.findByText("Invite the rest of the group")).toBeInTheDocument();
+    expect(screen.getByText("Send the link to the group")).toBeInTheDocument();
+  });
+
+  it("shows the finalised kicker when state='finalised'", async () => {
+    render(<ShareButton calendarName="Weekend trip" state="finalised" />);
+    expect(await screen.findByText("Tell everyone the date")).toBeInTheDocument();
+  });
+
+  it("renders no share icon SVG", () => {
+    const { container } = render(<ShareButton calendarName="Weekend trip" />);
+    expect(container.querySelector("svg")).toBeNull();
+  });
+
+  it("chip flips to 'Copied!' after clipboard fallback", async () => {
+    const user = userEvent.setup();
+    render(<ShareButton calendarName="Weekend trip" />);
+
+    const button = await screen.findByRole("button");
+    expect(button).toHaveTextContent("Share");
+    await user.click(button);
+
+    await waitFor(() => {
+      expect(button).toHaveTextContent("Copied!");
+    });
+  });
+
+  it("captures share_link_clicked with context derived from state", async () => {
+    const captureSpy = vi.mocked(analytics.capture);
+    captureSpy.mockClear();
+
+    const user = userEvent.setup();
+    render(<ShareButton calendarName="Weekend trip" state="finalised" />);
+
+    const button = await screen.findByRole("button");
+    await user.click(button);
+
+    await waitFor(() => {
+      expect(captureSpy).toHaveBeenCalledWith("share_link_clicked", {
+        method: "clipboard",
+        context: "finalised",
+      });
     });
   });
 });
