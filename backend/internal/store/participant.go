@@ -41,7 +41,7 @@ func (s *Store) AddParticipant(ctx context.Context, calendarID, name string, use
 	var exists bool
 	var finalisedDate sql.NullString
 	err := s.db.QueryRowContext(ctx,
-		`SELECT TRUE, finalised_date::text FROM calendars WHERE id = $1`, calendarID,
+		`SELECT TRUE, finalised_date::text FROM calendars WHERE id = $1 AND deleted_at IS NULL`, calendarID,
 	).Scan(&exists, &finalisedDate)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -111,7 +111,7 @@ func (s *Store) GetParticipant(ctx context.Context, id string) (model.Participan
 	var userID sql.NullString
 	var email sql.NullString
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, calendar_id, name, colour, user_id, email FROM participants WHERE id = $1`, id,
+		`SELECT id, calendar_id, name, colour, user_id, email FROM participants WHERE id = $1 AND deleted_at IS NULL`, id,
 	).Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &userID, &email)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -135,7 +135,7 @@ func (s *Store) ClaimParticipant(ctx context.Context, calendarID, participantID,
 	var scannedEmail sql.NullString
 	err := s.db.QueryRowContext(ctx,
 		`UPDATE participants SET user_id = $1
-		 WHERE id = $2 AND calendar_id = $3 AND user_id IS NULL
+		 WHERE id = $2 AND calendar_id = $3 AND user_id IS NULL AND deleted_at IS NULL
 		 RETURNING id, calendar_id, name, colour, user_id, email`,
 		userID, participantID, calendarID,
 	).Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &scannedUserID, &scannedEmail)
@@ -145,7 +145,7 @@ func (s *Store) ClaimParticipant(ctx context.Context, calendarID, participantID,
 			// Check which case it is.
 			var existingUserID sql.NullString
 			lookupErr := s.db.QueryRowContext(ctx,
-				`SELECT user_id FROM participants WHERE id = $1 AND calendar_id = $2`,
+				`SELECT user_id FROM participants WHERE id = $1 AND calendar_id = $2 AND deleted_at IS NULL`,
 				participantID, calendarID,
 			).Scan(&existingUserID)
 			if errors.Is(lookupErr, sql.ErrNoRows) {
@@ -181,7 +181,7 @@ func (s *Store) UpdateParticipantName(ctx context.Context, calendarID, participa
 	var scannedEmail sql.NullString
 	err := s.db.QueryRowContext(ctx,
 		`UPDATE participants SET name = $1
-		 WHERE id = $2 AND calendar_id = $3
+		 WHERE id = $2 AND calendar_id = $3 AND deleted_at IS NULL
 		 RETURNING id, calendar_id, name, colour, user_id, email`,
 		name, participantID, calendarID,
 	).Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &scannedUserID, &scannedEmail)
@@ -220,7 +220,7 @@ func (s *Store) UpdateParticipantEmail(ctx context.Context, calendarID, particip
 	var scannedEmail sql.NullString
 	err := s.db.QueryRowContext(ctx,
 		`UPDATE participants SET email = $1
-		 WHERE id = $2 AND calendar_id = $3
+		 WHERE id = $2 AND calendar_id = $3 AND deleted_at IS NULL
 		 RETURNING id, calendar_id, name, colour, user_id, email`,
 		emailVal, participantID, calendarID,
 	).Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &scannedUserID, &scannedEmail)
@@ -246,7 +246,7 @@ func (s *Store) UpdateParticipantEmail(ctx context.Context, calendarID, particip
 // Idempotent: clearing an already-null row succeeds.
 func (s *Store) ClearParticipantEmailByID(ctx context.Context, participantID string) error {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE participants SET email = NULL WHERE id = $1`,
+		`UPDATE participants SET email = NULL WHERE id = $1 AND deleted_at IS NULL`,
 		participantID,
 	)
 	if err != nil {
@@ -262,11 +262,15 @@ func (s *Store) ClearParticipantEmailByID(ctx context.Context, participantID str
 	return nil
 }
 
-// DeleteParticipant removes a participant from a calendar. Availability rows
-// cascade via the FK. Returns ErrNotFound if no matching participant exists.
+// DeleteParticipant soft-deletes a participant from a calendar. Availability
+// rows are preserved on disk but hidden by the deleted_at filter on the read
+// path. Any invite that was matched to this participant is unmatched so the
+// owner sees them back in the "missing" list. Returns ErrNotFound if no live
+// participant matches.
 func (s *Store) DeleteParticipant(ctx context.Context, calendarID, participantID string) error {
 	res, err := s.db.ExecContext(ctx,
-		`DELETE FROM participants WHERE id = $1 AND calendar_id = $2`,
+		`UPDATE participants SET deleted_at = now()
+		 WHERE id = $1 AND calendar_id = $2 AND deleted_at IS NULL`,
 		participantID, calendarID,
 	)
 	if err != nil {
@@ -279,7 +283,47 @@ func (s *Store) DeleteParticipant(ctx context.Context, calendarID, participantID
 	if rows == 0 {
 		return ErrNotFound
 	}
+	if _, err := s.db.ExecContext(ctx,
+		`UPDATE calendar_invites SET matched_participant_id = NULL WHERE matched_participant_id = $1`,
+		participantID,
+	); err != nil {
+		return fmt.Errorf("clear invite match: %w", err)
+	}
 	return nil
+}
+
+// SoftDeleteParticipantsForUser marks every live participant row for the
+// given (calendar_id, user_id) as deleted. Used by the Leave-calendar flow.
+// Idempotent — returns nil whether or not any rows were affected. Returns
+// the number of rows affected so callers can publish realtime events when
+// a leave actually happened.
+func (s *Store) SoftDeleteParticipantsForUser(ctx context.Context, calendarID, userID string) (int64, error) {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE participants SET deleted_at = now()
+		 WHERE calendar_id = $1 AND user_id = $2 AND deleted_at IS NULL`,
+		calendarID, userID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("soft delete participants for user: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("rows affected: %w", err)
+	}
+	if rows > 0 {
+		// Drop any invite matches pointing at the participants we just
+		// soft-deleted so the owner sees them back in the "missing" list.
+		if _, err := s.db.ExecContext(ctx,
+			`UPDATE calendar_invites SET matched_participant_id = NULL
+			 WHERE matched_participant_id IN (
+			   SELECT id FROM participants WHERE calendar_id = $1 AND user_id = $2 AND deleted_at IS NOT NULL
+			 )`,
+			calendarID, userID,
+		); err != nil {
+			return rows, fmt.Errorf("clear invite matches: %w", err)
+		}
+	}
+	return rows, nil
 }
 
 // insertParticipantTx inserts a participant row under the given transaction,
@@ -331,11 +375,11 @@ func insertParticipantTx(ctx context.Context, tx *sql.Tx, calendarID, name strin
 func (s *Store) participantCount(ctx context.Context, calendarID string) (int, error) {
 	var count int
 	err := s.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM participants WHERE calendar_id = $1`, calendarID,
+		`SELECT COUNT(*) FROM participants WHERE calendar_id = $1 AND deleted_at IS NULL`, calendarID,
 	).Scan(&count)
 	return count, err
 }
 
 func isUserAlreadyJoined(err error) bool {
-	return isUniqueViolation(err) && strings.Contains(err.Error(), "idx_participants_calendar_user")
+	return isUniqueViolation(err) && strings.Contains(err.Error(), "idx_participants_calendar_user_active")
 }

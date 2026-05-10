@@ -194,6 +194,18 @@ func (m *mockStore) SetInviteMatch(_ context.Context, id string, pid *string) (m
 	return m.setInviteMatch(id, pid)
 }
 
+func (m *mockStore) SoftDeleteCalendar(_ context.Context, _ string) error {
+	return nil
+}
+
+func (m *mockStore) SoftDeleteParticipantsForUser(_ context.Context, _, _ string) (int64, error) {
+	return 0, nil
+}
+
+func (m *mockStore) IsCalendarSoftDeleted(_ context.Context, _ string) (bool, error) {
+	return false, nil
+}
+
 func (m *mockStore) ParticipantsWithNoAvailability(_ context.Context, _ string) ([]model.Participant, error) {
 	if m.participantsWithNoAvailability == nil {
 		return []model.Participant{}, nil

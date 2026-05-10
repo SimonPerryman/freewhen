@@ -104,7 +104,7 @@ func (h *Handler) SetAvailability(w http.ResponseWriter, r *http.Request) {
 	err := h.service.SetAvailability(r.Context(), calendarID, req.ParticipantID, req.Dates, noteOverrides, preferredOverrides)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "not_found", "participant not found")
+			respondCalendarMissing(r, w, h.service, calendarID)
 			return
 		}
 		if errors.Is(err, store.ErrCalendarFinalised) {
@@ -168,7 +168,7 @@ func (h *Handler) ImportAvailability(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.service.ImportAvailability(r.Context(), calendarID, req.ParticipantID, req.Days); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "not_found", "participant not found")
+			respondCalendarMissing(r, w, h.service, calendarID)
 			return
 		}
 		if errors.Is(err, store.ErrCalendarFinalised) {

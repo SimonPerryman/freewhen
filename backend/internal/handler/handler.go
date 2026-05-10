@@ -51,6 +51,9 @@ type CalendarService interface {
 	DeleteInvite(ctx context.Context, inviteID string) error
 	ManualMatchInvite(ctx context.Context, calendarID, inviteID string, participantID *string) (model.Invite, error)
 	GetInvite(ctx context.Context, inviteID string) (model.Invite, error)
+	DeleteCalendar(ctx context.Context, calendarID, userID string) error
+	LeaveCalendar(ctx context.Context, calendarID, userID string) error
+	IsCalendarSoftDeleted(ctx context.Context, calendarID string) (bool, error)
 }
 
 type Handler struct {

@@ -67,12 +67,13 @@ func (s *Store) CountCalendarParticipants(ctx context.Context, calendarID string
 	return s.participantCount(ctx, calendarID)
 }
 
-// CountCalendarsForOwner returns the number of calendars owned by the given user.
-// Used by the service layer to enforce the per-owner calendar cap.
+// CountCalendarsForOwner returns the number of live calendars owned by the
+// given user. Used by the service layer to enforce the per-owner calendar
+// cap — soft-deleted calendars don't count, so deleting frees up quota.
 func (s *Store) CountCalendarsForOwner(ctx context.Context, ownerID string) (int, error) {
 	var count int
 	err := s.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM calendars WHERE owner_id = $1`, ownerID,
+		`SELECT COUNT(*) FROM calendars WHERE owner_id = $1 AND deleted_at IS NULL`, ownerID,
 	).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("count calendars for owner: %w", err)
@@ -94,7 +95,7 @@ func (s *Store) getCalendarRow(ctx context.Context, id string) (model.Calendar, 
 	var passphrase sql.NullString
 	err := s.db.QueryRowContext(ctx,
 		`SELECT id, name, emoji, owner_id, created_at, updated_at, finalised_date::text, finalised_at, passphrase, access_epoch
-		 FROM calendars WHERE id = $1`, id,
+		 FROM calendars WHERE id = $1 AND deleted_at IS NULL`, id,
 	).Scan(&cal.ID, &cal.Name, &emojiCol, &cal.OwnerID, &cal.CreatedAt, &cal.UpdatedAt, &finalisedDate, &finalisedAt, &passphrase, &cal.AccessEpoch)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -129,7 +130,7 @@ func (s *Store) SetCalendarPassphrase(ctx context.Context, calendarID string, pa
 		passArg = *passphrase
 	}
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE calendars SET passphrase = $1, access_epoch = access_epoch + 1, updated_at = now() WHERE id = $2`,
+		`UPDATE calendars SET passphrase = $1, access_epoch = access_epoch + 1, updated_at = now() WHERE id = $2 AND deleted_at IS NULL`,
 		passArg, calendarID,
 	)
 	if err != nil {
@@ -148,7 +149,7 @@ func (s *Store) SetCalendarPassphrase(ctx context.Context, calendarID string, pa
 // UpdateCalendarName renames a calendar. Returns ErrNotFound if the calendar does not exist.
 func (s *Store) UpdateCalendarName(ctx context.Context, calendarID, name string) (model.Calendar, error) {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE calendars SET name = $1, updated_at = now() WHERE id = $2`,
+		`UPDATE calendars SET name = $1, updated_at = now() WHERE id = $2 AND deleted_at IS NULL`,
 		name, calendarID,
 	)
 	if err != nil {
@@ -168,7 +169,7 @@ func (s *Store) UpdateCalendarName(ctx context.Context, calendarID, name string)
 // Returns ErrNotFound if the calendar does not exist.
 func (s *Store) SetFinalisedDate(ctx context.Context, calendarID, date string) (model.Calendar, error) {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE calendars SET finalised_date = $1, finalised_at = $2, updated_at = now() WHERE id = $3`,
+		`UPDATE calendars SET finalised_date = $1, finalised_at = $2, updated_at = now() WHERE id = $3 AND deleted_at IS NULL`,
 		date, time.Now().UTC(), calendarID,
 	)
 	if err != nil {
@@ -189,7 +190,7 @@ func (s *Store) SetFinalisedDate(ctx context.Context, calendarID, date string) (
 // Returns ErrNotFound if the calendar does not exist.
 func (s *Store) ClearFinalisedDate(ctx context.Context, calendarID string) (model.Calendar, error) {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE calendars SET finalised_date = NULL, finalised_at = NULL, updated_at = now() WHERE id = $1`,
+		`UPDATE calendars SET finalised_date = NULL, finalised_at = NULL, updated_at = now() WHERE id = $1 AND deleted_at IS NULL`,
 		calendarID,
 	)
 	if err != nil {
@@ -210,7 +211,7 @@ func (s *Store) ClearFinalisedDate(ctx context.Context, calendarID string) (mode
 // current. Returns ErrNotFound if the calendar does not exist.
 func (s *Store) TouchCalendar(ctx context.Context, calendarID string) error {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE calendars SET updated_at = now() WHERE id = $1`, calendarID,
+		`UPDATE calendars SET updated_at = now() WHERE id = $1 AND deleted_at IS NULL`, calendarID,
 	)
 	if err != nil {
 		return fmt.Errorf("touch calendar: %w", err)
@@ -231,7 +232,7 @@ func (s *Store) TouchCalendar(ctx context.Context, calendarID string) error {
 func (s *Store) GetCalendarLastNudgeAt(ctx context.Context, calendarID string) (*time.Time, error) {
 	var last sql.NullTime
 	err := s.db.QueryRowContext(ctx,
-		`SELECT last_nudge_at FROM calendars WHERE id = $1`, calendarID,
+		`SELECT last_nudge_at FROM calendars WHERE id = $1 AND deleted_at IS NULL`, calendarID,
 	).Scan(&last)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -249,7 +250,7 @@ func (s *Store) GetCalendarLastNudgeAt(ctx context.Context, calendarID string) (
 // SetCalendarLastNudgeAt records the time the last nudge was sent.
 func (s *Store) SetCalendarLastNudgeAt(ctx context.Context, calendarID string, t time.Time) error {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE calendars SET last_nudge_at = $1 WHERE id = $2`, t, calendarID,
+		`UPDATE calendars SET last_nudge_at = $1 WHERE id = $2 AND deleted_at IS NULL`, t, calendarID,
 	)
 	if err != nil {
 		return fmt.Errorf("set last_nudge_at: %w", err)
@@ -262,6 +263,38 @@ func (s *Store) SetCalendarLastNudgeAt(ctx context.Context, calendarID string, t
 		return ErrNotFound
 	}
 	return nil
+}
+
+// SoftDeleteCalendar marks a calendar as deleted by setting deleted_at to
+// now() if it is currently live. Idempotent — already-deleted or missing
+// rows return nil without error.
+func (s *Store) SoftDeleteCalendar(ctx context.Context, calendarID string) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE calendars SET deleted_at = now(), updated_at = now()
+		 WHERE id = $1 AND deleted_at IS NULL`, calendarID,
+	)
+	if err != nil {
+		return fmt.Errorf("soft delete calendar: %w", err)
+	}
+	return nil
+}
+
+// IsCalendarSoftDeleted reports whether the row exists in the calendars
+// table but has a non-null deleted_at. Returns false (and nil) if the row
+// is missing entirely. Used by mutation handlers to distinguish 404 (never
+// existed / typo) from 410 (existed once, gone now).
+func (s *Store) IsCalendarSoftDeleted(ctx context.Context, calendarID string) (bool, error) {
+	var deletedAt sql.NullTime
+	err := s.db.QueryRowContext(ctx,
+		`SELECT deleted_at FROM calendars WHERE id = $1`, calendarID,
+	).Scan(&deletedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, fmt.Errorf("check calendar soft-delete: %w", err)
+	}
+	return deletedAt.Valid, nil
 }
 
 // CalendarListItem is a calendar plus its participant count, returned by
@@ -279,10 +312,10 @@ func (s *Store) ListCalendarsForUser(ctx context.Context, userID string, limit i
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT c.id, c.name, c.emoji, c.owner_id, c.created_at, c.updated_at,
 		        c.finalised_date::text, c.finalised_at,
-		        (SELECT COUNT(*) FROM participants WHERE calendar_id = c.id) AS participant_count
+		        (SELECT COUNT(*) FROM participants WHERE calendar_id = c.id AND deleted_at IS NULL) AS participant_count
 		 FROM calendars c
 		 JOIN participants p ON p.calendar_id = c.id
-		 WHERE p.user_id = $1
+		 WHERE p.user_id = $1 AND p.deleted_at IS NULL AND c.deleted_at IS NULL
 		 ORDER BY c.updated_at DESC, c.id DESC
 		 LIMIT $2`,
 		userID, limit,
@@ -356,7 +389,7 @@ func (s *Store) DuplicateCalendar(
 	var passphrase sql.NullString
 	err = tx.QueryRowContext(ctx,
 		`SELECT id, name, emoji, owner_id, created_at, updated_at, finalised_date::text, finalised_at, passphrase, access_epoch
-		 FROM calendars WHERE id = $1`, sourceID,
+		 FROM calendars WHERE id = $1 AND deleted_at IS NULL`, sourceID,
 	).Scan(&source.ID, &source.Name, &emojiCol, &source.OwnerID, &source.CreatedAt, &source.UpdatedAt, &finalisedDate, &finalisedAt, &passphrase, &source.AccessEpoch)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -400,7 +433,7 @@ func (s *Store) DuplicateCalendar(
 	if includeParticipants {
 		// Load source participants within the tx.
 		rows, err := tx.QueryContext(ctx,
-			`SELECT id, name, user_id FROM participants WHERE calendar_id = $1 ORDER BY id`, sourceID,
+			`SELECT id, name, user_id FROM participants WHERE calendar_id = $1 AND deleted_at IS NULL ORDER BY id`, sourceID,
 		)
 		if err != nil {
 			return model.Calendar{}, model.Participant{}, fmt.Errorf("list source participants: %w", err)
@@ -456,7 +489,7 @@ func (s *Store) DuplicateCalendar(
 
 func (s *Store) getParticipants(ctx context.Context, calendarID string) ([]model.Participant, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, calendar_id, name, colour, user_id, email FROM participants WHERE calendar_id = $1`, calendarID,
+		`SELECT id, calendar_id, name, colour, user_id, email FROM participants WHERE calendar_id = $1 AND deleted_at IS NULL`, calendarID,
 	)
 	if err != nil {
 		return nil, err
@@ -485,7 +518,10 @@ func (s *Store) getParticipants(ctx context.Context, calendarID string) ([]model
 
 func (s *Store) getAvailability(ctx context.Context, calendarID string) ([]model.Availability, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT participant_id, calendar_id, date::text, note, preferred FROM availability WHERE calendar_id = $1`, calendarID,
+		`SELECT a.participant_id, a.calendar_id, a.date::text, a.note, a.preferred
+		 FROM availability a
+		 JOIN participants p ON p.id = a.participant_id
+		 WHERE a.calendar_id = $1 AND p.deleted_at IS NULL`, calendarID,
 	)
 	if err != nil {
 		return nil, err

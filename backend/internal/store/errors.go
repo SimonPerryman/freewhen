@@ -13,4 +13,12 @@ var (
 	ErrInviteLimitReached   = errors.New("calendar invite list is full")
 	ErrInviteNameTaken      = errors.New("invite name already exists on this calendar")
 	ErrInviteNotFound       = errors.New("invite not found")
+	// ErrCalendarUnavailable is returned by mutating handlers when the
+	// caller refers to a calendar that has been soft-deleted out from under
+	// them (or to which the caller no longer has a live participant row).
+	// Distinguished from ErrNotFound so the HTTP layer can map it to 410.
+	ErrCalendarUnavailable = errors.New("calendar unavailable")
+	// ErrCannotLeaveOwnedCalendar is returned by Leave when the caller is
+	// the calendar's owner. Owners must Delete instead.
+	ErrCannotLeaveOwnedCalendar = errors.New("cannot leave owned calendar")
 )

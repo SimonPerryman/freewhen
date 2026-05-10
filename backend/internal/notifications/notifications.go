@@ -28,6 +28,7 @@ type Store interface {
 	ClearParticipantEmail(ctx context.Context, participantID string) error
 	GetCalendarLastNudgeAt(ctx context.Context, calendarID string) (*time.Time, error)
 	SetCalendarLastNudgeAt(ctx context.Context, calendarID string, t time.Time) error
+	IsCalendarSoftDeleted(ctx context.Context, calendarID string) (bool, error)
 }
 
 // Counters reports the per-kind send counts. Lifted via atomics so the
@@ -148,6 +149,14 @@ type FinaliseEvent struct {
 // fire-and-forget semantics.
 func (s *Service) SendFinalised(ctx context.Context, ev FinaliseEvent) {
 	if s == nil || s.sender == nil {
+		return
+	}
+	// Re-check at delivery time: if the calendar was soft-deleted between
+	// finalise and the goroutine running, drop the entire fan-out so users
+	// don't get an email for a calendar that's been deleted out from under
+	// them.
+	if soft, err := s.store.IsCalendarSoftDeleted(ctx, ev.Calendar.ID); err == nil && soft {
+		s.logger.Info("notification_skipped_soft_deleted", "kind", "finalised", "calendar_id", ev.Calendar.ID)
 		return
 	}
 

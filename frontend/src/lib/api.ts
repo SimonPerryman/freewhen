@@ -42,6 +42,17 @@ export class ApiError extends Error {
   }
 }
 
+// CalendarUnavailableError is thrown when a `/calendars/{id}/...` write
+// returns 410 Gone with code `calendar_unavailable` — the calendar was
+// soft-deleted (or the caller's participant link was) out from under the
+// page. UI handlers should toast + route back to /calendars on this.
+export class CalendarUnavailableError extends ApiError {
+  constructor(message: string, requestId: string | null = null) {
+    super(410, message, requestId, "calendar_unavailable");
+    this.name = "CalendarUnavailableError";
+  }
+}
+
 function toSnakeCase(str: string): string {
   return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 }
@@ -109,7 +120,11 @@ async function request<T>(
       // Non-JSON error body (e.g. Go's default 405 "Method Not Allowed").
       // Keep the status-based fallback message.
     }
-    throw new ApiError(response.status, message, response.headers.get("X-Request-ID"), code);
+    const requestId = response.headers.get("X-Request-ID");
+    if (response.status === 410 && code === "calendar_unavailable") {
+      throw new CalendarUnavailableError(message, requestId);
+    }
+    throw new ApiError(response.status, message, requestId, code);
   }
 
   if (response.status === 204) {
@@ -255,6 +270,17 @@ export async function nudgeCalendar(calendarId: string): Promise<NudgeResult> {
   return request<NudgeResult>(`/calendars/${calendarId}/nudge`, {
     method: "POST",
   });
+}
+
+// deleteCalendar soft-deletes the calendar. Owner only. Idempotent (204).
+export async function deleteCalendar(calendarId: string): Promise<void> {
+  await request(`/calendars/${calendarId}`, { method: "DELETE" });
+}
+
+// leaveCalendar drops the authenticated user's participant rows on a
+// calendar. Idempotent (204). Owners receive 409 cannot_leave_owned_calendar.
+export async function leaveCalendar(calendarId: string): Promise<void> {
+  await request(`/calendars/${calendarId}/participants/me`, { method: "DELETE" });
 }
 
 export async function removeParticipant(calendarId: string, participantId: string): Promise<void> {

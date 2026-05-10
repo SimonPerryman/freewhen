@@ -30,6 +30,12 @@ vi.mock("@/lib/api", () => {
       this.status = status;
     }
   }
+  class CalendarUnavailableError extends ApiError {
+    constructor(message: string) {
+      super(410, message);
+      this.name = "CalendarUnavailableError";
+    }
+  }
   return {
     getCalendar: (...args: unknown[]) => mockGetCalendar(...args),
     addParticipant: (...args: unknown[]) => mockAddParticipant(...args),
@@ -46,6 +52,7 @@ vi.mock("@/lib/api", () => {
     importAvailabilityDays: vi.fn().mockResolvedValue(undefined),
     googleCalendarConnectUrl: (id: string) => `/auth/google/calendar/connect?calendar_id=${id}`,
     ApiError,
+    CalendarUnavailableError,
   };
 });
 

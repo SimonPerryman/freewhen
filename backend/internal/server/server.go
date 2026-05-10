@@ -190,6 +190,8 @@ func (s *Server) routes() {
 	s.handleAuth("POST /calendars/{id}/duplicate", s.handler.DuplicateCalendar)
 	s.handleOptional("GET /calendars/{id}", s.handler.GetCalendar)
 	s.handleAuth("PATCH /calendars/{id}", s.handler.UpdateCalendar)
+	s.handleAuth("DELETE /calendars/{id}", s.handler.DeleteCalendar)
+	s.handleAuth("DELETE /calendars/{id}/participants/me", s.handler.LeaveCalendar)
 	s.handleOptional("POST /calendars/{id}/participants", s.handler.AddParticipant)
 	s.handleAuth("POST /calendars/{id}/participants/{participantId}/claim", s.handler.ClaimParticipant)
 	s.handleAuth("DELETE /calendars/{id}/participants/{participantId}", s.handler.RemoveParticipant)

@@ -1,14 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { MyCalendarListItem } from "@/lib/types";
 import { formatFinalisedDate, formatRelative } from "@/lib/relativeTime";
+import { deleteCalendar, leaveCalendar } from "@/lib/api";
+import { useToast } from "@/lib/toast";
+import log from "@/lib/log";
 import DuplicateCalendarSheet from "@/components/DuplicateCalendarSheet/DuplicateCalendarSheet";
 import RenameCalendarSheet from "@/components/RenameCalendarSheet/RenameCalendarSheet";
 import RowMenu, { type RowMenuItem } from "@/components/RowMenu/RowMenu";
 import styles from "./MyCalendarsList.module.css";
+
+// Window during which Undo cancels the destructive action by simply not
+// firing the API call. Matches the toast duration so they expire together.
+const DESTRUCTIVE_UNDO_MS = 6000;
 
 type Status = "loading" | "error" | "ready";
 
@@ -21,9 +28,79 @@ interface Props {
 
 export default function MyCalendarsList({ status, calendars, hasMore, onRetry }: Props) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [duplicating, setDuplicating] = useState<MyCalendarListItem | null>(null);
   const [renaming, setRenaming] = useState<MyCalendarListItem | null>(null);
   const [localNames, setLocalNames] = useState<Record<string, string>>({});
+  // Calendars hidden locally pending the Undo window. Both Leave and Delete
+  // use the same deferred-fire pattern: the row vanishes immediately, and
+  // the API call only goes out if Undo isn't pressed within DESTRUCTIVE_UNDO_MS.
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+  const pendingTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  useEffect(() => {
+    const timers = pendingTimers.current;
+    return () => {
+      // On unmount, fire any still-pending destructive actions immediately
+      // so a user navigating away doesn't lose the action they triggered.
+      timers.forEach((t) => {
+        clearTimeout(t);
+      });
+    };
+  }, []);
+
+  const scheduleDestructive = (cal: MyCalendarListItem, kind: "leave" | "delete") => {
+    setHiddenIds((prev) => {
+      const next = new Set(prev);
+      next.add(cal.id);
+      return next;
+    });
+    const fire = async () => {
+      pendingTimers.current.delete(cal.id);
+      try {
+        if (kind === "delete") await deleteCalendar(cal.id);
+        else await leaveCalendar(cal.id);
+      } catch (err) {
+        log.warn("destructive_calendar_action_failed", { id: cal.id, kind, err });
+        // Restore the row on failure so the user can retry.
+        setHiddenIds((prev) => {
+          const next = new Set(prev);
+          next.delete(cal.id);
+          return next;
+        });
+        showToast({
+          message:
+            kind === "delete"
+              ? "Couldn't delete that calendar. Please try again."
+              : "Couldn't leave that calendar. Please try again.",
+        });
+      }
+    };
+    const timer = setTimeout(fire, DESTRUCTIVE_UNDO_MS);
+    pendingTimers.current.set(cal.id, timer);
+    showToast({
+      message:
+        kind === "delete"
+          ? `Deleted "${cal.name || "calendar"}"`
+          : `Left "${cal.name || "calendar"}"`,
+      durationMs: DESTRUCTIVE_UNDO_MS,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          const t = pendingTimers.current.get(cal.id);
+          if (t) {
+            clearTimeout(t);
+            pendingTimers.current.delete(cal.id);
+          }
+          setHiddenIds((prev) => {
+            const next = new Set(prev);
+            next.delete(cal.id);
+            return next;
+          });
+        },
+      },
+    });
+  };
   if (status === "loading") {
     return (
       <div className={styles.skeleton} aria-busy="true" aria-label="Loading calendars">
@@ -47,7 +124,9 @@ export default function MyCalendarsList({ status, calendars, hasMore, onRetry }:
     );
   }
 
-  if (calendars.length === 0) {
+  const visibleCalendars = calendars.filter((c) => !hiddenIds.has(c.id));
+
+  if (visibleCalendars.length === 0) {
     return (
       <div className={styles.empty}>
         <div className={styles.emptyTitle}>
@@ -63,7 +142,7 @@ export default function MyCalendarsList({ status, calendars, hasMore, onRetry }:
   return (
     <>
       <ul className={styles.list}>
-        {calendars.map((cal) => {
+        {visibleCalendars.map((cal) => {
           const displayName = localNames[cal.id] ?? cal.name;
           const items: RowMenuItem[] = [];
           if (cal.myRole === "owner") {
@@ -76,6 +155,19 @@ export default function MyCalendarsList({ status, calendars, hasMore, onRetry }:
               id: "rename",
               label: "Rename",
               onSelect: () => setRenaming(cal),
+            });
+            items.push({
+              id: "delete",
+              label: "Delete",
+              destructive: true,
+              onSelect: () => scheduleDestructive(cal, "delete"),
+            });
+          } else {
+            items.push({
+              id: "leave",
+              label: "Leave",
+              destructive: true,
+              onSelect: () => scheduleDestructive(cal, "leave"),
             });
           }
           return (

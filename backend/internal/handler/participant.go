@@ -51,7 +51,7 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 	p, err := h.service.AddParticipant(r.Context(), calendarID, req.Name, userID, email)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
+			respondCalendarMissing(r, w, h.service, calendarID)
 			return
 		}
 		if errors.Is(err, service.ErrInvalidName) {
@@ -159,7 +159,7 @@ func (h *Handler) RenameParticipant(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
-			respondError(w, http.StatusNotFound, "not_found", "participant not found")
+			respondCalendarMissing(r, w, h.service, calendarID)
 		case errors.Is(err, service.ErrForbidden):
 			respondError(w, http.StatusForbidden, "forbidden", "not allowed to rename this participant")
 		case errors.Is(err, service.ErrInvalidName):
@@ -204,7 +204,7 @@ func (h *Handler) ClaimParticipant(w http.ResponseWriter, r *http.Request) {
 	p, err := h.service.ClaimParticipant(r.Context(), calendarID, participantID, user.ID)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "not_found", "participant not found")
+			respondCalendarMissing(r, w, h.service, calendarID)
 			return
 		}
 		if errors.Is(err, store.ErrAlreadyLinked) {

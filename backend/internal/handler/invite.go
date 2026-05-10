@@ -21,7 +21,7 @@ func (h *Handler) requireCalendarOwner(w http.ResponseWriter, r *http.Request, c
 	cal, err := h.service.GetCalendarOnly(r.Context(), calendarID)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
+			respondCalendarMissing(r, w, h.service, calendarID)
 			return false
 		}
 		respondInternalError(r, w, err, "internal_error", "failed to load calendar")

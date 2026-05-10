@@ -107,7 +107,7 @@ func (h *Handler) DuplicateCalendar(w http.ResponseWriter, r *http.Request) {
 	source, err := h.service.GetCalendarOnly(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
+			respondCalendarMissing(r, w, h.service, id)
 			return
 		}
 		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
@@ -128,7 +128,7 @@ func (h *Handler) DuplicateCalendar(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, service.ErrInvalidName):
 			respondError(w, http.StatusBadRequest, "name_too_long", "calendar name is too long")
 		case errors.Is(err, store.ErrNotFound):
-			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
+			respondCalendarMissing(r, w, h.service, id)
 		default:
 			respondInternalError(r, w, err, "internal_error", "failed to duplicate calendar")
 		}
@@ -260,7 +260,7 @@ func (h *Handler) FinaliseCalendar(w http.ResponseWriter, r *http.Request) {
 	existing, err := h.service.GetCalendarOnly(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
+			respondCalendarMissing(r, w, h.service, id)
 			return
 		}
 		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
@@ -274,7 +274,7 @@ func (h *Handler) FinaliseCalendar(w http.ResponseWriter, r *http.Request) {
 	cal, err := h.service.FinaliseCalendar(r.Context(), id, req.Date)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
+			respondCalendarMissing(r, w, h.service, id)
 			return
 		}
 		respondInternalError(r, w, err, "internal_error", "failed to finalise calendar")
@@ -319,7 +319,7 @@ func (h *Handler) UpdateCalendar(w http.ResponseWriter, r *http.Request) {
 	existing, err := h.service.GetCalendarOnly(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
+			respondCalendarMissing(r, w, h.service, id)
 			return
 		}
 		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
@@ -333,7 +333,7 @@ func (h *Handler) UpdateCalendar(w http.ResponseWriter, r *http.Request) {
 	cal, err := h.service.RenameCalendar(r.Context(), id, *req.Name)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
+			respondCalendarMissing(r, w, h.service, id)
 			return
 		}
 		respondInternalError(r, w, err, "internal_error", "failed to rename calendar")
@@ -355,7 +355,7 @@ func (h *Handler) RemoveParticipant(w http.ResponseWriter, r *http.Request) {
 	existing, err := h.service.GetCalendarOnly(r.Context(), calendarID)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
+			respondCalendarMissing(r, w, h.service, calendarID)
 			return
 		}
 		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
@@ -433,6 +433,57 @@ func (h *Handler) ListUserCalendars(w http.ResponseWriter, r *http.Request) {
 	}{Calendars: out, HasMore: hasMore})
 }
 
+// DeleteCalendar handles DELETE /calendars/{id}. Owner only. Soft-deletes
+// the calendar and is idempotent: deleting an already-deleted calendar
+// returns 204 (and the helper-mapped 410 only fires for non-owners hitting
+// a soft-deleted calendar).
+func (h *Handler) DeleteCalendar(w http.ResponseWriter, r *http.Request) {
+	user := UserFromContext(r)
+	if user == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized", "unauthorized")
+		return
+	}
+	id := r.PathValue("id")
+
+	if err := h.service.DeleteCalendar(r.Context(), id, user.ID); err != nil {
+		switch {
+		case errors.Is(err, service.ErrForbidden):
+			respondError(w, http.StatusForbidden, "forbidden", "only the owner can delete this calendar")
+		case errors.Is(err, store.ErrNotFound):
+			respondCalendarMissing(r, w, h.service, id)
+		default:
+			respondInternalError(r, w, err, "internal_error", "failed to delete calendar")
+		}
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// LeaveCalendar handles DELETE /calendars/{id}/participants/me. Soft-
+// deletes every live participant row for (calendarID, currentUserID).
+// Idempotent. Owners cannot leave (must Delete) — returns 409.
+func (h *Handler) LeaveCalendar(w http.ResponseWriter, r *http.Request) {
+	user := UserFromContext(r)
+	if user == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized", "unauthorized")
+		return
+	}
+	id := r.PathValue("id")
+
+	if err := h.service.LeaveCalendar(r.Context(), id, user.ID); err != nil {
+		switch {
+		case errors.Is(err, store.ErrCannotLeaveOwnedCalendar):
+			respondError(w, http.StatusConflict, "cannot_leave_owned_calendar", "owners cannot leave their own calendar; delete it instead")
+		case errors.Is(err, store.ErrNotFound):
+			respondCalendarMissing(r, w, h.service, id)
+		default:
+			respondInternalError(r, w, err, "internal_error", "failed to leave calendar")
+		}
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *Handler) UnfinaliseCalendar(w http.ResponseWriter, r *http.Request) {
 	user := UserFromContext(r)
 	if user == nil {
@@ -445,7 +496,7 @@ func (h *Handler) UnfinaliseCalendar(w http.ResponseWriter, r *http.Request) {
 	existing, err := h.service.GetCalendarOnly(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
+			respondCalendarMissing(r, w, h.service, id)
 			return
 		}
 		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
@@ -459,7 +510,7 @@ func (h *Handler) UnfinaliseCalendar(w http.ResponseWriter, r *http.Request) {
 	cal, err := h.service.UnfinaliseCalendar(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
+			respondCalendarMissing(r, w, h.service, id)
 			return
 		}
 		respondInternalError(r, w, err, "internal_error", "failed to unfinalise calendar")
