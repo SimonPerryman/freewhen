@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/freewhen/backend/internal/calprovider"
 	"github.com/freewhen/backend/internal/config"
 	"github.com/freewhen/backend/internal/email"
 	"github.com/freewhen/backend/internal/flags"
@@ -76,7 +77,18 @@ func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 		}
 	}
 
-	h := handler.New(svc).WithFlags(flagEval).WithTrustedProxyDepth(cfg.TrustedProxyDepth).WithFrontendURL(cfg.FrontendURL)
+	// Calendar providers are always registered so the export deep-link
+	// (no-OAuth, pure URL) keeps working in dev environments; the OAuth
+	// import surface returns 503 per-provider when credentials are missing.
+	calProviders := calprovider.NewRegistry(
+		calprovider.NewGoogle(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleCalendarRedirectURL),
+	)
+
+	h := handler.New(svc).
+		WithFlags(flagEval).
+		WithTrustedProxyDepth(cfg.TrustedProxyDepth).
+		WithFrontendURL(cfg.FrontendURL).
+		WithCalendarProviders(calProviders)
 	eh := handler.NewEvents(hub, svc, logger)
 
 	var notifSvc *notifications.Service
@@ -110,7 +122,7 @@ func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 	if notifSvc != nil {
 		mh.WithNotificationCounters(notifSvc.Counters())
 	}
-	ch := handler.NewCalendarIntegration(st, svc, cfg, logger)
+	ch := handler.NewCalendarIntegration(st, svc, calProviders, cfg, logger)
 
 	var tlh *handler.TestLoginHandler
 	if cfg.E2ETestMode {
@@ -214,13 +226,14 @@ func (s *Server) routes() {
 	// Export endpoints are intentionally public — finalised calendars should be
 	// addable to anyone's calendar, including anonymous joiners.
 	s.handlePublic("GET /calendars/{id}/export.ics", s.handler.ExportICS)
-	s.handlePublic("GET /calendars/{id}/export/google", s.handler.ExportGoogle)
+	s.handlePublic("GET /calendars/{id}/export/{provider}", s.handler.ExportToProvider)
 
-	// Incremental OAuth round-trip for Google Calendar import. All three
+	// Incremental OAuth round-trip for calendar import. Provider-agnostic
+	// — the `{provider}` path param routes to the right adapter. All three
 	// endpoints require a signed-in session.
-	s.handleAuth("POST /auth/google/calendar/consent-ack", s.calIntegration.ConsentAck)
-	s.handleAuth("GET /auth/google/calendar/connect", s.calIntegration.Connect)
-	s.handleAuth("GET /auth/google/calendar/callback", s.calIntegration.Callback)
+	s.handleAuth("POST /auth/{provider}/calendar/consent-ack", s.calIntegration.ConsentAck)
+	s.handleAuth("GET /auth/{provider}/calendar/connect", s.calIntegration.Connect)
+	s.handleAuth("GET /auth/{provider}/calendar/callback", s.calIntegration.Callback)
 	s.handleAuth("GET /calendars/{id}/import/suggestions", s.calIntegration.GetSuggestions)
 	s.handleAuth("POST /calendars/{id}/availability/import", s.handler.ImportAvailability)
 

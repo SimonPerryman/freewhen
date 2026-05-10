@@ -11,13 +11,12 @@ import (
 	"time"
 
 	"github.com/freewhen/backend/internal/availability"
+	"github.com/freewhen/backend/internal/calprovider"
 	"github.com/freewhen/backend/internal/config"
-	googlecal "github.com/freewhen/backend/internal/google"
 	"github.com/freewhen/backend/internal/ratelimit"
 	"github.com/freewhen/backend/internal/store"
 
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 )
 
 // CalendarIntegrationStore is the subset of the store the integration
@@ -27,78 +26,55 @@ type CalendarIntegrationStore interface {
 	SetCalendarImportConsentAck(ctx context.Context, userID string) error
 }
 
-// CalendarService interface is reused from handler.go.
-
-// CalendarIntegrationHandler wires together the incremental-OAuth flow for
-// importing a user's Google Calendar free/busy data. No tokens are
-// persisted — the access token is used once, inside the callback, and then
-// discarded.
+// CalendarIntegrationHandler wires the incremental-OAuth round-trip for
+// importing a user's calendar free/busy data from any configured provider.
+// No tokens are persisted — the access token is used once, inside the
+// callback, and then discarded. Provider selection is by URL path param
+// (`/auth/{provider}/calendar/...`).
 type CalendarIntegrationHandler struct {
 	store        CalendarIntegrationStore
 	cal          CalendarService
-	oauth        *oauth2.Config
+	providers    *calprovider.Registry
 	frontendURL  string
 	cookieDomain string
 	secureCookie bool
 	logger       *slog.Logger
 	limiter      *ratelimit.Bucket
-	freeBusy     FreeBusyFetcher
 }
 
-// FreeBusyFetcher is the seam for injecting the Google FreeBusy call. The
-// production implementation calls Google; tests supply a stub.
-type FreeBusyFetcher func(ctx context.Context, accessToken string, start, end time.Time, tz string) ([]availability.TimeRange, error)
-
-// CalendarIntegrationOption configures optional fields on the handler. Used
-// by tests to point the OAuth endpoint at an httptest.Server and to swap in
-// a stub FreeBusyFetcher.
-type CalendarIntegrationOption func(*CalendarIntegrationHandler)
-
-// WithCalendarOAuthEndpoint overrides the OAuth token/auth endpoint.
-func WithCalendarOAuthEndpoint(ep oauth2.Endpoint) CalendarIntegrationOption {
-	return func(h *CalendarIntegrationHandler) {
-		if h.oauth != nil {
-			h.oauth.Endpoint = ep
-		}
+// NewCalendarIntegration wires the handler against a registry of calendar
+// providers. The registry may be empty — Connect/Callback return 404 when the
+// requested provider isn't registered.
+func NewCalendarIntegration(s CalendarIntegrationStore, cal CalendarService, providers *calprovider.Registry, cfg *config.Config, logger *slog.Logger) *CalendarIntegrationHandler {
+	if providers == nil {
+		providers = calprovider.NewRegistry()
 	}
-}
-
-// WithFreeBusyFetcher overrides the FreeBusy fetcher seam.
-func WithFreeBusyFetcher(fb FreeBusyFetcher) CalendarIntegrationOption {
-	return func(h *CalendarIntegrationHandler) { h.freeBusy = fb }
-}
-
-// NewCalendarIntegration wires the handler using the existing Google client
-// credentials with the calendar-specific redirect URL and scope.
-func NewCalendarIntegration(s CalendarIntegrationStore, cal CalendarService, cfg *config.Config, logger *slog.Logger, opts ...CalendarIntegrationOption) *CalendarIntegrationHandler {
-	var oauthCfg *oauth2.Config
-	if cfg.GoogleClientID != "" && cfg.GoogleCalendarRedirectURL != "" {
-		oauthCfg = &oauth2.Config{
-			ClientID:     cfg.GoogleClientID,
-			ClientSecret: cfg.GoogleClientSecret,
-			RedirectURL:  cfg.GoogleCalendarRedirectURL,
-			Scopes:       []string{"https://www.googleapis.com/auth/calendar.freebusy"},
-			Endpoint:     google.Endpoint,
-		}
-	}
-
-	h := &CalendarIntegrationHandler{
+	return &CalendarIntegrationHandler{
 		store:        s,
 		cal:          cal,
-		oauth:        oauthCfg,
+		providers:    providers,
 		frontendURL:  cfg.FrontendURL,
 		cookieDomain: cfg.CookieDomain,
 		secureCookie: cfg.SecureCookies,
 		logger:       logger,
 		limiter:      ratelimit.New(10, time.Hour),
-		freeBusy: func(ctx context.Context, token string, start, end time.Time, tz string) ([]availability.TimeRange, error) {
-			return googlecal.FreeBusy(ctx, nil, token, start, end, tz)
-		},
 	}
-	for _, opt := range opts {
-		opt(h)
+}
+
+// providerFromRequest resolves the `{provider}` path param and returns the
+// matching Provider, or writes a 404 and returns nil.
+func (h *CalendarIntegrationHandler) providerFromRequest(w http.ResponseWriter, r *http.Request) calprovider.Provider {
+	name := r.PathValue("provider")
+	if name == "" {
+		respondError(w, http.StatusNotFound, "not_found", "unknown calendar provider")
+		return nil
 	}
-	return h
+	p, ok := h.providers.Get(name)
+	if !ok || p.OAuthConfig() == nil {
+		respondError(w, http.StatusServiceUnavailable, "service_unavailable", "calendar provider not configured")
+		return nil
+	}
+	return p
 }
 
 // ConsentAck records that the user has seen the privacy interstitial.
@@ -125,13 +101,19 @@ type calendarOAuthState struct {
 	TZ         string `json:"tz,omitempty"`
 }
 
+// nonceCookiePath scopes the nonce cookie to the per-provider callback path
+// so different providers' callbacks can't see each other's nonces.
+func nonceCookiePath(providerName string) string {
+	return "/auth/" + providerName + "/calendar/callback"
+}
+
 // Connect kicks off the incremental-OAuth round-trip. The caller is expected
 // to have already ack'd consent (the frontend gates this). We encode the
 // calendar ID / return URL / timezone into state so the callback has
 // everything it needs to compute suggestions and redirect.
 func (h *CalendarIntegrationHandler) Connect(w http.ResponseWriter, r *http.Request) {
-	if h.oauth == nil {
-		respondError(w, http.StatusServiceUnavailable, "service_unavailable", "calendar OAuth not configured")
+	provider := h.providerFromRequest(w, r)
+	if provider == nil {
 		return
 	}
 	user := UserFromContext(r)
@@ -176,7 +158,7 @@ func (h *CalendarIntegrationHandler) Connect(w http.ResponseWriter, r *http.Requ
 	http.SetCookie(w, &http.Cookie{
 		Name:     "calendar_oauth_nonce",
 		Value:    state.Nonce,
-		Path:     "/auth/google/calendar/callback",
+		Path:     nonceCookiePath(provider.Name()),
 		MaxAge:   600,
 		HttpOnly: true,
 		Secure:   h.secureCookie,
@@ -184,7 +166,7 @@ func (h *CalendarIntegrationHandler) Connect(w http.ResponseWriter, r *http.Requ
 		Domain:   h.cookieDomain,
 	})
 
-	url := h.oauth.AuthCodeURL(encoded,
+	url := provider.OAuthConfig().AuthCodeURL(encoded,
 		oauth2.AccessTypeOnline,
 		oauth2.SetAuthURLParam("include_granted_scopes", "true"),
 	)
@@ -195,8 +177,8 @@ func (h *CalendarIntegrationHandler) Connect(w http.ResponseWriter, r *http.Requ
 // per-day vector → store it in a short-lived single-use cookie → redirect
 // back to the calendar page.
 func (h *CalendarIntegrationHandler) Callback(w http.ResponseWriter, r *http.Request) {
-	if h.oauth == nil {
-		respondError(w, http.StatusServiceUnavailable, "service_unavailable", "calendar OAuth not configured")
+	provider := h.providerFromRequest(w, r)
+	if provider == nil {
 		return
 	}
 	user := UserFromContext(r)
@@ -225,7 +207,7 @@ func (h *CalendarIntegrationHandler) Callback(w http.ResponseWriter, r *http.Req
 	http.SetCookie(w, &http.Cookie{
 		Name:     "calendar_oauth_nonce",
 		Value:    "",
-		Path:     "/auth/google/calendar/callback",
+		Path:     nonceCookiePath(provider.Name()),
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   h.secureCookie,
@@ -239,7 +221,7 @@ func (h *CalendarIntegrationHandler) Callback(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	token, err := h.oauth.Exchange(r.Context(), code)
+	token, err := provider.OAuthConfig().Exchange(r.Context(), code)
 	if err != nil {
 		respondInternalError(r, w, err, "internal_error", "authentication failed")
 		return
@@ -257,9 +239,9 @@ func (h *CalendarIntegrationHandler) Callback(w http.ResponseWriter, r *http.Req
 	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, tz)
 	end := start.AddDate(0, 0, 90)
 
-	busy, err := h.freeBusy(r.Context(), token.AccessToken, start, end, state.TZ)
+	busy, err := provider.FreeBusy(r.Context(), token.AccessToken, start, end, state.TZ)
 	if err != nil {
-		h.logger.Error("freebusy fetch failed", "error", err, "user_id", user.ID)
+		h.logger.Error("freebusy fetch failed", "error", err, "user_id", user.ID, "provider", provider.Name())
 		respondError(w, http.StatusBadGateway, "freebusy_failed", "failed to read free/busy")
 		return
 	}
@@ -285,7 +267,7 @@ func (h *CalendarIntegrationHandler) Callback(w http.ResponseWriter, r *http.Req
 	})
 
 	h.logger.Info("calendar_import", "user_id", user.ID, "calendar_id", state.CalendarID,
-		"free_count", len(classified.Free), "busy_count", len(classified.Busy))
+		"provider", provider.Name(), "free_count", len(classified.Free), "busy_count", len(classified.Busy))
 
 	returnURL := state.ReturnURL
 	if !isRelativePath(returnURL) {

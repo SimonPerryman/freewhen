@@ -4,11 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/freewhen/backend/internal/calprovider"
 	"github.com/freewhen/backend/internal/ics"
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/store"
@@ -53,11 +53,17 @@ func (h *Handler) ExportICS(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(payload))
 }
 
-// ExportGoogle redirects to Google Calendar's render URL with the event
-// pre-filled. No OAuth, no write scope — Google's own form opens in the
-// user's browser and they tap "Save". Public.
-func (h *Handler) ExportGoogle(w http.ResponseWriter, r *http.Request) {
+// ExportToProvider redirects to the given calendar provider's "add event"
+// deep link with the event pre-filled. Public — no OAuth, no write scope, no
+// API call. Provider name comes from the `{provider}` path param.
+func (h *Handler) ExportToProvider(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+
+	provider, ok := h.calProviders.Get(r.PathValue("provider"))
+	if !ok {
+		respondError(w, http.StatusNotFound, "not_found", "unknown calendar provider")
+		return
+	}
 
 	cal, err := h.service.GetCalendar(r.Context(), id)
 	if err != nil {
@@ -79,20 +85,13 @@ func (h *Handler) ExportGoogle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Google's render URL expects dates in the form YYYYMMDD/YYYYMMDD for
-	// all-day events (end exclusive — matches the iCal convention).
-	start := date.Format("20060102")
-	end := date.AddDate(0, 0, 1).Format("20060102")
-
-	q := url.Values{}
-	q.Set("action", "TEMPLATE")
-	q.Set("text", calendarSummary(cal.Calendar.Emoji, cal.Calendar.Name))
-	q.Set("dates", start+"/"+end)
-	if details := calendarEventDescription(cal, h.frontendURL); details != "" {
-		q.Set("details", details)
-	}
-
-	http.Redirect(w, r, "https://calendar.google.com/calendar/render?"+q.Encode(), http.StatusFound)
+	target := provider.AddEventURL(calprovider.ExportEvent{
+		Title:       calendarSummary(cal.Calendar.Emoji, cal.Calendar.Name),
+		Description: calendarEventDescription(cal, h.frontendURL),
+		Date:        date,
+		AllDay:      true,
+	})
+	http.Redirect(w, r, target, http.StatusFound)
 }
 
 // calendarSummary formats the calendar title for export — includes the emoji
