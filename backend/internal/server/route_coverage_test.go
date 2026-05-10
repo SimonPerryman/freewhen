@@ -28,14 +28,14 @@ func TestRouteCoverage_AuthClassMatchesAllowList(t *testing.T) {
 		"GET /health": authPublic,
 
 		// Auth — the login/session-mint paths are intentionally public.
-		"GET /auth/google":             authPublic,
-		"GET /auth/google/callback":    authPublic,
-		"GET /auth/me":                 authPublic, // returns null when unauth'd; safe
-		"PATCH /auth/me":               authRequired,
-		"POST /auth/logout":            authPublic, // no-op without session
-		"POST /auth/logout-all":        authRequired,
-		"POST /auth/magic-link":        authPublic,
-		"POST /auth/magic-link/verify": authPublic,
+		"GET /auth/{provider}":          authPublic,
+		"GET /auth/{provider}/callback": authPublic,
+		"GET /auth/me":                  authPublic, // returns null when unauth'd; safe
+		"PATCH /auth/me":                authRequired,
+		"POST /auth/logout":             authPublic, // no-op without session
+		"POST /auth/logout-all":         authRequired,
+		"POST /auth/magic-link":         authPublic,
+		"POST /auth/magic-link/verify":  authPublic,
 
 		// User
 		"GET /users/me/calendars": authRequired,
