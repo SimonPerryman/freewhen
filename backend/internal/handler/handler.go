@@ -60,6 +60,11 @@ type Handler struct {
 	service           CalendarService
 	flags             flags.Evaluator
 	trustedProxyDepth int
+	// frontendURL is the canonical public origin of the FreeWhen frontend
+	// (e.g. https://freewhen.app). Used to render the "View on FreeWhen" link
+	// embedded in exported events. Empty in environments without a public URL
+	// configured — the link is omitted in that case.
+	frontendURL string
 }
 
 func New(s CalendarService) *Handler {
@@ -72,6 +77,13 @@ func (h *Handler) WithFlags(fe flags.Evaluator) *Handler {
 	if fe != nil {
 		h.flags = fe
 	}
+	return h
+}
+
+// WithFrontendURL sets the public frontend origin used when rendering links
+// back to FreeWhen in exported calendar events. Pass "" to omit the link.
+func (h *Handler) WithFrontendURL(url string) *Handler {
+	h.frontendURL = url
 	return h
 }
 
