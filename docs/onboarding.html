@@ -524,16 +524,18 @@ erDiagram
         <tr><td class="path">/login/check-email</td><td>"Check your email" interstitial after magic-link request</td></tr>
         <tr><td class="path">/auth/magic-link/callback</td><td>Redeem magic-link token</td></tr>
         <tr><td class="path">/calendars</td><td>"My calendars" — owned + joined</td></tr>
-        <tr><td class="path">/calendars/[id]</td><td>The calendar view: grid · participants · summary · share</td></tr>
+        <tr><td class="path">/calendars/[id]</td><td>The calendar view: grid · participants · summary · share. Server-renders open calendars from one anonymous, uncached API read (<code>src/lib/serverCalendar.ts</code>, shared with metadata via React <code>cache()</code>); passphrase-gated or failed reads fall back to the client fetch</td></tr>
         <tr><td class="path">/unsubscribe</td><td>Email unsubscribe confirmation</td></tr>
       </tbody>
     </table>
   </div>
 
   <h3 class="kicker">The calendar page, decomposed</h3>
-  <div class="ascii">src/app/calendars/[id]/page.tsx
+  <div class="ascii">src/app/calendars/[id]/page.tsx         ← server: anonymous fetch → initialData (open calendars only)
+├── loading.tsx                         ← streamed while that fetch runs
 └── CalendarPageClient.tsx              ← wiring only; state lives in hooks:
-    │   useCalendarData                 ← fetch · ?unlock= · SSE refresh · error/gate state
+    │   useCalendarData                 ← fetch (or hydrate from initialData) · ?unlock= · SSE refresh · error/gate state
+    │   useToday                        ← server "today" during hydration, local date after
     │   useParticipantIdentity          ← who "you" are: stored id · claim · join · rename
     │   useAvailabilitySave             ← optimistic dates/notes/votes · serialized PUT · undo
     │   useCalendarRename / useCalendarOwnerActions

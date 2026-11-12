@@ -27,6 +27,9 @@ export interface UseParticipantIdentityResult {
   currentParticipant: Participant | null;
   // Mirrors currentParticipant?.id for async code (the save queue).
   participantIdRef: MutableRefObject<string | null>;
+  // False until the first resolveFromLoad finishes. Server-rendered pages
+  // use it to hold back "you haven't joined" UI until we actually know.
+  identityResolved: boolean;
   // Join-form prefill: stale stored name, signed-in name, or last-used name.
   storedName: string;
   joinError: string | null;
@@ -55,6 +58,7 @@ export function useParticipantIdentity({
   const [currentParticipant, setCurrentParticipant] = useState<Participant | null>(null);
   const [storedName, setStoredName] = useState("");
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [identityResolved, setIdentityResolved] = useState(false);
   const participantIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -117,6 +121,7 @@ export function useParticipantIdentity({
       if (prefillName !== null) {
         setStoredName(prefillName);
       }
+      setIdentityResolved(true);
 
       if (!resolved) return null;
 
@@ -225,6 +230,7 @@ export function useParticipantIdentity({
 
   return {
     currentParticipant,
+    identityResolved,
     participantIdRef,
     storedName,
     joinError,

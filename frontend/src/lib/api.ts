@@ -85,7 +85,9 @@ function toSnakeCaseKeys(obj: unknown): unknown {
   return convertKeys(obj, toSnakeCase);
 }
 
-function toCamelCaseKeys<T>(obj: unknown): T {
+// Exported for the server-side calendar fetch (serverCalendar.ts), which
+// bypasses request() so it never sends browser credentials.
+export function toCamelCaseKeys<T>(obj: unknown): T {
   return convertKeys<T>(obj, toCamelCase);
 }
 

@@ -503,7 +503,8 @@ describe("CalendarPageClient", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Calendar settings" }));
-    fireEvent.click(screen.getByRole("button", { name: /Rename calendar/i }));
+    // The settings sheet is lazy-loaded (next/dynamic), so it appears async.
+    fireEvent.click(await screen.findByRole("button", { name: /Rename calendar/i }));
 
     const input = (await screen.findByRole("textbox", {
       name: "Calendar name",

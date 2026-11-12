@@ -7,3 +7,9 @@ export function localToday(now: Date = new Date()): string {
   const day = String(now.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
+
+// Local midnight of an ISO `YYYY-MM-DD` date.
+export function parseLocalDate(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}

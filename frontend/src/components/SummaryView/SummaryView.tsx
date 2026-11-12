@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import { computeSummary } from "@/lib/summary";
+import { parseLocalDate } from "@/lib/localDate";
+import { useToday } from "@/lib/useToday";
 import type { Participant } from "@/lib/types";
 import PreferencePill, {
   type PreferencePillVoter,
@@ -94,9 +96,10 @@ export default function SummaryView({
   onFinalise,
   onOpenDay,
 }: SummaryViewProps) {
+  const today = useToday();
   const summary = useMemo(
-    () => computeSummary(participants, freeByDate, new Date()),
-    [participants, freeByDate],
+    () => computeSummary(participants, freeByDate, parseLocalDate(today)),
+    [participants, freeByDate, today],
   );
 
   const participantById = useMemo(() => {
