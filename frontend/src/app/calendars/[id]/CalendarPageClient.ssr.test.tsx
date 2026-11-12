@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { hydrateRoot, type Root } from "react-dom/client";
-import { ApiError } from "@/lib/api";
 import type { CalendarWithDetails, User } from "@/lib/types";
 
 // Server-rendered first paint: CalendarPageClient receives the calendar the
@@ -72,7 +71,8 @@ function page(props: { initialData?: CalendarWithDetails | null; initialToday?: 
 beforeEach(() => {
   getCalendarMock.mockReset();
   getMeMock.mockReset();
-  getMeMock.mockRejectedValue(new ApiError(401, "unauthorized"));
+  // Signed out: /auth/me resolves null (200), not a 401.
+  getMeMock.mockResolvedValue(null);
   claimParticipantMock.mockReset();
   streamCalls.length = 0;
   localStorage.clear();

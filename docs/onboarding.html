@@ -440,7 +440,7 @@ erDiagram
         <tr><td class="method">GET</td><td class="path">/auth/google/callback</td><td><span class="pill public">public</span></td><td>OAuth callback → create user + session</td></tr>
         <tr><td class="method">POST</td><td class="path">/auth/magic-link</td><td><span class="pill public">public</span></td><td>Email a magic-link token via Resend</td></tr>
         <tr><td class="method">POST</td><td class="path">/auth/magic-link/verify</td><td><span class="pill public">public</span></td><td>Redeem token → session</td></tr>
-        <tr><td class="method">GET</td><td class="path">/auth/me</td><td><span class="pill opt">opt</span></td><td>Current user or 401</td></tr>
+        <tr><td class="method">GET</td><td class="path">/auth/me</td><td><span class="pill opt">opt</span></td><td>Current user, or <code>null</code> (200) when signed out</td></tr>
         <tr><td class="method">PATCH</td><td class="path">/auth/me</td><td><span class="pill auth">auth</span></td><td>Update profile (name)</td></tr>
         <tr><td class="method">POST</td><td class="path">/auth/logout</td><td><span class="pill auth">auth</span></td><td>Drop current session</td></tr>
         <tr><td class="method">POST</td><td class="path">/auth/logout-all</td><td><span class="pill auth">auth</span></td><td>Drop every session for the user</td></tr>

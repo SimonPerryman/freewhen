@@ -18,7 +18,7 @@ Session-based auth with HTTP-only cookies. Creator must sign in to create a cale
 |--------|------|------|-------------|
 | GET | `/auth/google` | — | Redirect to Google OAuth. Accepts `?return_url=` |
 | GET | `/auth/google/callback` | — | Google OAuth callback, creates session, redirects |
-| GET | `/auth/me` | Session | Return current user or 401 |
+| GET | `/auth/me` | Optional | Return current user, or `null` (200) when signed out |
 | POST | `/auth/logout` | Session | Delete session, clear cookie |
 
 ## Participant authorization
@@ -333,15 +333,21 @@ Passphrase-protected calendars apply the same gate as `GET /calendars/{id}`: the
 
 ### GET /auth/me
 
-Returns the current authenticated user.
+Returns the current authenticated user, or `null` when signed out. Being signed out is a normal state, so a missing, expired, invalid or logged-out session cookie gets a `200` with a JSON `null` body, not a `401` (a 401 makes browsers log a console error on every signed-out page load). A valid session's expiry slides, as on any authenticated route. Every other authenticated endpoint still returns `401` without a session.
 
-**Response 200**
+**Response 200 (signed in)**
 
 ```json
 {"id": "string", "email": "string", "name": "string"}
 ```
 
-**Errors:** 401 (no valid session)
+**Response 200 (signed out)**
+
+```json
+null
+```
+
+**Errors:** none for auth state
 
 ---
 

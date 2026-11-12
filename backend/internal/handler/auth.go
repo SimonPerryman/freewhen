@@ -236,26 +236,17 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, h.frontendURL+returnURL, http.StatusTemporaryRedirect)
 }
 
-// Me returns the currently authenticated user.
+// Me returns the currently authenticated user, or a JSON null when there is
+// no valid session. Being signed out is a normal state, not an error: a 401
+// here would show up as a browser console error on every signed-out page
+// load. Registered with optionalAuth, which attaches the user (and slides
+// the session expiry) when the session cookie is valid.
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie("session")
-	if err != nil {
-		respondError(w, http.StatusUnauthorized, "unauthorized", "not authenticated")
+	user := UserFromContext(r)
+	if user == nil {
+		respondJSON(w, http.StatusOK, nil)
 		return
 	}
-
-	sess, err := h.store.GetSession(r.Context(), cookie.Value)
-	if err != nil || sess == nil {
-		respondError(w, http.StatusUnauthorized, "unauthorized", "not authenticated")
-		return
-	}
-
-	user, err := h.store.GetUser(r.Context(), sess.UserID)
-	if err != nil {
-		respondError(w, http.StatusUnauthorized, "unauthorized", "not authenticated")
-		return
-	}
-
 	respondJSON(w, http.StatusOK, user)
 }
 

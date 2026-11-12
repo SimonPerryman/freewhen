@@ -21,7 +21,7 @@ vi.mock("@/lib/api", async () => {
     getCalendar: (...args: unknown[]) => getCalendarMock(...args),
     addParticipant: (...args: unknown[]) => addParticipantMock(...args),
     setAvailability: (...args: unknown[]) => setAvailabilityMock(...args),
-    getMe: vi.fn().mockRejectedValue(new Error("not authenticated")),
+    getMe: vi.fn().mockResolvedValue(null),
   };
 });
 

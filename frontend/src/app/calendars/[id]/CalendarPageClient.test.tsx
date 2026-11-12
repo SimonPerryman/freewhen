@@ -45,7 +45,7 @@ vi.mock("@/lib/api", () => {
     finaliseCalendar: vi.fn(),
     unfinaliseCalendar: vi.fn(),
     claimParticipant: vi.fn(),
-    getMe: vi.fn().mockRejectedValue(new Error("not authenticated")),
+    getMe: vi.fn().mockResolvedValue(null),
     logout: vi.fn().mockResolvedValue(undefined),
     fetchImportSuggestions: vi.fn().mockResolvedValue(null),
     ackCalendarImportConsent: vi.fn().mockResolvedValue(undefined),

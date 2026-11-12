@@ -190,7 +190,8 @@ func (s *Server) routes() {
 	// Auth routes
 	s.handlePublic("GET /auth/{provider}", s.auth.OAuthLogin)
 	s.handlePublic("GET /auth/{provider}/callback", s.auth.OAuthCallback)
-	s.handlePublic("GET /auth/me", s.auth.Me)
+	// Optional: returns the user, or 200 null when signed out.
+	s.handleOptional("GET /auth/me", s.auth.Me)
 	s.handleAuth("PATCH /auth/me", s.auth.UpdateMe)
 	s.handlePublic("POST /auth/logout", s.auth.Logout)
 	s.handleAuth("POST /auth/logout-all", s.auth.LogoutAll)
