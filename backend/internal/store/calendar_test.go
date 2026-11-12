@@ -18,8 +18,8 @@ func TestCreateCalendar(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(cal.ID) != 8 {
-		t.Errorf("expected 8-char ID, got %q", cal.ID)
+	if len(cal.ID) != CalendarIDLength {
+		t.Errorf("expected %d-char ID, got %q", CalendarIDLength, cal.ID)
 	}
 	if !regexp.MustCompile(`^[a-z0-9]+$`).MatchString(cal.ID) {
 		t.Errorf("expected alphanumeric ID, got %q", cal.ID)
@@ -359,6 +359,9 @@ func TestDuplicateCalendar_CopiesCoreFields(t *testing.T) {
 	if dup.ID == src.ID {
 		t.Fatal("expected new calendar id, got same as source")
 	}
+	if len(dup.ID) != CalendarIDLength {
+		t.Errorf("expected %d-char duplicate ID, got %q", CalendarIDLength, dup.ID)
+	}
 	if dup.Name != "Tennis (copy)" || dup.Emoji != "🎾" {
 		t.Fatalf("unexpected duplicate fields: %+v", dup)
 	}
@@ -441,5 +444,29 @@ func TestDuplicateCalendar_OwnerDedupedOnIncludeParticipants(t *testing.T) {
 	}
 	if len(got.Participants) != 1 {
 		t.Fatalf("participants len = %d, want 1 (owner, not duplicated)", len(got.Participants))
+	}
+}
+
+// Calendars created before IDs grew to 12 chars keep their 8-char IDs; they
+// must still resolve (no migration, no length validation).
+func TestGetCalendar_LegacyEightCharID(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
+
+	const legacyID = "abcd1234"
+	if _, err := s.db.ExecContext(ctx,
+		`INSERT INTO calendars (id, name, owner_id) VALUES ($1, $2, $3)`,
+		legacyID, "Legacy", owner.ID,
+	); err != nil {
+		t.Fatalf("insert legacy calendar: %v", err)
+	}
+
+	got, err := s.GetCalendar(ctx, legacyID)
+	if err != nil {
+		t.Fatalf("get legacy calendar: %v", err)
+	}
+	if got.Calendar.ID != legacyID || got.Calendar.Name != "Legacy" {
+		t.Fatalf("unexpected calendar: id=%q name=%q", got.Calendar.ID, got.Calendar.Name)
 	}
 }

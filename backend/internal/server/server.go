@@ -36,6 +36,9 @@ type Server struct {
 	cfg            *config.Config
 	flags          flags.Evaluator
 	notifSvc       *notifications.Service
+	// lookupLimiter throttles, per client IP, the by-id calendar routes
+	// reachable without a session (see handleOptional).
+	lookupLimiter *handler.CalendarLookupLimiter
 	// routes records each registered route's auth kind so the route-coverage
 	// test can detect handlers added without a requireAuth/requireAdmin wrap.
 	routeSpecs []routeSpec
@@ -52,8 +55,9 @@ const (
 )
 
 type routeSpec struct {
-	pattern string
-	kind    authKind
+	pattern     string
+	kind        authKind
+	rateLimited bool
 }
 
 func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
@@ -144,6 +148,7 @@ func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 		calIntegration: ch,
 		notifications:  nh,
 		notifSvc:       notifSvc,
+		lookupLimiter:  handler.NewCalendarLookupLimiter(cfg.TrustedProxyDepth),
 		testLogin:      tlh,
 		testEmail:      capturedEmail,
 		hub:            hub,
@@ -163,25 +168,39 @@ func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 // Use sparingly — every public route is an attack surface.
 func (s *Server) handlePublic(pattern string, fn http.HandlerFunc) {
 	s.mux.HandleFunc(pattern, fn)
-	s.routeSpecs = append(s.routeSpecs, routeSpec{pattern, authPublic})
+	s.routeSpecs = append(s.routeSpecs, routeSpec{pattern: pattern, kind: authPublic})
 }
 
 func (s *Server) handleAuth(pattern string, fn http.HandlerFunc) {
 	s.mux.HandleFunc(pattern, s.requireAuth(fn))
-	s.routeSpecs = append(s.routeSpecs, routeSpec{pattern, authRequired})
+	s.routeSpecs = append(s.routeSpecs, routeSpec{pattern: pattern, kind: authRequired})
 }
 
 func (s *Server) handleAdmin(pattern string, fn http.HandlerFunc) {
 	s.mux.HandleFunc(pattern, s.requireAdmin(fn))
-	s.routeSpecs = append(s.routeSpecs, routeSpec{pattern, authAdmin})
+	s.routeSpecs = append(s.routeSpecs, routeSpec{pattern: pattern, kind: authAdmin})
 }
 
 // handleOptional registers a route where the session is loaded if present
 // but the handler must enforce its own access rules (passphrase, participant
 // token, etc.) when no session is attached.
-func (s *Server) handleOptional(pattern string, fn http.HandlerFunc) {
+//
+// Every calendar-scoped optional route resolves a calendar by ID and answers
+// 404 for an unknown one, so for passphrase-less calendars it's an ID-enumeration
+// oracle. Each therefore takes a per-IP rate limit (s.lookupLimiter.Lookups
+// or .Streams). The limit runs before optionalAuth so throttled requests
+// don't cost a session lookup.
+func (s *Server) handleOptional(pattern string, limit func(http.HandlerFunc) http.HandlerFunc, fn http.HandlerFunc) {
+	s.mux.HandleFunc(pattern, limit(s.optionalAuth(fn)))
+	s.routeSpecs = append(s.routeSpecs, routeSpec{pattern: pattern, kind: authOptional, rateLimited: true})
+}
+
+// handleOptionalSession registers an optional-auth route that doesn't
+// resolve a calendar by ID, so it isn't an ID-enumeration oracle and takes no
+// lookup rate limit (GET /auth/me runs on every page load).
+func (s *Server) handleOptionalSession(pattern string, fn http.HandlerFunc) {
 	s.mux.HandleFunc(pattern, s.optionalAuth(fn))
-	s.routeSpecs = append(s.routeSpecs, routeSpec{pattern, authOptional})
+	s.routeSpecs = append(s.routeSpecs, routeSpec{pattern: pattern, kind: authOptional})
 }
 
 func (s *Server) routes() {
@@ -191,7 +210,7 @@ func (s *Server) routes() {
 	s.handlePublic("GET /auth/{provider}", s.auth.OAuthLogin)
 	s.handlePublic("GET /auth/{provider}/callback", s.auth.OAuthCallback)
 	// Optional: returns the user, or 200 null when signed out.
-	s.handleOptional("GET /auth/me", s.auth.Me)
+	s.handleOptionalSession("GET /auth/me", s.auth.Me)
 	s.handleAuth("PATCH /auth/me", s.auth.UpdateMe)
 	s.handlePublic("POST /auth/logout", s.auth.Logout)
 	s.handleAuth("POST /auth/logout-all", s.auth.LogoutAll)
@@ -207,18 +226,18 @@ func (s *Server) routes() {
 	// Calendar routes — POST requires auth
 	s.handleAuth("POST /calendars", s.handler.CreateCalendar)
 	s.handleAuth("POST /calendars/{id}/duplicate", s.handler.DuplicateCalendar)
-	s.handleOptional("GET /calendars/{id}", s.handler.GetCalendar)
+	s.handleOptional("GET /calendars/{id}", s.lookupLimiter.Lookups, s.handler.GetCalendar)
 	s.handleAuth("PATCH /calendars/{id}", s.handler.UpdateCalendar)
 	s.handleAuth("DELETE /calendars/{id}", s.handler.DeleteCalendar)
 	s.handleAuth("DELETE /calendars/{id}/participants/me", s.handler.LeaveCalendar)
-	s.handleOptional("POST /calendars/{id}/participants", s.handler.AddParticipant)
+	s.handleOptional("POST /calendars/{id}/participants", s.lookupLimiter.Lookups, s.handler.AddParticipant)
 	s.handleAuth("POST /calendars/{id}/participants/{participantId}/claim", s.handler.ClaimParticipant)
 	s.handleAuth("DELETE /calendars/{id}/participants/{participantId}", s.handler.RemoveParticipant)
-	s.handleOptional("PATCH /calendars/{id}/participants/{participantId}", s.handler.RenameParticipant)
-	s.handleOptional("PUT /calendars/{id}/availability", s.handler.SetAvailability)
+	s.handleOptional("PATCH /calendars/{id}/participants/{participantId}", s.lookupLimiter.Lookups, s.handler.RenameParticipant)
+	s.handleOptional("PUT /calendars/{id}/availability", s.lookupLimiter.Lookups, s.handler.SetAvailability)
 	s.handleAuth("POST /calendars/{id}/finalise", s.handler.FinaliseCalendar)
 	s.handleAuth("DELETE /calendars/{id}/finalise", s.handler.UnfinaliseCalendar)
-	s.handleOptional("POST /calendars/{id}/unlock", s.handler.Unlock)
+	s.handleOptional("POST /calendars/{id}/unlock", s.lookupLimiter.Lookups, s.handler.Unlock)
 	s.handleAuth("POST /calendars/{id}/passphrase", s.handler.SetPassphrase)
 	s.handleAuth("DELETE /calendars/{id}/passphrase", s.handler.ClearPassphrase)
 
@@ -233,8 +252,8 @@ func (s *Server) routes() {
 	// Export endpoints are open to anyone who can read the calendar, including
 	// anonymous joiners. Optional auth so the owner bypasses the passphrase
 	// gate; everyone else passes an access token via header or `?access=`.
-	s.handleOptional("GET /calendars/{id}/export.ics", s.handler.ExportICS)
-	s.handleOptional("GET /calendars/{id}/export/{provider}", s.handler.ExportToProvider)
+	s.handleOptional("GET /calendars/{id}/export.ics", s.lookupLimiter.Lookups, s.handler.ExportICS)
+	s.handleOptional("GET /calendars/{id}/export/{provider}", s.lookupLimiter.Lookups, s.handler.ExportToProvider)
 
 	// Incremental OAuth round-trip for calendar import. Provider-agnostic
 	// — the `{provider}` path param routes to the right adapter. All three
@@ -246,7 +265,7 @@ func (s *Server) routes() {
 	s.handleAuth("POST /calendars/{id}/availability/import", s.handler.ImportAvailability)
 
 	// Server-sent events stream for live updates.
-	s.handleOptional("GET /calendars/{id}/events", s.events.Stream)
+	s.handleOptional("GET /calendars/{id}/events", s.lookupLimiter.Streams, s.events.Stream)
 
 	if s.notifSvc != nil {
 		s.handlePublic("GET /unsubscribe", s.notifications.Unsubscribe)
