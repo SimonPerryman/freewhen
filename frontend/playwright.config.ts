@@ -40,16 +40,19 @@ export default defineConfig({
       stderr: "pipe",
     },
     {
+      // Production build, not `next dev`: the suite asserts there are no
+      // Content-Security-Policy violations (see e2e/fixtures.ts), and the dev
+      // server ships a looser policy (eval for React's dev tooling).
       // Loopback only, like the e2e backend — avoids Windows Firewall prompts.
       // `localhost`, not 127.0.0.1: tests load http://localhost, and a
       // mismatched bind slowed page startup enough to drop typed input.
-      command: `pnpm exec next dev --hostname localhost --port ${FRONTEND_PORT}`,
+      command: `pnpm exec next build && pnpm exec next start --hostname localhost --port ${FRONTEND_PORT}`,
       env: {
         NEXT_PUBLIC_API_URL: BACKEND_URL,
       },
       url: FRONTEND_URL,
       reuseExistingServer: !process.env.CI,
-      timeout: 120_000,
+      timeout: 300_000,
       stdout: "pipe",
       stderr: "pipe",
     },
