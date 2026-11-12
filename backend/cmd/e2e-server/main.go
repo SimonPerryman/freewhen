@@ -122,8 +122,11 @@ func run() error {
 		return fmt.Errorf("migrate: %w", err)
 	}
 
+	// Loopback only: the e2e backend is never reached from another host, and
+	// binding all interfaces makes Windows Firewall prompt on every `go run`
+	// (each run is a freshly built binary, so an "Allow" never sticks).
 	httpSrv := &http.Server{
-		Addr:              fmt.Sprintf(":%s", cfg.Port),
+		Addr:              fmt.Sprintf("127.0.0.1:%s", cfg.Port),
 		Handler:           server.New(db, logger, cfg),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
