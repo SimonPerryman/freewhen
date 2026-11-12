@@ -10,6 +10,7 @@ export type CalendarFixture = {
 };
 
 type Fixtures = {
+  cspGuard: void;
   api: APIRequestContext;
   signIn: (page: Page, email?: string) => Promise<{ email: string }>;
   calendar: CalendarFixture;
@@ -26,6 +27,31 @@ function uniqueEmail(prefix = "e2e") {
 }
 
 export const test = base.extend<Fixtures>({
+  // Runs for every test: fails it if the page tripped the Content-Security-
+  // Policy anywhere (blocked script, fetch, font, form post...). The init
+  // script surfaces `securitypolicyviolation` events as console errors; the
+  // browser's own "Refused to ... Content Security Policy" errors are caught
+  // by the same listener.
+  cspGuard: [
+    async ({ context }, use) => {
+      const violations: string[] = [];
+      await context.addInitScript(() => {
+        document.addEventListener("securitypolicyviolation", (e) => {
+          console.error(
+            `[csp-violation] ${e.effectiveDirective} blocked ${e.blockedURI || "inline"} on ${e.documentURI}`,
+          );
+        });
+      });
+      context.on("console", (msg) => {
+        const text = msg.text();
+        if (/\[csp-violation\]|Content Security Policy/.test(text)) violations.push(text);
+      });
+      await use();
+      expect(violations, "Content-Security-Policy violations").toEqual([]);
+    },
+    { auto: true },
+  ],
+
   api: async ({ playwright }, use) => {
     const ctx = await playwright.request.newContext({ baseURL: BACKEND_URL });
     await use(ctx);
