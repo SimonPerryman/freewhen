@@ -277,7 +277,8 @@ func (h *CalendarIntegrationHandler) Callback(w http.ResponseWriter, r *http.Req
 }
 
 // GetSuggestions returns the suggestion vector stashed in the import cookie
-// and clears the cookie in the same response — single-use by design.
+// and clears the cookie in the same response — single-use by design. With no
+// cookie it answers 200 {"pending": false, "free": [], "busy": []}.
 func (h *CalendarIntegrationHandler) GetSuggestions(w http.ResponseWriter, r *http.Request) {
 	user := UserFromContext(r)
 	if user == nil {
@@ -300,7 +301,14 @@ func (h *CalendarIntegrationHandler) GetSuggestions(w http.ResponseWriter, r *ht
 	name := suggestionCookieName(calendarID)
 	cookie, err := r.Cookie(name)
 	if err != nil {
-		respondError(w, http.StatusNotFound, "no_suggestions", "no pending import")
+		// No pending import is the normal state on almost every page load,
+		// not a missing resource: answer 200 with pending:false so the
+		// browser doesn't log a 404 for it.
+		respondJSON(w, http.StatusOK, map[string]any{
+			"pending": false,
+			"free":    []string{},
+			"busy":    []string{},
+		})
 		return
 	}
 
@@ -329,8 +337,9 @@ func (h *CalendarIntegrationHandler) GetSuggestions(w http.ResponseWriter, r *ht
 	})
 
 	respondJSON(w, http.StatusOK, map[string]any{
-		"free": emptyOrSlice(classified.Free),
-		"busy": emptyOrSlice(classified.Busy),
+		"pending": true,
+		"free":    emptyOrSlice(classified.Free),
+		"busy":    emptyOrSlice(classified.Busy),
 	})
 }
 

@@ -93,3 +93,53 @@ test("anonymous joiner picks a date, adds a note, marks it preferred, and reload
   await secondCell.click();
   await expect(sheet.getByRole("checkbox", { name: /Prefer this date/ })).toBeChecked();
 });
+
+test("edits made right before a reload are not lost", async ({ page, api, calendar }) => {
+  await page.goto(`/calendars/${calendar.id}`);
+
+  const joinerName = `Reloader ${Date.now()}`;
+  await page.getByLabel("Your name").fill(joinerName);
+  await page.getByRole("button", { name: "Join" }).click();
+  await expect(page.getByText(joinerName).first()).toBeVisible();
+
+  const dayCells = page.locator('button[data-testid="day-cell"]:not([disabled])');
+  await expect(dayCells.first()).toBeVisible();
+
+  // Two quick toggles: the first PUT is still in flight when the second is
+  // queued behind it. Reload immediately: the in-flight save must survive the
+  // unload (keepalive) and the queued one must be flushed on pagehide.
+  await dayCells.nth(0).click();
+  await dayCells.nth(1).click();
+  await page.reload();
+
+  await expect
+    .poll(async () => {
+      const res = await api.get(`/calendars/${calendar.id}`);
+      const body = (await res.json()) as {
+        participants: Array<{ id: string; name: string }>;
+        availability: Array<{ participant_id: string; date: string }>;
+      };
+      const me = body.participants.find((p) => p.name === joinerName);
+      return me ? body.availability.filter((a) => a.participant_id === me.id).length : -1;
+    })
+    .toBe(2);
+
+  // The reloaded page shows both picks.
+  await expect(page.getByText(joinerName).first()).toBeVisible();
+  const freeByMe = new RegExp(`Free: [^.]*${joinerName}`);
+  await expect(dayCells.nth(0)).toHaveAttribute("aria-label", freeByMe);
+  await expect(dayCells.nth(1)).toHaveAttribute("aria-label", freeByMe);
+});
+
+test("a signed-in calendar load with no pending import doesn't 404 on suggestions", async ({
+  page,
+  signIn,
+  calendar,
+}) => {
+  await signIn(page);
+  const suggestions = page.waitForResponse((r) => r.url().includes("/import/suggestions"));
+  await page.goto(`/calendars/${calendar.id}`);
+  const res = await suggestions;
+  expect(res.status()).toBe(200);
+  expect(await res.json()).toEqual({ pending: false, free: [], busy: [] });
+});

@@ -85,6 +85,9 @@ export interface User {
 }
 
 export interface ImportSuggestions {
+  // false when there is no pending import (the normal state). Absent on
+  // responses from backends that predate the field.
+  pending?: boolean;
   free: string[];
   busy: string[];
 }

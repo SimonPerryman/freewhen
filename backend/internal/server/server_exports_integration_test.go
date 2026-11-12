@@ -52,6 +52,41 @@ func TestAuth_Me(t *testing.T) {
 	}
 }
 
+// No pending Google import is the normal state on every calendar page load:
+// 200 with pending:false and empty arrays, not a 404. An unknown calendar is
+// still a real 404.
+func TestImportSuggestions_NoPendingImport(t *testing.T) {
+	ts := setupTestServer(t)
+	cal, _ := createCalendarAuth(t, ts, "Suggestions")
+
+	resp, body := doJSONAuth(t, ts, http.MethodGet, "/calendars/"+cal.ID+"/import/suggestions", nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d, body: %s", resp.StatusCode, body)
+	}
+	var got struct {
+		Pending *bool    `json:"pending"`
+		Free    []string `json:"free"`
+		Busy    []string `json:"busy"`
+	}
+	decodeJSON(t, body, &got)
+	if got.Pending == nil || *got.Pending {
+		t.Errorf("pending: want false, got %v (body %s)", got.Pending, body)
+	}
+	if got.Free == nil || got.Busy == nil || len(got.Free) != 0 || len(got.Busy) != 0 {
+		t.Errorf("want empty non-null arrays, got body %s", body)
+	}
+
+	resp, body = doJSONAuth(t, ts, http.MethodGet, "/calendars/does-not-exist/import/suggestions", nil)
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("unknown calendar: expected 404, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	resp, _ = doJSON(t, ts, http.MethodGet, "/calendars/"+cal.ID+"/import/suggestions", nil)
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("signed out: expected 401, got %d", resp.StatusCode)
+	}
+}
+
 func TestAuth_UpdateMe(t *testing.T) {
 	ts := setupTestServer(t)
 

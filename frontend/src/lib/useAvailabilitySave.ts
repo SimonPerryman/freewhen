@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
 import { setAvailability } from "./api";
 import analytics from "./analytics";
 import { localToday } from "./localDate";
 import { useToast } from "./toast";
-import type { CalendarWithDetails } from "./types";
+import type { CalendarWithDetails, SetAvailabilityRequest } from "./types";
 
 export interface UseAvailabilitySaveOptions {
   calendarId: string;
@@ -28,7 +28,8 @@ export interface UseAvailabilitySaveResult {
   canClear: boolean;
   // Seed from a full load: selected dates, notes and votes (past dates pruned).
   seed: (data: CalendarWithDetails, participantId: string) => void;
-  // Re-hydrate notes and votes from a live refresh (selection is left alone).
+  // Re-hydrate notes and votes from a live refresh. The selection is synced
+  // too, but only until the first local edit after a seed.
   rehydrate: (data: CalendarWithDetails, participantId: string) => void;
   handleToggle: (date: string) => void;
   handleRangeToggle: (dates: string[], target: boolean) => void;
@@ -108,6 +109,10 @@ export function useAvailabilitySave({
     setVotesByDate(next);
   }, []);
 
+  // False from a seed until the first local edit. While false the selection
+  // on screen is just what the server sent, so a live refresh may replace it.
+  const editedSinceSeedRef = useRef(false);
+
   const seed = useCallback(
     (data: CalendarWithDetails, participantId: string) => {
       // Seed selected dates, pruning past dates
@@ -116,6 +121,7 @@ export function useAvailabilitySave({
         .filter((a) => a.participantId === participantId && a.date >= today)
         .map((a) => a.date);
       commitSelected(new Set(userDates));
+      editedSinceSeedRef.current = false;
       const { notes, votes } = ownNotesAndVotes(data, participantId, today);
       commitNotes(notes);
       commitVotes(votes);
@@ -128,11 +134,26 @@ export function useAvailabilitySave({
       // Re-hydrate our own notes from the authoritative response. Own-note
       // edits are still in flight during the local-mutation window, so the
       // refresh suppression in useCalendarData protects them.
-      const { notes, votes } = ownNotesAndVotes(data, participantId, localToday());
+      const today = localToday();
+      const { notes, votes } = ownNotesAndVotes(data, participantId, today);
       commitNotes(notes);
       commitVotes(votes);
+      // The selection is normally left alone (local edits win), but until
+      // this page has edited anything it's just a server snapshot. Sync it:
+      // after a reload, the seed can predate the save flushed on the way out
+      // (see flushOnHide), and a stale selection would be re-sent — and
+      // overwrite that save — on the next toggle.
+      if (!editedSinceSeedRef.current) {
+        commitSelected(
+          new Set(
+            data.availability
+              .filter((a) => a.participantId === participantId && a.date >= today)
+              .map((a) => a.date),
+          ),
+        );
+      }
     },
-    [commitNotes, commitVotes],
+    [commitNotes, commitVotes, commitSelected],
   );
 
   // Drop local notes and votes for dates that were just deselected. The
@@ -153,35 +174,45 @@ export function useAvailabilitySave({
     [commitNotes, commitVotes],
   );
 
-  // Serialized save logic
+  // Builds the request for whatever is queued but not yet sent, and consumes
+  // the queue. Null when nothing is queued or there's no participant yet (the
+  // queue is then left alone for a later save).
+  const takePending = useCallback((): SetAvailabilityRequest | null => {
+    if (
+      pendingDatesRef.current === null &&
+      pendingNotesRef.current === null &&
+      !pendingPreferredRef.current
+    ) {
+      return null;
+    }
+    const pid = participantIdRef.current;
+    if (!pid) return null;
+    const dates = pendingDatesRef.current ?? Array.from(selectedDatesRef.current);
+    const notes = pendingNotesRef.current;
+    const preferred = pendingPreferredRef.current
+      ? Array.from(votesByDateRef.current).filter((d) => selectedDatesRef.current.has(d))
+      : null;
+    pendingDatesRef.current = null;
+    pendingNotesRef.current = null;
+    pendingPreferredRef.current = false;
+    return {
+      participantId: pid,
+      dates,
+      ...(notes !== null ? { notes } : {}),
+      ...(preferred !== null ? { preferred } : {}),
+    };
+  }, [participantIdRef]);
+
+  // Serialized save logic. Every save is sent with fetch `keepalive` so a
+  // save that is in flight when the page unloads isn't cancelled (a
+  // cancelled request can cancel the server-side write with it).
   const flushSave = useCallback(async () => {
     savingRef.current = true;
     setSaveError(false);
 
-    while (
-      pendingDatesRef.current !== null ||
-      pendingNotesRef.current !== null ||
-      pendingPreferredRef.current
-    ) {
-      const dates = pendingDatesRef.current ?? Array.from(selectedDatesRef.current);
-      const notes = pendingNotesRef.current;
-      const sendPreferred = pendingPreferredRef.current;
-      const preferred = sendPreferred
-        ? Array.from(votesByDateRef.current).filter((d) => selectedDatesRef.current.has(d))
-        : null;
-      pendingDatesRef.current = null;
-      pendingNotesRef.current = null;
-      pendingPreferredRef.current = false;
-      const pid = participantIdRef.current;
-      if (!pid) break;
-
+    for (let req = takePending(); req !== null; req = takePending()) {
       try {
-        await setAvailability(calendarId, {
-          participantId: pid,
-          dates,
-          ...(notes !== null ? { notes } : {}),
-          ...(preferred !== null ? { preferred } : {}),
-        });
+        await setAvailability(calendarId, req, { keepalive: true });
         markLocalMutation();
         analytics.capture("availability_marked", { calendar_id: calendarId });
       } catch {
@@ -192,11 +223,61 @@ export function useAvailabilitySave({
     }
 
     savingRef.current = false;
-  }, [calendarId, markLocalMutation, participantIdRef]);
+  }, [calendarId, markLocalMutation, takePending]);
+
+  // Flush queued edits when the page is hidden or unloaded (reload, close,
+  // tab switch, app backgrounded on mobile). Only the queued-but-unsent state
+  // is sent: the in-flight save (itself keepalive) already carries everything
+  // before it, so nothing is sent twice. fetch keepalive, not sendBeacon:
+  // the request needs the participant token header, credentials and a JSON
+  // content type.
+  const flushOnHide = useCallback(() => {
+    if (!savingRef.current) {
+      // Nothing in flight (e.g. edits queued before joining finished): run
+      // the normal loop now. Its fetch is dispatched synchronously, before
+      // the page goes away.
+      if (
+        pendingDatesRef.current !== null ||
+        pendingNotesRef.current !== null ||
+        pendingPreferredRef.current
+      ) {
+        void flushSave();
+      }
+      return;
+    }
+    // A save is in flight and the loop would only send the queued edits
+    // after it returns — too late if the page is unloading. Send them now.
+    const req = takePending();
+    if (!req) return;
+    setAvailability(calendarId, req, { keepalive: true }).then(
+      () => markLocalMutation(),
+      () => {
+        // Still alive (e.g. tab hidden, not closed): re-queue so a retry
+        // sends it, and surface the error like a normal failed save.
+        if (req.notes) pendingNotesRef.current = { ...req.notes, ...pendingNotesRef.current };
+        if (req.preferred) pendingPreferredRef.current = true;
+        pendingDatesRef.current ??= Array.from(selectedDatesRef.current);
+        setSaveError(true);
+      },
+    );
+  }, [calendarId, flushSave, markLocalMutation, takePending]);
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flushOnHide();
+    };
+    window.addEventListener("pagehide", flushOnHide);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", flushOnHide);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [flushOnHide]);
 
   const queueSave = useCallback(
     (dates: string[]) => {
       pendingDatesRef.current = dates;
+      editedSinceSeedRef.current = true;
       markLocalMutation();
       if (!savingRef.current) flushSave();
     },
@@ -211,6 +292,7 @@ export function useAvailabilitySave({
       const existing = pendingNotesRef.current ?? {};
       existing[date] = text;
       pendingNotesRef.current = existing;
+      editedSinceSeedRef.current = true;
       markLocalMutation();
       if (!savingRef.current) flushSave();
     },
@@ -275,6 +357,7 @@ export function useAvailabilitySave({
         commitVotes(next);
       }
       pendingPreferredRef.current = true;
+      editedSinceSeedRef.current = true;
       analytics.capture(preferred ? "vote_added" : "vote_removed", {
         calendar_id: calendarId,
       });

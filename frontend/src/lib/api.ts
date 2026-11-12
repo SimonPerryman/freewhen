@@ -211,14 +211,28 @@ export async function addParticipant(
   });
 }
 
+// Browsers cap the total body size of in-flight keepalive requests at 64 KiB
+// and reject anything over it. Stay well under; a bigger body (never expected
+// for availability) goes out as a normal request.
+const KEEPALIVE_MAX_BODY_BYTES = 48 * 1024;
+
+// `keepalive` lets the request outlive the page, so a save isn't lost to a
+// reload or close. It goes through the normal request() path so the
+// participant token, calendar access token, session cookie and JSON content
+// type all ride along; sendBeacon can't carry those.
 export async function setAvailability(
   calendarId: string,
   req: SetAvailabilityRequest,
+  opts: { keepalive?: boolean } = {},
 ): Promise<void> {
+  const body = JSON.stringify(toSnakeCaseKeys(req));
+  const keepalive =
+    opts.keepalive === true && new TextEncoder().encode(body).length <= KEEPALIVE_MAX_BODY_BYTES;
   await request(`/calendars/${calendarId}/availability`, {
     method: "PUT",
-    body: JSON.stringify(toSnakeCaseKeys(req)),
+    body,
     calendarId,
+    ...(keepalive ? { keepalive: true } : {}),
   });
 }
 
@@ -345,12 +359,16 @@ export async function ackCalendarImportConsent(): Promise<void> {
 
 // fetchImportSuggestions reads the single-use import-suggestions cookie the
 // backend writes after a successful OAuth round-trip. Returns null if the
-// cookie is missing (expired, never present, or already consumed).
+// cookie is missing (expired, never present, or already consumed): the
+// backend answers 200 `pending: false` for that. Older backends answered 404,
+// still treated as "nothing pending" so a staggered deploy stays quiet.
 export async function fetchImportSuggestions(
   calendarId: string,
 ): Promise<ImportSuggestions | null> {
   try {
-    return await request<ImportSuggestions>(`/calendars/${calendarId}/import/suggestions`);
+    const res = await request<ImportSuggestions>(`/calendars/${calendarId}/import/suggestions`);
+    if (!res || res.pending === false) return null;
+    return res;
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) return null;
     throw err;

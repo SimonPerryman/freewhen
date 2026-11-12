@@ -67,6 +67,7 @@ CORS allows the `X-Participant-Token` request header and exposes it (and
 | POST | `/calendars/{id}/participants/{participantId}/claim` | Required + participant token | Link an anonymous participant to the authenticated user |
 | PATCH | `/calendars/{id}/participants/{participantId}` | Self or owner | Rename a participant / set or clear an anonymous participant's email |
 | PUT | `/calendars/{id}/availability` | Self | Update availability (see [Participant authorization](#participant-authorization)) |
+| GET | `/calendars/{id}/import/suggestions` | Required | Read (and consume) the pending Google Calendar import suggestions, if any |
 | POST | `/calendars/{id}/availability/import` | Required + self | Merge imported dates into the caller's own availability |
 | POST | `/calendars/{id}/finalise` | Owner | Lock the calendar to a chosen date |
 | DELETE | `/calendars/{id}/finalise` | Owner | Clear the locked date, reopen the calendar |
@@ -283,6 +284,8 @@ Replace a participant's available dates. Sending an empty `dates` array clears a
 
 **Errors:** 400 (participant_id required, invalid date, note validation) | 403 (caller is not this participant) | 404 (participant not found) | 409 (calendar finalised)
 
+The web client sends this with `fetch(..., { keepalive: true })` and flushes any queued edit on `pagehide` / `visibilitychange` → hidden, so a save isn't lost to a reload or close. That relies on CORS allowing credentials plus the `Content-Type` and `X-Participant-Token` request headers on the preflight, which it does.
+
 ---
 
 ### PATCH /calendars/{id}
@@ -350,6 +353,26 @@ Export a finalised calendar's event (title, date, attendees and their notes for 
 Passphrase-protected calendars apply the same gate as `GET /calendars/{id}`: the owner's session, or a valid access token from `POST /calendars/{id}/unlock`. The token can be sent as the `X-Calendar-Access` header or, for plain link navigations that can't set headers, as an `?access=<token>` query param.
 
 **Errors:** 401 `passphrase_required` (gated, no valid token) | 404 `not_found` (calendar or provider not found) | 404 `not_finalised`
+
+---
+
+### GET /calendars/{id}/import/suggestions
+
+Returns the free/busy day suggestions stashed (in a short-lived cookie) by the Google Calendar import callback, and clears them: single-use. Requires a session.
+
+**Response 200**: an import is pending
+
+```json
+{"pending": true, "free": ["YYYY-MM-DD"], "busy": ["YYYY-MM-DD"]}
+```
+
+**Response 200**: nothing pending (the normal state on most page loads; previously a 404)
+
+```json
+{"pending": false, "free": [], "busy": []}
+```
+
+**Errors:** 400 `invalid_cookie` (malformed suggestion cookie) | 401 (no session) | 404 `not_found` (calendar not found)
 
 ---
 

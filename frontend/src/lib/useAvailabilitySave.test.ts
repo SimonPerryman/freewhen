@@ -77,14 +77,34 @@ describe("useAvailabilitySave", () => {
     expect(result.current.votesByDate.has(F1)).toBe(true);
   });
 
+  it("rehydrate syncs the selection until the first local edit after a seed", () => {
+    const { result } = setup();
+    // Seeded from a snapshot taken before a save flushed on the previous
+    // page's unload landed.
+    const stale = cal();
+    stale.availability = stale.availability.filter((a) => a.date !== F2);
+    act(() => result.current.seed(stale, "me"));
+    expect([...result.current.selectedDates]).toEqual([F1]);
+
+    act(() => result.current.rehydrate(cal(), "me"));
+    expect([...result.current.selectedDates].sort()).toEqual([F1, F2]);
+
+    // After a local edit, local state wins again.
+    act(() => result.current.handleToggle("2099-01-01"));
+    act(() => result.current.rehydrate(stale, "me"));
+    expect([...result.current.selectedDates].sort()).toEqual(["2099-01-01", F1, F2].sort());
+  });
+
   it("toggle saves the full date set without notes / preferred", async () => {
     const { result, markLocalMutation } = setup();
     act(() => result.current.handleToggle("2099-01-01"));
     await waitFor(() => expect(setAvailability).toHaveBeenCalledTimes(1));
-    expect(setAvailability).toHaveBeenCalledWith("c1", {
-      participantId: "me",
-      dates: ["2099-01-01"],
-    });
+    // keepalive so an in-flight save survives a reload / close.
+    expect(setAvailability).toHaveBeenCalledWith(
+      "c1",
+      { participantId: "me", dates: ["2099-01-01"] },
+      { keepalive: true },
+    );
     expect(markLocalMutation).toHaveBeenCalled();
   });
 
@@ -279,5 +299,161 @@ describe("useAvailabilitySave", () => {
     expect(result.current.canClear).toBe(false);
     act(() => result.current.handleClearAvailability());
     expect(showToast).not.toHaveBeenCalled();
+  });
+});
+
+describe("useAvailabilitySave flush on page hide", () => {
+  function hold() {
+    let release: () => void = () => {};
+    setAvailability.mockImplementationOnce(
+      () =>
+        new Promise<void>((r) => {
+          release = r;
+        }),
+    );
+    return () => release();
+  }
+
+  function setVisibility(state: DocumentVisibilityState) {
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: state });
+  }
+
+  it("sends edits queued behind an in-flight save with keepalive on pagehide", async () => {
+    const release = hold();
+    const { result } = setup();
+    act(() => result.current.handleToggle("2099-01-01"));
+    act(() => result.current.handleToggle("2099-01-02"));
+    act(() => result.current.handleSaveNote("2099-01-02", "late"));
+    expect(setAvailability).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    expect(setAvailability).toHaveBeenCalledTimes(2);
+    const [cid, body, opts] = setAvailability.mock.calls[1];
+    expect(cid).toBe("c1");
+    expect(body.dates.sort()).toEqual(["2099-01-01", "2099-01-02"]);
+    expect(body.notes).toEqual({ "2099-01-02": "late" });
+    expect(opts).toEqual({ keepalive: true });
+
+    // The queue was consumed, so the normal loop doesn't resend it.
+    await act(async () => release());
+    await new Promise((r) => setTimeout(r, 10));
+    expect(setAvailability).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not double-send when the in-flight save already carries the latest state", async () => {
+    const release = hold();
+    const { result } = setup();
+    act(() => result.current.handleToggle("2099-01-01"));
+    expect(setAvailability).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    expect(setAvailability).toHaveBeenCalledTimes(1);
+    await act(async () => release());
+  });
+
+  it("sends nothing when there is nothing to save", () => {
+    setup();
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    expect(setAvailability).not.toHaveBeenCalled();
+  });
+
+  it("flushes on visibilitychange to hidden, once across hidden + pagehide", async () => {
+    const release = hold();
+    const { result } = setup();
+    act(() => result.current.handleToggle("2099-01-01"));
+    act(() => result.current.handleToggleVote("2099-01-01", true));
+    try {
+      setVisibility("hidden");
+      act(() => {
+        document.dispatchEvent(new Event("visibilitychange"));
+        window.dispatchEvent(new Event("pagehide"));
+      });
+    } finally {
+      setVisibility("visible");
+    }
+    expect(setAvailability).toHaveBeenCalledTimes(2);
+    const [, body, opts] = setAvailability.mock.calls[1];
+    expect(body.preferred).toEqual(["2099-01-01"]);
+    expect(opts).toEqual({ keepalive: true });
+    await act(async () => release());
+  });
+
+  it("ignores visibilitychange back to visible", async () => {
+    const release = hold();
+    const { result } = setup();
+    act(() => result.current.handleToggle("2099-01-01"));
+    act(() => result.current.handleToggle("2099-01-02"));
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(setAvailability).toHaveBeenCalledTimes(1);
+    // The queued edit still goes out, once, through the normal loop.
+    await act(async () => release());
+    await waitFor(() => expect(setAvailability).toHaveBeenCalledTimes(2));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(setAvailability).toHaveBeenCalledTimes(2);
+  });
+
+  it("with nothing in flight, flushes the queue through the loop", async () => {
+    // Pre-join edits stay queued; once the participant exists, a hide sends
+    // them right away with keepalive.
+    const markLocalMutation = vi.fn();
+    const { result } = renderHook(() => {
+      const participantIdRef = useRef<string | null>(null);
+      const save = useAvailabilitySave({
+        calendarId: "c1",
+        participantIdRef,
+        finalisedDate: null,
+        markLocalMutation,
+      });
+      return { save, participantIdRef };
+    });
+    act(() => result.current.save.handleToggle("2099-01-01"));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(setAvailability).not.toHaveBeenCalled();
+
+    result.current.participantIdRef.current = "me";
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    expect(setAvailability).toHaveBeenCalledTimes(1);
+    expect(setAvailability).toHaveBeenCalledWith(
+      "c1",
+      { participantId: "me", dates: ["2099-01-01"] },
+      { keepalive: true },
+    );
+  });
+
+  it("re-queues and flags an error if the keepalive flush fails while the page lives", async () => {
+    const release = hold();
+    const { result } = setup();
+    act(() => result.current.handleToggle("2099-01-01"));
+    act(() => result.current.handleToggle("2099-01-02"));
+    setAvailability.mockRejectedValueOnce(new Error("down"));
+    await act(async () => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    await waitFor(() => expect(result.current.saveError).toBe(true));
+    // The in-flight save finishes and the loop picks the re-queued edit up.
+    await act(async () => release());
+    await waitFor(() => expect(setAvailability).toHaveBeenCalledTimes(3));
+    expect(setAvailability.mock.calls[2][1].dates.sort()).toEqual(["2099-01-01", "2099-01-02"]);
+  });
+
+  it("removes its listeners on unmount", () => {
+    const { result, unmount } = setup();
+    const release = hold();
+    act(() => result.current.handleToggle("2099-01-01"));
+    act(() => result.current.handleToggle("2099-01-02"));
+    unmount();
+    window.dispatchEvent(new Event("pagehide"));
+    expect(setAvailability).toHaveBeenCalledTimes(1);
+    release();
   });
 });
