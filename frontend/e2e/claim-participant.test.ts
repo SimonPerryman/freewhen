@@ -1,18 +1,22 @@
 import { test, expect } from "./fixtures";
 
+const BACKEND_URL = process.env.E2E_BACKEND_URL ?? "http://localhost:8090";
+
 test("anonymous joiner becomes a logged-in user; their participant row is claimed", async ({
   page,
   api,
   signIn,
   calendar,
+  playwright,
 }) => {
-  // 1. Anonymous join — sets the localStorage participant pointer that the
-  //    claim flow later uses to identify "who I was".
+  // 1. Anonymous join through the UI. The browser keeps the participant
+  //    pointer and the participant token (X-Participant-Token, issued only
+  //    on join) in localStorage — the token is what proves "this was me".
   await page.goto(`/calendars/${calendar.id}`);
   const joinerName = `Claimer ${Date.now()}`;
   await page.getByLabel("Your name").fill(joinerName);
   await page.getByRole("button", { name: "Join" }).click();
-  await expect(page.getByText(joinerName).first()).toBeVisible();
+  await expect(page.getByText(`${joinerName} (you)`)).toBeVisible();
 
   // Verify pre-claim: user_id is null.
   let res = await api.get(`/calendars/${calendar.id}`);
@@ -24,38 +28,40 @@ test("anonymous joiner becomes a logged-in user; their participant row is claime
   // user_id is omitempty — absent when null.
   expect(before!.user_id ?? null).toBeNull();
 
-  // 2. Sign in (using a brand-new email so we know they had no prior
-  //    participant). The browser context now holds both: the localStorage
-  //    pointer to the anon participant AND a session cookie.
-  await signIn(page);
-
-  // 3. Hit the claim endpoint with the fresh session cookie. The page also
-  //    runs this silently when a localStorage participant + signed-in user
-  //    coincide; here we drive it explicitly because the page's silent path
-  //    depends on `user` being hydrated *before* the calendar page's load
-  //    effect fires, which races with a fresh full-page navigation. The
-  //    endpoint is the same; this asserts the contract the silent path
-  //    leans on.
-  const claim = await page.request.post(
-    `${process.env.E2E_BACKEND_URL ?? "http://localhost:8090"}/calendars/${calendar.id}/participants/${before!.id}/claim`,
+  // A signed-in user without the participant token can't claim the row:
+  // the participant id alone is public.
+  const intruderCtx = await playwright.request.newContext({ baseURL: BACKEND_URL });
+  const intruderLogin = await intruderCtx.post("/test/login", {
+    data: { email: `intruder-${Date.now()}@example.test` },
+  });
+  expect(intruderLogin.ok()).toBeTruthy();
+  const stolen = await intruderCtx.post(
+    `/calendars/${calendar.id}/participants/${before!.id}/claim`,
     { headers: { "Content-Type": "application/json" } },
   );
-  expect(claim.ok(), `claim: ${claim.status()} ${await claim.text()}`).toBeTruthy();
+  expect(stolen.status()).toBe(403);
+  await intruderCtx.dispose();
 
-  // 4. Verify post-claim: same participant id, user_id now populated.
+  // 2. Sign in from the same browser (brand-new email, so no prior
+  //    participant), then come back to the calendar — the full page load a
+  //    magic-link return does. The page silently claims the anonymous row,
+  //    sending the stored participant token.
+  await signIn(page);
+  const claimResponse = page.waitForResponse(
+    (r) => r.url().endsWith(`/participants/${before!.id}/claim`) && r.request().method() === "POST",
+  );
+  await page.goto(`/calendars/${calendar.id}`);
+  const claim = await claimResponse;
+  expect(claim.ok(), `claim: ${claim.status()} ${await claim.text()}`).toBeTruthy();
+  await expect(page.getByText(`${joinerName} (you)`)).toBeVisible();
+
+  // 3. Verify post-claim: same participant id, user_id now populated.
   res = await api.get(`/calendars/${calendar.id}`);
   body = (await res.json()) as {
-    participants: Array<{ id: string; name: string; user_id?: string }>;
+    participants: Array<{ id: string; name: string; user_id: string | null }>;
   };
   const after = body.participants.find((p) => p.id === before!.id);
   expect(after, "participant should still exist post-claim").toBeDefined();
   expect(after!.name).toBe(joinerName);
   expect(after!.user_id, "user_id should be set after claim").toBeTruthy();
-
-  // And the page reflects the claimed state on next load — owner UI / "you"
-  // tag would be the most precise check, but the participant simply
-  // remaining visible after claim is the primary thing that breaks if the
-  // claim made the row unreachable.
-  await page.goto(`/calendars/${calendar.id}`);
-  await expect(page.getByText(joinerName).first()).toBeVisible();
 });

@@ -21,21 +21,35 @@ test("owner can finalise an everyone-free date; non-owners cannot", async ({
 
   // Add the second participant from a fresh, *unauthenticated* request
   // context — `api` is signed in as the owner, so a join from there would
-  // 409 "already_joined".
+  // 409 "already_joined". The join hands Bob his participant token.
   const anonCtx = await playwright.request.newContext({ baseURL: BACKEND_URL });
   const addRes = await anonCtx.post(`/calendars/${calendar.id}/participants`, {
     data: { name: "Bob" },
   });
   expect(addRes.ok(), `add participant: ${addRes.status()}`).toBeTruthy();
   const bob = (await addRes.json()) as { id: string };
+  const bobToken = addRes.headers()["x-participant-token"];
+  expect(bobToken, "anonymous join should issue a participant token").toBeTruthy();
+
+  // Each participant marks their own availability with their own
+  // credentials: the owner by session, Bob by his participant token.
+  const ownerSet = await api.put(`/calendars/${calendar.id}/availability`, {
+    data: { participant_id: calendar.ownerParticipantId, dates: [targetDate] },
+  });
+  expect(ownerSet.ok(), `owner set availability: ${ownerSet.status()}`).toBeTruthy();
+
+  const bobSet = await anonCtx.put(`/calendars/${calendar.id}/availability`, {
+    headers: { "X-Participant-Token": bobToken },
+    data: { participant_id: bob.id, dates: [targetDate] },
+  });
+  expect(bobSet.ok(), `Bob set availability: ${bobSet.status()}`).toBeTruthy();
   await anonCtx.dispose();
 
-  for (const participantId of [calendar.ownerParticipantId, bob.id]) {
-    const r = await api.put(`/calendars/${calendar.id}/availability`, {
-      data: { participant_id: participantId, dates: [targetDate] },
-    });
-    expect(r.ok(), `set availability for ${participantId}`).toBeTruthy();
-  }
+  // The owner has no override on someone else's availability.
+  const ownerForBob = await api.put(`/calendars/${calendar.id}/availability`, {
+    data: { participant_id: bob.id, dates: [] },
+  });
+  expect(ownerForBob.status()).toBe(403);
 
   // A non-owner can't finalise — confirm via the API before any UI action so
   // the assertion isn't masked by the calendar already being locked.

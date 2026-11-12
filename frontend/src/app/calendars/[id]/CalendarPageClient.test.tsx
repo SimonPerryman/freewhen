@@ -152,7 +152,7 @@ vi.mock("@/components/AuthProvider/AuthProvider", () => ({
     user: mockUser,
     isLoading: false,
     isAuthenticated: !!mockUser,
-    checkAuth: vi.fn(),
+    checkAuth: vi.fn(async () => mockUser),
     clearAuth: vi.fn(),
     signOut: vi.fn(),
   }),
