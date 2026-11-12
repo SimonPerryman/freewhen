@@ -60,7 +60,8 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
       .then(
         (me): User | null => me,
         (err: unknown): User | null => {
-          // 401 is the normal signed-out state, not an error.
+          // Signed out normally resolves to null (200). A 401 can still
+          // arrive from an older backend mid-deploy; treat it as signed out.
           if (!(err instanceof ApiError && err.status === 401)) {
             log.warn("auth: /auth/me failed", { error: String(err) });
           }

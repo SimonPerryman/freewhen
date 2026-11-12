@@ -30,7 +30,7 @@ func TestRouteCoverage_AuthClassMatchesAllowList(t *testing.T) {
 		// Auth — the login/session-mint paths are intentionally public.
 		"GET /auth/{provider}":          authPublic,
 		"GET /auth/{provider}/callback": authPublic,
-		"GET /auth/me":                  authPublic, // returns null when unauth'd; safe
+		"GET /auth/me":                  authOptional, // 200 null when unauth'd
 		"PATCH /auth/me":                authRequired,
 		"POST /auth/logout":             authPublic, // no-op without session
 		"POST /auth/logout-all":         authRequired,

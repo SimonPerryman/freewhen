@@ -23,14 +23,25 @@ func TestHealth_OK(t *testing.T) {
 func TestAuth_Me(t *testing.T) {
 	ts := setupTestServer(t)
 
-	// Unauth → 401.
-	resp, _ := doJSON(t, ts, http.MethodGet, "/auth/me", nil)
+	// Signed out is a normal state, not an error: 200 with a JSON null body
+	// for both a missing cookie and an unknown/expired session token.
+	resp, body := doJSON(t, ts, http.MethodGet, "/auth/me", nil)
+	if resp.StatusCode != http.StatusOK || strings.TrimSpace(string(body)) != "null" {
+		t.Errorf("no cookie: expected 200 null, got %d %q", resp.StatusCode, body)
+	}
+	resp, body = doJSONWithSession(t, ts, http.MethodGet, "/auth/me", nil, "not-a-real-session")
+	if resp.StatusCode != http.StatusOK || strings.TrimSpace(string(body)) != "null" {
+		t.Errorf("invalid cookie: expected 200 null, got %d %q", resp.StatusCode, body)
+	}
+
+	// Other authenticated endpoints still 401 without a session.
+	resp, _ = doJSON(t, ts, http.MethodGet, "/users/me/calendars", nil)
 	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("no cookie: expected 401, got %d", resp.StatusCode)
+		t.Errorf("/users/me/calendars no cookie: expected 401, got %d", resp.StatusCode)
 	}
 
 	// Authenticated → 200 + user JSON.
-	resp, body := doJSONAuth(t, ts, http.MethodGet, "/auth/me", nil)
+	resp, body = doJSONAuth(t, ts, http.MethodGet, "/auth/me", nil)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("auth: expected 200, got %d, body: %s", resp.StatusCode, body)
 	}
@@ -93,10 +104,15 @@ func TestAuth_Logout(t *testing.T) {
 		t.Error("expected session cookie to be cleared")
 	}
 
-	// After logout, the original session token is invalidated; /auth/me should reject it.
-	resp, _ = doJSONAuth(t, ts, http.MethodGet, "/auth/me", nil)
+	// After logout, the original session token is invalidated; /auth/me
+	// reports signed out (200 null) and authenticated routes reject it.
+	resp, body := doJSONAuth(t, ts, http.MethodGet, "/auth/me", nil)
+	if resp.StatusCode != http.StatusOK || strings.TrimSpace(string(body)) != "null" {
+		t.Errorf("after logout: expected 200 null, got %d %q", resp.StatusCode, body)
+	}
+	resp, _ = doJSONAuth(t, ts, http.MethodGet, "/users/me/calendars", nil)
 	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("after logout: expected 401, got %d", resp.StatusCode)
+		t.Errorf("after logout /users/me/calendars: expected 401, got %d", resp.StatusCode)
 	}
 
 	// Logout without session → still 200 (idempotent).

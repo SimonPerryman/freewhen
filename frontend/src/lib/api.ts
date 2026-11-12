@@ -307,8 +307,11 @@ export async function removeParticipant(calendarId: string, participantId: strin
   });
 }
 
-export async function getMe(): Promise<User> {
-  return request<User>("/auth/me");
+// Resolves to null when signed out: the backend answers a signed-out
+// /auth/me with 200 + `null` rather than a 401, so browsers don't log a
+// console error on every signed-out page load.
+export async function getMe(): Promise<User | null> {
+  return request<User | null>("/auth/me");
 }
 
 export async function updateMe(patch: { name?: string }): Promise<User> {

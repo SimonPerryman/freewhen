@@ -88,7 +88,31 @@ describe("AuthProvider", () => {
     expect(getMeMock).toHaveBeenCalledTimes(1);
   });
 
-  it("treats a 401 as signed out without logging an error, and caches it", async () => {
+  it("treats a 200 null as signed out without logging, and caches it", async () => {
+    getMeMock.mockResolvedValue(null);
+    let check: (() => Promise<unknown>) | undefined;
+    function Grab() {
+      check = useAuth().checkAuth;
+      return null;
+    }
+    render(
+      <AuthProvider>
+        <EagerConsumer label="a" />
+        <EagerConsumer label="b" />
+        <Grab />
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByText("a:signed-out")).toBeInTheDocument();
+    expect(screen.getByText("b:signed-out")).toBeInTheDocument();
+    await expect(check!()).resolves.toBeNull();
+    expect(getMeMock).toHaveBeenCalledTimes(1);
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+    expect(logMock.error).not.toHaveBeenCalled();
+    expect(logMock.warn).not.toHaveBeenCalled();
+  });
+
+  it("still treats a legacy 401 as signed out without logging an error", async () => {
     getMeMock.mockRejectedValue(new ApiError(401, "not authenticated"));
     let check: (() => Promise<unknown>) | undefined;
     function Grab() {

@@ -95,8 +95,7 @@ describe("Home (calendar creation page)", () => {
   });
 
   it("redirects to login when not authenticated", async () => {
-    const { ApiError } = await import("@/lib/api");
-    getMeMock.mockRejectedValue(new ApiError(401, "not authenticated"));
+    getMeMock.mockResolvedValue(null);
 
     const user = userEvent.setup();
     renderWithAuth();

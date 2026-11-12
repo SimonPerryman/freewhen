@@ -12,6 +12,7 @@ import {
   updateParticipantEmail,
   importAvailabilityDays,
   claimParticipant,
+  getMe,
   ApiError,
 } from "./api";
 import { getParticipantToken, setParticipantToken } from "./participantToken";
@@ -118,6 +119,25 @@ describe("createCalendar", () => {
     await expect(createCalendar({ name: "" })).rejects.toMatchObject({
       status: 400,
       message: "bad request",
+    });
+  });
+});
+
+describe("getMe", () => {
+  it("resolves to null when signed out (200 null)", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(null));
+    await expect(getMe()).resolves.toBeNull();
+  });
+
+  it("resolves to the camel-cased user when signed in", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse({ id: "u1", email: "a@example.com", name: "A", is_admin: false }),
+    );
+    await expect(getMe()).resolves.toEqual({
+      id: "u1",
+      email: "a@example.com",
+      name: "A",
+      isAdmin: false,
     });
   });
 });
