@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, createCalendar } from "@/lib/api";
 import { MAX_CALENDAR_NAME_LENGTH } from "@/lib/limits";
@@ -20,7 +20,7 @@ const PLACEHOLDER_PHRASES = [
 
 export default function Home() {
   const router = useRouter();
-  const { user, isLoading, checkAuth } = useAuth();
+  const { user, isLoading } = useAuth();
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,10 +28,6 @@ export default function Home() {
   const placeholder = useTypewriterPlaceholder(PLACEHOLDER_PHRASES, {
     paused: name.length > 0 || isFocused,
   });
-
-  useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -14,6 +14,8 @@ const body = DM_Sans({
   display: "swap",
 });
 
+// The opsz axis is kept on purpose: h1–h3 use `font-optical-sizing: auto`,
+// and Fraunces' optical sizes visibly change contrast/spacing at hero sizes.
 const display = Fraunces({
   variable: "--font-display",
   subsets: ["latin"],
@@ -21,12 +23,17 @@ const display = Fraunces({
   display: "swap",
 });
 
+// The accent face is only ever rendered italic (`.serif-accent`, ShareButton
+// kicker, coachmark title) on a word or two, so skip the normal style and
+// don't preload it — it shouldn't compete with the body/display fonts for
+// bandwidth on the critical path. `display: swap` covers the late arrival.
 const accent = Instrument_Serif({
   variable: "--font-accent",
   subsets: ["latin"],
   weight: ["400"],
-  style: ["normal", "italic"],
+  style: ["italic"],
   display: "swap",
+  preload: false,
 });
 
 export const viewport: Viewport = {
