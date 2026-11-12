@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/freewhen/backend/internal/model"
@@ -112,7 +113,7 @@ func (s *Store) AddParticipantWithTokenHash(ctx context.Context, calendarID, nam
 		}
 		// Best-effort auto-match against the owner's invite list. A failure here
 		// shouldn't fail the join — the owner can manually relink.
-		_ = s.MatchInviteByName(ctx, calendarID, p.ID, p.Name)
+		s.matchInviteBestEffort(ctx, calendarID, p.ID, p.Name)
 		return p, nil
 	}
 	return model.Participant{}, fmt.Errorf("failed to generate unique participant ID after %d attempts", maxRetries)
@@ -218,14 +219,32 @@ func (s *Store) ClaimParticipant(ctx context.Context, calendarID, participantID,
 // ErrDuplicateName if another participant on the same calendar already has
 // the requested name.
 func (s *Store) UpdateParticipantName(ctx context.Context, calendarID, participantID, name string) (model.Participant, error) {
+	return s.updateParticipantNameEmail(ctx, calendarID, participantID, name, false, nil)
+}
+
+// UpdateParticipantNameAndEmail renames a participant and sets (or, for
+// nil / "", clears) their contact email in a single UPDATE, so a request
+// that changes both can never half-apply. Errors as UpdateParticipantName.
+func (s *Store) UpdateParticipantNameAndEmail(ctx context.Context, calendarID, participantID, name string, email *string) (model.Participant, error) {
+	return s.updateParticipantNameEmail(ctx, calendarID, participantID, name, true, email)
+}
+
+func (s *Store) updateParticipantNameEmail(ctx context.Context, calendarID, participantID, name string, setEmail bool, email *string) (model.Participant, error) {
+	var emailVal *string
+	if setEmail {
+		emailVal = normaliseEmail(email)
+	}
+
 	var p model.Participant
 	var scannedUserID sql.NullString
 	var scannedEmail sql.NullString
 	err := s.db.QueryRowContext(ctx,
-		`UPDATE participants SET name = $1
+		`UPDATE participants
+		 SET name = $1,
+		     email = CASE WHEN $4::bool THEN $5::text ELSE email END
 		 WHERE id = $2 AND calendar_id = $3 AND deleted_at IS NULL
 		 RETURNING id, calendar_id, name, colour, user_id, email`,
-		name, participantID, calendarID,
+		name, participantID, calendarID, setEmail, emailVal,
 	).Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &scannedUserID, &scannedEmail)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -245,8 +264,21 @@ func (s *Store) UpdateParticipantName(ctx context.Context, calendarID, participa
 	}
 	// Rename may bring the participant's name in line with an unmatched invite.
 	// Re-run auto-match best-effort.
-	_ = s.MatchInviteByName(ctx, calendarID, p.ID, p.Name)
+	s.matchInviteBestEffort(ctx, calendarID, p.ID, p.Name)
 	return p, nil
+}
+
+// matchInviteBestEffort runs MatchInviteByName and logs (but does not
+// propagate) a failure: the participant write already succeeded and the
+// owner can relink manually. Only ids are logged — names are user content.
+func (s *Store) matchInviteBestEffort(ctx context.Context, calendarID, participantID, name string) {
+	if err := s.MatchInviteByName(ctx, calendarID, participantID, name); err != nil {
+		slog.WarnContext(ctx, "invite auto-match failed",
+			"calendar_id", calendarID,
+			"participant_id", participantID,
+			"error", err,
+		)
+	}
 }
 
 // UpdateParticipantEmail sets the participant's contact email. Pass a pointer

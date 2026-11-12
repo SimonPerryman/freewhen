@@ -1,12 +1,8 @@
 package handler
 
 import (
-	"context"
-	"errors"
 	"log/slog"
 	"net/http"
-
-	"github.com/freewhen/backend/internal/model"
 )
 
 // TestLoginHandler mints a session for a given email without going through
@@ -15,14 +11,16 @@ import (
 // fast-path through auth in non-auth-focused specs.
 type TestLoginHandler struct {
 	store        AuthStore
+	accounts     AccountService
 	cookieDomain string
 	secureCookie bool
 	logger       *slog.Logger
 }
 
-func NewTestLogin(s AuthStore, cookieDomain string, secureCookie bool, logger *slog.Logger) *TestLoginHandler {
+func NewTestLogin(s AuthStore, accounts AccountService, cookieDomain string, secureCookie bool, logger *slog.Logger) *TestLoginHandler {
 	return &TestLoginHandler{
 		store:        s,
+		accounts:     accounts,
 		cookieDomain: cookieDomain,
 		secureCookie: secureCookie,
 		logger:       logger,
@@ -47,7 +45,7 @@ func (h *TestLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.findOrCreate(r.Context(), req.Email, req.Name)
+	user, err := h.accounts.FindOrCreateByEmail(r.Context(), req.Email, req.Name, "e2e", "")
 	if err != nil {
 		respondInternalError(r, w, err, "internal_error", "test-login failed")
 		return
@@ -75,15 +73,4 @@ func (h *TestLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 	})
 
 	respondJSON(w, http.StatusOK, user)
-}
-
-func (h *TestLoginHandler) findOrCreate(ctx context.Context, email, name string) (model.User, error) {
-	user, err := h.store.FindUserByEmail(ctx, email)
-	if err == nil {
-		return user, nil
-	}
-	if !errors.Is(err, model.ErrNotFound) {
-		return model.User{}, err
-	}
-	return h.store.CreateUser(ctx, email, name, "e2e", "")
 }

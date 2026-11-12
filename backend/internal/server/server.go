@@ -86,7 +86,6 @@ func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 	)
 
 	h := handler.New(svc).
-		WithFlags(flagEval).
 		WithTrustedProxyDepth(cfg.TrustedProxyDepth).
 		WithFrontendURL(cfg.FrontendURL).
 		WithCalendarProviders(calProviders)
@@ -123,7 +122,8 @@ func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 	idProviders := idprovider.NewRegistry(
 		idprovider.NewGoogle(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURL),
 	)
-	ah := handler.NewAuth(st, emailSender, idProviders, cfg, logger)
+	accounts := service.NewAccounts(st)
+	ah := handler.NewAuth(st, accounts, emailSender, idProviders, cfg, logger)
 	mh := handler.NewMetrics(st, hub)
 	if notifSvc != nil {
 		mh.WithNotificationCounters(notifSvc.Counters())
@@ -133,7 +133,7 @@ func New(db *sql.DB, logger *slog.Logger, cfg *config.Config) *Server {
 	var tlh *handler.TestLoginHandler
 	if cfg.E2ETestMode {
 		logger.Warn("E2E_TEST_MODE enabled: /test/login will mint sessions without auth — must never run in prod")
-		tlh = handler.NewTestLogin(st, cfg.CookieDomain, cfg.SecureCookies, logger)
+		tlh = handler.NewTestLogin(st, accounts, cfg.CookieDomain, cfg.SecureCookies, logger)
 	}
 
 	srv := &Server{

@@ -212,11 +212,27 @@ func TestDuplicateCalendar_CalendarFull(t *testing.T) {
 	ts := setupTestServer(t)
 	db := openTestDB(t)
 
-	// A single calendar filled to the participant cap, duplicated with the
-	// default include_participants=true → service rejects with ErrCalendarFull
-	// because srcCount+1 > MaxParticipantsPerCalendar.
-	cal, _ := createCalendarAuth(t, ts, "Packed")
-	fillCalendarParticipantsToCap(t, db, cal.ID)
+	// Only signed-in participants other than the new owner are copied, and
+	// the owner's own row is the +1. So the copy only overflows when the
+	// owner has no row on the source (removed) and the cap is filled with
+	// other signed-in users: copied (cap) + owner (1) > cap → calendar_full.
+	// (Anonymous rows don't count — see
+	// TestDuplicateCalendar_AnonymousParticipantsDontCountTowardsCap.)
+	cal, owner := createCalendarAuth(t, ts, "Packed")
+	if _, err := db.Exec(`UPDATE participants SET deleted_at = now() WHERE id = $1`, owner.ID); err != nil {
+		t.Fatalf("remove owner row: %v", err)
+	}
+	st := store.New(db)
+	for i := 0; i < limits.MaxParticipantsPerCalendar; i++ {
+		u, err := st.CreateUser(t.Context(), fmt.Sprintf("packed-%d@example.com", i), "", "email", "")
+		if err != nil {
+			t.Fatalf("create user %d: %v", i, err)
+		}
+		uid := u.ID
+		if _, err := st.AddParticipant(t.Context(), cal.ID, fmt.Sprintf("member-%d", i), &uid, nil); err != nil {
+			t.Fatalf("add member %d: %v", i, err)
+		}
+	}
 
 	resp, body := doJSONAuth(t, ts, http.MethodPost, "/calendars/"+cal.ID+"/duplicate", nil)
 	if resp.StatusCode != http.StatusConflict {

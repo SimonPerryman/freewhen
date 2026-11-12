@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/freewhen/backend/internal/calprovider"
-	"github.com/freewhen/backend/internal/flags"
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/service"
 )
@@ -39,7 +38,7 @@ type CalendarService interface {
 	ClaimParticipant(ctx context.Context, calendarID, participantID string, caller service.ParticipantCaller) (model.Participant, error)
 	RenameCalendar(ctx context.Context, calendarID, userID, name string) (model.Calendar, error)
 	RemoveParticipant(ctx context.Context, calendarID, userID, participantID string) error
-	RenameParticipant(ctx context.Context, calendarID, targetParticipantID string, caller service.ParticipantCaller, name string) (model.Participant, error)
+	RenameParticipant(ctx context.Context, calendarID, targetParticipantID string, caller service.ParticipantCaller, name string, email *string) (model.Participant, error)
 	ListUserCalendars(ctx context.Context, userID string) ([]model.CalendarListItem, bool, error)
 	UnlockCalendar(ctx context.Context, calendarID, submitted, remoteAddr string) (string, error)
 	RotateCalendarPassphrase(ctx context.Context, calendarID, userID string) (string, error)
@@ -57,7 +56,6 @@ type CalendarService interface {
 
 type Handler struct {
 	service           CalendarService
-	flags             flags.Evaluator
 	trustedProxyDepth int
 	// frontendURL is the canonical public origin of the FreeWhen frontend
 	// (e.g. https://freewhen.app). Used to render the "View on FreeWhen" link
@@ -71,7 +69,7 @@ type Handler struct {
 }
 
 func New(s CalendarService) *Handler {
-	return &Handler{service: s, flags: flags.Noop{}, calProviders: calprovider.NewRegistry()}
+	return &Handler{service: s, calProviders: calprovider.NewRegistry()}
 }
 
 // WithCalendarProviders attaches the calendar-provider registry used by the
@@ -79,15 +77,6 @@ func New(s CalendarService) *Handler {
 func (h *Handler) WithCalendarProviders(r *calprovider.Registry) *Handler {
 	if r != nil {
 		h.calProviders = r
-	}
-	return h
-}
-
-// WithFlags swaps the flag evaluator. Call once during server setup; the
-// default is a no-op evaluator so tests don't need to wire PostHog.
-func (h *Handler) WithFlags(fe flags.Evaluator) *Handler {
-	if fe != nil {
-		h.flags = fe
 	}
 	return h
 }

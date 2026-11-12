@@ -103,7 +103,6 @@ func (h *Handler) RenameParticipant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	caller := participantCaller(r)
-	userID := caller.UserID
 
 	// Email-only updates skip the rename / finalise guards — clearing or
 	// setting your contact address is allowed even after the calendar locks.
@@ -111,7 +110,7 @@ func (h *Handler) RenameParticipant(w http.ResponseWriter, r *http.Request) {
 	if emailOnly {
 		// Signed-in participants resolve email via users.email at send time;
 		// disallow editing the per-participant override they don't have.
-		if userID != nil {
+		if caller.UserID != nil {
 			respondError(w, http.StatusBadRequest, "invalid_request", "signed-in users edit their email under account settings")
 			return
 		}
@@ -140,7 +139,8 @@ func (h *Handler) RenameParticipant(w http.ResponseWriter, r *http.Request) {
 		name = *req.Name
 	}
 
-	p, err := h.service.RenameParticipant(r.Context(), calendarID, participantID, caller, name)
+	// Name and (optional) email are written atomically by the service.
+	p, err := h.service.RenameParticipant(r.Context(), calendarID, participantID, caller, name, req.Email)
 	if err != nil {
 		if respondValidationError(w, err) {
 			return
@@ -156,24 +156,12 @@ func (h *Handler) RenameParticipant(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusConflict, "duplicate_name", "participant name already taken")
 		case errors.Is(err, model.ErrCalendarFinalised):
 			respondError(w, http.StatusConflict, "already_finalised", "calendar is finalised")
+		case errors.Is(err, service.ErrInvalidEmail):
+			respondError(w, http.StatusBadRequest, "invalid_email", "email is invalid")
 		default:
 			respondInternalError(r, w, err, "internal_error", "failed to rename participant")
 		}
 		return
-	}
-
-	// If the caller also supplied an email, apply it as a follow-up update.
-	if req.Email != nil && userID == nil {
-		updated, err := h.service.UpdateParticipantEmail(r.Context(), calendarID, participantID, caller, req.Email)
-		if err != nil {
-			if errors.Is(err, service.ErrInvalidEmail) {
-				respondError(w, http.StatusBadRequest, "invalid_email", "email is invalid")
-				return
-			}
-			respondInternalError(r, w, err, "internal_error", "failed to update participant email")
-			return
-		}
-		p = updated
 	}
 
 	respondJSON(w, http.StatusOK, p)

@@ -140,6 +140,65 @@ func TestRemoveParticipant_SoftDeletedCalendarIs410(t *testing.T) {
 	assertErrorCode(t, rec, "calendar_unavailable")
 }
 
+func TestRenameParticipant_NameAndEmailIsOneServiceCall(t *testing.T) {
+	m := &mockService{}
+	h := New(m)
+	req := httptest.NewRequest(http.MethodPatch, "/calendars/cal1/participants/p1",
+		jsonBody(t, map[string]any{"name": "Bob", "email": "bob@example.com"}))
+	req.SetPathValue("id", "cal1")
+	req.SetPathValue("participantId", "p1")
+	rec := httptest.NewRecorder()
+	h.RenameParticipant(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	if m.lastRenameEmail == nil || *m.lastRenameEmail != "bob@example.com" {
+		t.Fatalf("email not passed to RenameParticipant: %v", m.lastRenameEmail)
+	}
+	if m.updateEmailCalls != 0 {
+		t.Fatalf("UpdateParticipantEmail called %d times; rename+email must be a single write", m.updateEmailCalls)
+	}
+}
+
+func TestRenameParticipant_InvalidEmailIs400(t *testing.T) {
+	h := New(&mockService{
+		renameParticipant: func(context.Context, string, string, service.ParticipantCaller, string) (model.Participant, error) {
+			return model.Participant{}, service.ErrInvalidEmail
+		},
+	})
+	req := httptest.NewRequest(http.MethodPatch, "/calendars/cal1/participants/p1",
+		jsonBody(t, map[string]any{"name": "Bob", "email": "nope"}))
+	req.SetPathValue("id", "cal1")
+	req.SetPathValue("participantId", "p1")
+	rec := httptest.NewRecorder()
+	h.RenameParticipant(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+	assertErrorCode(t, rec, "invalid_email")
+}
+
+func TestUpdateParticipantEmail_SignedInIs400WithoutServiceCall(t *testing.T) {
+	m := &mockService{}
+	h := New(m)
+	req := withUser(httptest.NewRequest(http.MethodPatch, "/calendars/cal1/participants/p1",
+		jsonBody(t, map[string]any{"email": "me@example.com"})), testUser)
+	req.SetPathValue("id", "cal1")
+	req.SetPathValue("participantId", "p1")
+	rec := httptest.NewRecorder()
+	h.RenameParticipant(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+	assertErrorCode(t, rec, "invalid_request")
+	if m.updateEmailCalls != 0 {
+		t.Fatal("service must not be called")
+	}
+}
+
 // softDeletedMock reports every calendar as soft-deleted.
 type softDeletedMock struct{ mockService }
 

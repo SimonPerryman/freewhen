@@ -736,7 +736,6 @@ flowchart LR
   S --> RT
   S --> N
   H --> AC
-  H --> FL
 
   classDef layer fill:#faf6ed,stroke:#1a1814,stroke-width:2px;
   classDef seam fill:#fff4d9,stroke:#b8893a,stroke-width:2px;
@@ -762,10 +761,11 @@ Registry := calprovider.NewRegistry(google)
   <h3 class="kicker">Other notable seams</h3>
   <ul class="tight">
     <li><strong><code>store/</code></strong> — typed methods per resource; soft-delete filtering lives here. Mocked in tests via interfaces.</li>
-    <li><strong><code>service/</code></strong> — stateless orchestration: <em>"finalise calendar"</em> = update DB + publish event + send emails. Also the single home for <em>authorisation and input rules</em>: owner-only operations take the caller's user id and go through <code>requireOwner</code> (→ <code>ErrForbidden</code> / <code>model.ErrCalendarNotFound</code>), participant writes through <code>authorizeParticipantWrite</code>, and rejected input comes back as <code>*service.ValidationError{Code, Message}</code>. Handlers only decode (<code>decodeJSON</code>), call the service, and map errors — they import <code>service</code> + <code>model</code>, never <code>store</code> (sentinel errors live in <code>model/errors.go</code>).</li>
+    <li><strong><code>service/</code></strong> — stateless orchestration: <em>"finalise calendar"</em> = update DB + publish event + send emails. Also the single home for <em>authorisation and input rules</em>: owner-only operations take the caller's user id and go through <code>requireOwner</code> (→ <code>ErrForbidden</code> / <code>model.ErrCalendarNotFound</code>), participant writes through <code>authorizeParticipantWrite</code>, and rejected input comes back as <code>*service.ValidationError{Code, Message}</code>. Handlers only decode (<code>decodeJSON</code>), call the service, and map errors — they import <code>service</code> + <code>model</code>, never <code>store</code> (sentinel errors live in <code>model/errors.go</code>). Sign-in account resolution is <code>service.Accounts</code> (<code>FindOrCreateOAuthUser</code> / <code>FindOrCreateByEmail</code>). It is race-safe: <code>CreateUser</code> uses <code>ON CONFLICT (email) DO NOTHING</code>, and the loser of a concurrent first sign-in re-reads the winner's row.</li>
+    <li><strong>Data integrity in <code>store/</code></strong> — availability writes lock the calendar row (<code>FOR SHARE</code>) and check <code>finalised_date</code> inside their transaction, so a concurrent finalise can't be missed. Dates are batch-inserted with <code>unnest</code>. A participant rename plus email change is one <code>UPDATE</code>.</li>
     <li><strong><code>realtime.Hub</code></strong> — in-process; fine because we cap Cloud Run instances. Replace with Redis pub/sub if we ever scale horizontally.</li>
     <li><strong><code>access/</code></strong> — HMAC-signed tokens with embedded <code>access_epoch</code> so passphrase rotation invalidates everything atomically.</li>
-    <li><strong><code>flags/</code></strong> — <code>Evaluator</code> interface with PostHog and Noop impls. Flags are <em>temporary</em> per AGENTS.md — delete once rolled out.</li>
+    <li><strong><code>flags/</code></strong> — <code>Evaluator</code> interface with PostHog and Noop impls. Flags are <em>temporary</em> per AGENTS.md — delete once rolled out. The server still builds an evaluator, but no handler reads a backend flag today (the unused <code>Handler.WithFlags</code> wiring was removed).</li>
   </ul>
 </section>
 

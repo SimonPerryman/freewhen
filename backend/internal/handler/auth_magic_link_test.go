@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/freewhen/backend/internal/model"
+	"github.com/freewhen/backend/internal/service"
 )
 
 // fakeAuthStore is a minimal in-memory AuthStore for handler tests.
@@ -216,10 +217,11 @@ func (f *fakeEmailSender) SendMagicLink(to, link string) error {
 	return f.err
 }
 
-func newTestAuthHandler(t *testing.T, st AuthStore, sender EmailSender) *AuthHandler {
+func newTestAuthHandler(t *testing.T, st *fakeAuthStore, sender EmailSender) *AuthHandler {
 	t.Helper()
 	return &AuthHandler{
 		store:        st,
+		accounts:     service.NewAccounts(st),
 		email:        sender,
 		frontendURL:  "https://app.test",
 		secureCookie: false,

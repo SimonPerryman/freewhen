@@ -29,6 +29,9 @@ func scanUser(row interface {
 	return nil
 }
 
+// CreateUser inserts a new user. Returns ErrUserExists when a user with this
+// email already exists — including one inserted concurrently — so callers can
+// re-read instead of failing. Only a primary-key (id) collision is retried.
 func (s *Store) CreateUser(ctx context.Context, email, name, provider, providerID string) (model.User, error) {
 	const maxRetries = 3
 	for i := 0; i < maxRetries; i++ {
@@ -37,11 +40,17 @@ func (s *Store) CreateUser(ctx context.Context, email, name, provider, providerI
 		row := s.db.QueryRowContext(ctx,
 			`INSERT INTO users (id, email, name, provider, provider_id)
 			 VALUES ($1, $2, $3, $4, $5)
+			 ON CONFLICT (email) DO NOTHING
 			 RETURNING `+userCols,
 			id, email, name, provider, providerID,
 		)
 		if err := scanUser(row, &u); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				// ON CONFLICT (email) swallowed the insert.
+				return model.User{}, ErrUserExists
+			}
 			if isUniqueViolation(err) {
+				// users.id collision — pick a fresh id and retry.
 				continue
 			}
 			return model.User{}, fmt.Errorf("insert user: %w", err)
@@ -129,38 +138,28 @@ func (s *Store) SetCalendarImportConsentAck(ctx context.Context, userID string) 
 // MergeAvailabilityDates adds the given dates to a participant's availability
 // without removing existing rows. Used by the "Accept all suggestions"
 // shortcut — imports must never silently delete hand-entered rows.
+//
+// Same finalise-race protection and batched insert as SetAvailability.
 func (s *Store) MergeAvailabilityDates(ctx context.Context, participantID string, dates []string) error {
-	var calendarID string
-	var finalisedDate sql.NullString
-	err := s.db.QueryRowContext(ctx,
-		`SELECT p.calendar_id, c.finalised_date::text
-		 FROM participants p JOIN calendars c ON c.id = p.calendar_id
-		 WHERE p.id = $1 AND p.deleted_at IS NULL AND c.deleted_at IS NULL`, participantID,
-	).Scan(&calendarID, &finalisedDate)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrNotFound
-		}
-		return fmt.Errorf("look up participant: %w", err)
-	}
-	if finalisedDate.Valid {
-		return ErrCalendarFinalised
-	}
-
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	for _, date := range dates {
+	calendarID, err := lockOpenCalendarForParticipant(ctx, tx, participantID)
+	if err != nil {
+		return err
+	}
+
+	if len(dates) > 0 {
 		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO availability (participant_id, calendar_id, date)
-			 VALUES ($1, $2, $3)
+			 SELECT $1, $2, d::date FROM unnest($3::text[]) AS d
 			 ON CONFLICT (participant_id, date) DO NOTHING`,
-			participantID, calendarID, date,
+			participantID, calendarID, dates,
 		); err != nil {
-			return fmt.Errorf("insert availability for %s: %w", date, err)
+			return fmt.Errorf("insert availability: %w", err)
 		}
 	}
 	return tx.Commit()

@@ -107,10 +107,27 @@ func (s *Server) authenticateRequest(r *http.Request) *model.User {
 	// cookie — the Session struct intentionally no longer carries it now
 	// that storage is hash-only.
 	rawToken := cookie.Value
-	go func() {
-		_ = s.store.RefreshSession(context.Background(), rawToken)
-	}()
+	go s.refreshSession(r.Context(), rawToken)
 	return &user
+}
+
+// sessionRefreshTimeout bounds the background sliding-expiry refresh so a
+// slow or wedged database can't accumulate goroutines.
+const sessionRefreshTimeout = 5 * time.Second
+
+// refreshSession slides the session expiry. Runs detached from the request
+// (it must outlive the response) but bounded by sessionRefreshTimeout. A
+// failure only means the expiry didn't slide this time, so it's logged, not
+// surfaced. Never log the token or user identifiers beyond the request id.
+func (s *Server) refreshSession(reqCtx context.Context, rawToken string) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(reqCtx), sessionRefreshTimeout)
+	defer cancel()
+	if err := s.store.RefreshSession(ctx, rawToken); err != nil {
+		s.logger.Warn("session refresh failed",
+			"error", err,
+			"request_id", handler.RequestIDFromContext(reqCtx),
+		)
+	}
 }
 
 func (s *Server) requestLog(next http.Handler) http.Handler {

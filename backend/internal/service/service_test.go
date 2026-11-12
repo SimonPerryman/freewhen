@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/freewhen/backend/internal/limits"
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/store"
 )
@@ -35,6 +36,8 @@ type mockStore struct {
 	claimParticipant               func(calendarID, participantID, userID string) (model.Participant, error)
 	updateParticipantEmail         func(calendarID, participantID string, email *string) (model.Participant, error)
 	mergeAvailabilityDates         func(participantID string, dates []string) error
+	updateParticipantNameAndEmail  func(ctx context.Context, calendarID, participantID, name string, email *string) (model.Participant, error)
+	countDuplicableParticipants    func(ctx context.Context, calendarID, newOwnerID string) (int, error)
 
 	// tokenHashes holds participants.token_hash per participant id. A missing
 	// entry means NULL (user-linked row, or an anonymous row nobody can write).
@@ -154,6 +157,20 @@ func (m *mockStore) UpdateParticipantName(ctx context.Context, calendarID, parti
 		panic("unexpected call to UpdateParticipantName")
 	}
 	return m.updateParticipantName(ctx, calendarID, participantID, name)
+}
+
+func (m *mockStore) UpdateParticipantNameAndEmail(ctx context.Context, calendarID, participantID, name string, email *string) (model.Participant, error) {
+	if m.updateParticipantNameAndEmail == nil {
+		panic("unexpected call to UpdateParticipantNameAndEmail")
+	}
+	return m.updateParticipantNameAndEmail(ctx, calendarID, participantID, name, email)
+}
+
+func (m *mockStore) CountDuplicableParticipants(ctx context.Context, calendarID, newOwnerID string) (int, error) {
+	if m.countDuplicableParticipants == nil {
+		return 0, nil
+	}
+	return m.countDuplicableParticipants(ctx, calendarID, newOwnerID)
 }
 
 func (m *mockStore) SetCalendarPassphrase(_ context.Context, _ string, _ *string) (model.Calendar, error) {
@@ -440,12 +457,41 @@ func TestDuplicateCalendar_CalendarFull(t *testing.T) {
 		getCalendarOnly: func(_ context.Context, id string) (model.Calendar, error) {
 			return model.Calendar{ID: id, OwnerID: "u1", Name: "x"}, nil
 		},
-		countCalendarParticipants: func(_ context.Context, _ string) (int, error) { return 100, nil },
+		countDuplicableParticipants: func(_ context.Context, _, _ string) (int, error) { return limits.MaxParticipantsPerCalendar, nil },
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 	_, _, err := s.DuplicateCalendar(context.Background(), "cal1", "u1", "Simon", "", true)
 	if !errors.Is(err, store.ErrCalendarFull) {
 		t.Fatalf("err = %v, want ErrCalendarFull", err)
+	}
+}
+
+// A source at the participant cap whose rows are mostly anonymous must still
+// duplicate: anonymous rows aren't copied, so they don't count.
+func TestDuplicateCalendar_CountsOnlyCopiedParticipants(t *testing.T) {
+	var gotSource, gotOwner string
+	ms := &mockStore{
+		getCalendarOnly: func(_ context.Context, id string) (model.Calendar, error) {
+			return model.Calendar{ID: id, OwnerID: "u1", Name: "x"}, nil
+		},
+		countCalendarParticipants: func(context.Context, string) (int, error) {
+			t.Fatal("must not count all source participants (anonymous rows aren't copied)")
+			return 0, nil
+		},
+		countDuplicableParticipants: func(_ context.Context, calendarID, newOwnerID string) (int, error) {
+			gotSource, gotOwner = calendarID, newOwnerID
+			return limits.MaxParticipantsPerCalendar - 1, nil // + owner = exactly the cap
+		},
+		duplicateCalendar: func(context.Context, string, string, string, string, bool) (model.Calendar, model.Participant, error) {
+			return model.Calendar{ID: "new"}, model.Participant{}, nil
+		},
+	}
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
+	if _, _, err := s.DuplicateCalendar(context.Background(), "cal1", "u1", "Simon", "", true); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotSource != "cal1" || gotOwner != "u1" {
+		t.Fatalf("CountDuplicableParticipants(%q, %q), want (cal1, u1)", gotSource, gotOwner)
 	}
 }
 
@@ -668,7 +714,7 @@ func TestRenameParticipant_OwnerAllowed(t *testing.T) {
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-	p, err := s.RenameParticipant(context.Background(), "c1", "p1", ParticipantCaller{UserID: &ownerID}, "Alicia")
+	p, err := s.RenameParticipant(context.Background(), "c1", "p1", ParticipantCaller{UserID: &ownerID}, "Alicia", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -692,7 +738,7 @@ func TestRenameParticipant_SelfViaToken(t *testing.T) {
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-	_, err := s.RenameParticipant(context.Background(), "c1", "p1", ParticipantCaller{Token: "tok-p1"}, "Alicia")
+	_, err := s.RenameParticipant(context.Background(), "c1", "p1", ParticipantCaller{Token: "tok-p1"}, "Alicia", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -710,7 +756,7 @@ func TestRenameParticipant_AnonWrongTokenForbidden(t *testing.T) {
 		}
 		s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-		_, err := s.RenameParticipant(context.Background(), "c1", "p1", ParticipantCaller{Token: tok}, "Mallory")
+		_, err := s.RenameParticipant(context.Background(), "c1", "p1", ParticipantCaller{Token: tok}, "Mallory", nil)
 		if !errors.Is(err, ErrForbidden) {
 			t.Fatalf("token %q: err = %v, want ErrForbidden", tok, err)
 		}
@@ -732,7 +778,7 @@ func TestRenameParticipant_SelfViaLinkedUser(t *testing.T) {
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-	_, err := s.RenameParticipant(context.Background(), "c1", "p1", ParticipantCaller{UserID: &userID}, "Alicia")
+	_, err := s.RenameParticipant(context.Background(), "c1", "p1", ParticipantCaller{UserID: &userID}, "Alicia", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -751,7 +797,7 @@ func TestRenameParticipant_StrangerForbidden(t *testing.T) {
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-	_, err := s.RenameParticipant(context.Background(), "c1", "p1", ParticipantCaller{UserID: &callerID}, "Alicia")
+	_, err := s.RenameParticipant(context.Background(), "c1", "p1", ParticipantCaller{UserID: &callerID}, "Alicia", nil)
 	if !errors.Is(err, ErrForbidden) {
 		t.Fatalf("err = %v, want ErrForbidden", err)
 	}
@@ -767,7 +813,7 @@ func TestRenameParticipant_FinalisedRejected(t *testing.T) {
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-	_, err := s.RenameParticipant(context.Background(), "c1", "p1", ParticipantCaller{UserID: &ownerID}, "Alicia")
+	_, err := s.RenameParticipant(context.Background(), "c1", "p1", ParticipantCaller{UserID: &ownerID}, "Alicia", nil)
 	if !errors.Is(err, store.ErrCalendarFinalised) {
 		t.Fatalf("err = %v, want ErrCalendarFinalised", err)
 	}
@@ -782,7 +828,7 @@ func TestRenameParticipant_EmptyNameRejected(t *testing.T) {
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-	_, err := s.RenameParticipant(context.Background(), "c1", "p1", ParticipantCaller{UserID: &ownerID}, "   ")
+	_, err := s.RenameParticipant(context.Background(), "c1", "p1", ParticipantCaller{UserID: &ownerID}, "   ", nil)
 	if !errors.Is(err, ErrInvalidName) {
 		t.Fatalf("err = %v, want ErrInvalidName", err)
 	}

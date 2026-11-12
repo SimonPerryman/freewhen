@@ -27,6 +27,9 @@ var (
 	// ErrCannotLeaveOwnedCalendar is returned by Leave when the caller is
 	// the calendar's owner. Owners must Delete instead.
 	ErrCannotLeaveOwnedCalendar = errors.New("cannot leave owned calendar")
+	// ErrUserExists is returned by user creation when the email is already
+	// taken (typically a concurrent sign-in that inserted first).
+	ErrUserExists = errors.New("user with this email already exists")
 )
 
 // ErrCalendarNotFound is returned when the calendar itself (as opposed to a
