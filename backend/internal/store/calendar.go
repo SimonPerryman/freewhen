@@ -431,31 +431,30 @@ func (s *Store) DuplicateCalendar(
 	}
 
 	if includeParticipants {
-		// Load source participants within the tx.
+		// Copy only user-linked participants. Anonymous rows are authorized by
+		// a participant token issued at join; a copied row would have no token
+		// (uneditable forever) while squatting on the name and blocking the
+		// real person from rejoining. They can rejoin the copy via its link.
 		rows, err := tx.QueryContext(ctx,
-			`SELECT id, name, user_id FROM participants WHERE calendar_id = $1 AND deleted_at IS NULL ORDER BY id`, sourceID,
+			`SELECT id, name, user_id FROM participants
+			 WHERE calendar_id = $1 AND deleted_at IS NULL AND user_id IS NOT NULL
+			 ORDER BY id`, sourceID,
 		)
 		if err != nil {
 			return model.Calendar{}, model.Participant{}, fmt.Errorf("list source participants: %w", err)
 		}
 		type src struct {
 			name   string
-			userID *string
+			userID string
 		}
 		var sources []src
 		for rows.Next() {
-			var id, name string
-			var userID sql.NullString
+			var id, name, userID string
 			if err := rows.Scan(&id, &name, &userID); err != nil {
 				_ = rows.Close()
 				return model.Calendar{}, model.Participant{}, fmt.Errorf("scan source participant: %w", err)
 			}
-			var uid *string
-			if userID.Valid {
-				u := userID.String
-				uid = &u
-			}
-			sources = append(sources, src{name: name, userID: uid})
+			sources = append(sources, src{name: name, userID: userID})
 		}
 		if err := rows.Err(); err != nil {
 			_ = rows.Close()
@@ -466,14 +465,11 @@ func (s *Store) DuplicateCalendar(
 		idx := 1 // owner was index 0
 		for _, p := range sources {
 			// Skip the source owner row — the new owner is already inserted.
-			if p.userID != nil && *p.userID == newOwnerID {
+			if p.userID == newOwnerID {
 				continue
 			}
-			// Also skip if the name collides with the owner's new row.
-			if p.name == ownerParticipantName && p.userID == nil {
-				continue
-			}
-			if _, err := insertParticipantTx(ctx, tx, newCal.ID, p.name, p.userID, idx); err != nil {
+			uid := p.userID
+			if _, err := insertParticipantTx(ctx, tx, newCal.ID, p.name, &uid, idx); err != nil {
 				return model.Calendar{}, model.Participant{}, fmt.Errorf("copy participant: %w", err)
 			}
 			idx++

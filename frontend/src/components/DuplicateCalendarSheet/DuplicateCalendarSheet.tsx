@@ -122,8 +122,8 @@ export default function DuplicateCalendarSheet({
             <span>
               <strong>Copy participants</strong>
               <span className={styles.hint}>
-                Everyone on this calendar will be added to the new one. They&apos;ll need to re-mark
-                availability.
+                Signed-in participants will be added to the new one. Others can rejoin via the link.
+                Everyone will need to re-mark availability.
               </span>
             </span>
           </label>

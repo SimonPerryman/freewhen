@@ -899,7 +899,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
       }
       markLocalMutation();
       try {
-        await renameParticipant(calendarId, target.id, newName, callerPid);
+        await renameParticipant(calendarId, target.id, newName);
         analytics.capture("participant_renamed", {
           calendar_id: calendarId,
           self: callerPid === target.id,

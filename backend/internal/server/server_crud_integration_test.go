@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/freewhen/backend/internal/model"
+	"github.com/freewhen/backend/internal/store"
 )
 
 // createCalendarAuth creates a calendar as the primary test user and returns
@@ -72,7 +73,8 @@ func TestDuplicateCalendar(t *testing.T) {
 	ts := setupTestServer(t)
 	source, _ := createCalendarAuth(t, ts, "Source")
 
-	// Add a couple of extra participants so include_participants has something to copy.
+	// Two anonymous participants (not copied) and one signed-in participant
+	// (copied) so include_participants has something to filter.
 	resp, body := doJSON(t, ts, http.MethodPost, "/calendars/"+source.ID+"/participants", map[string]string{"name": "Alice"})
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("add alice: %d %s", resp.StatusCode, body)
@@ -80,6 +82,19 @@ func TestDuplicateCalendar(t *testing.T) {
 	resp, _ = doJSON(t, ts, http.MethodPost, "/calendars/"+source.ID+"/participants", map[string]string{"name": "Bob"})
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("add bob: %d", resp.StatusCode)
+	}
+	st := store.New(openTestDB(t))
+	carol, err := st.CreateUser(t.Context(), "carol@example.com", "Carol", "google", "carol-sub")
+	if err != nil {
+		t.Fatalf("create carol: %v", err)
+	}
+	carolSess, err := st.CreateSession(t.Context(), carol.ID)
+	if err != nil {
+		t.Fatalf("carol session: %v", err)
+	}
+	resp, body = doJSONRaw(t, ts, http.MethodPost, "/calendars/"+source.ID+"/participants", map[string]string{"name": "Carol"}, carolSess, nil)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("add carol: %d %s", resp.StatusCode, body)
 	}
 
 	t.Run("DefaultsCopyParticipants", func(t *testing.T) {
@@ -107,8 +122,11 @@ func TestDuplicateCalendar(t *testing.T) {
 		for _, p := range details.Participants {
 			names[p.Name] = true
 		}
-		if !names["Alice"] || !names["Bob"] {
-			t.Errorf("expected Alice+Bob copied, got %+v", details.Participants)
+		if !names["Carol"] {
+			t.Errorf("expected signed-in Carol copied, got %+v", details.Participants)
+		}
+		if names["Alice"] || names["Bob"] {
+			t.Errorf("anonymous Alice/Bob must not be copied, got %+v", details.Participants)
 		}
 	})
 
@@ -229,8 +247,8 @@ func TestRenameParticipant(t *testing.T) {
 		t.Errorf("blank: expected 400, got %d", resp.StatusCode)
 	}
 
-	// Anonymous caller asserting their own participant_id → 200.
-	// Add a second anonymous participant so we can use their own ID.
+	// Anonymous caller holding their own participant token → 200 (doJSON
+	// replays the token issued at join). Add a second anonymous participant.
 	resp, body = doJSON(t, ts, http.MethodPost, "/calendars/"+cal.ID+"/participants", map[string]string{"name": "Bob"})
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("add bob: %d %s", resp.StatusCode, body)
@@ -239,18 +257,19 @@ func TestRenameParticipant(t *testing.T) {
 	decodeJSON(t, body, &bob)
 
 	resp, body = doJSON(t, ts, http.MethodPatch, "/calendars/"+cal.ID+"/participants/"+bob.ID, map[string]string{
-		"name":           "Robert",
-		"participant_id": bob.ID,
+		"name": "Robert",
 	})
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("anon self-rename: %d %s", resp.StatusCode, body)
 	}
 
-	// Anonymous caller without proving identity → 403.
-	resp, _ = doJSON(t, ts, http.MethodPatch, "/calendars/"+cal.ID+"/participants/"+bob.ID, map[string]string{
-		"name": "Hacker",
-	})
+	// Anonymous caller without a token → 403, even when the body claims to
+	// be bob (the legacy participant_id field is ignored).
+	resp, _ = doJSONRaw(t, ts, http.MethodPatch, "/calendars/"+cal.ID+"/participants/"+bob.ID, map[string]string{
+		"name":           "Hacker",
+		"participant_id": bob.ID,
+	}, "", nil)
 	if resp.StatusCode != http.StatusForbidden {
-		t.Errorf("anon no-id: expected 403, got %d", resp.StatusCode)
+		t.Errorf("anon no-token: expected 403, got %d", resp.StatusCode)
 	}
 }

@@ -32,6 +32,16 @@ type mockStore struct {
 	deleteInvite                   func() error
 	setInviteMatch                 func(id string, pid *string) (model.Invite, error)
 	participantsWithNoAvailability func() ([]model.Participant, error)
+	claimParticipant               func(calendarID, participantID, userID string) (model.Participant, error)
+	updateParticipantEmail         func(calendarID, participantID string, email *string) (model.Participant, error)
+	mergeAvailabilityDates         func(participantID string, dates []string) error
+
+	// tokenHashes holds participants.token_hash per participant id. A missing
+	// entry means NULL (user-linked row, or an anonymous row nobody can write).
+	tokenHashes map[string]string
+
+	// addedTokenHash records the hash passed to AddParticipantWithTokenHash.
+	addedTokenHash *string
 }
 
 func (m *mockStore) CreateCalendar(_ context.Context, name, emoji, ownerID string) (model.Calendar, error) {
@@ -55,22 +65,42 @@ func (m *mockStore) GetCalendar(ctx context.Context, id string) (model.CalendarW
 	return m.getCalendar(ctx, id)
 }
 
+// GetCalendarOnly defaults to a live calendar owned by "owner1" so tests that
+// only care about participant-level behaviour don't need to stub it.
 func (m *mockStore) GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error) {
 	if m.getCalendarOnly == nil {
-		panic("unexpected call to GetCalendarOnly")
+		return model.Calendar{ID: id, OwnerID: "owner1"}, nil
 	}
 	return m.getCalendarOnly(ctx, id)
 }
 
-func (m *mockStore) AddParticipant(ctx context.Context, calendarID, name string, userID *string, _ *string) (model.Participant, error) {
+func (m *mockStore) AddParticipantWithTokenHash(ctx context.Context, calendarID, name string, userID *string, _ *string, tokenHash *string) (model.Participant, error) {
 	if m.addParticipant == nil {
-		panic("unexpected call to AddParticipant")
+		panic("unexpected call to AddParticipantWithTokenHash")
 	}
+	m.addedTokenHash = tokenHash
 	return m.addParticipant(ctx, calendarID, name, userID)
 }
 
-func (m *mockStore) UpdateParticipantEmail(_ context.Context, _, _ string, _ *string) (model.Participant, error) {
-	panic("unexpected call to UpdateParticipantEmail")
+func (m *mockStore) GetParticipantForAuth(ctx context.Context, id string) (model.Participant, *string, error) {
+	if m.getParticipant == nil {
+		panic("unexpected call to GetParticipantForAuth")
+	}
+	p, err := m.getParticipant(ctx, id)
+	if err != nil {
+		return model.Participant{}, nil, err
+	}
+	if h, ok := m.tokenHashes[id]; ok {
+		return p, &h, nil
+	}
+	return p, nil, nil
+}
+
+func (m *mockStore) UpdateParticipantEmail(_ context.Context, calendarID, participantID string, email *string) (model.Participant, error) {
+	if m.updateParticipantEmail == nil {
+		panic("unexpected call to UpdateParticipantEmail")
+	}
+	return m.updateParticipantEmail(calendarID, participantID, email)
 }
 
 func (m *mockStore) ClearParticipantEmailByID(_ context.Context, _ string) error {
@@ -81,8 +111,11 @@ func (m *mockStore) GetUser(_ context.Context, _ string) (model.User, error) {
 	return model.User{}, store.ErrNotFound
 }
 
-func (m *mockStore) ClaimParticipant(_ context.Context, _, _, _ string) (model.Participant, error) {
-	panic("unexpected call to ClaimParticipant")
+func (m *mockStore) ClaimParticipant(_ context.Context, calendarID, participantID, userID string) (model.Participant, error) {
+	if m.claimParticipant == nil {
+		panic("unexpected call to ClaimParticipant")
+	}
+	return m.claimParticipant(calendarID, participantID, userID)
 }
 
 func (m *mockStore) SetFinalisedDate(_ context.Context, _, _ string) (model.Calendar, error) {
@@ -101,8 +134,11 @@ func (m *mockStore) SetAvailability(ctx context.Context, participantID string, d
 	return m.setAvailability(ctx, participantID, dates, noteOverrides, preferredOverrides)
 }
 
-func (m *mockStore) MergeAvailabilityDates(_ context.Context, _ string, _ []string) error {
-	panic("unexpected call to MergeAvailabilityDates")
+func (m *mockStore) MergeAvailabilityDates(_ context.Context, participantID string, dates []string) error {
+	if m.mergeAvailabilityDates == nil {
+		panic("unexpected call to MergeAvailabilityDates")
+	}
+	return m.mergeAvailabilityDates(participantID, dates)
 }
 
 func (m *mockStore) UpdateCalendarName(_ context.Context, _, _ string) (model.Calendar, error) {
@@ -216,6 +252,7 @@ func (m *mockStore) ParticipantsWithNoAvailability(_ context.Context, _ string) 
 func TestSetAvailability_ParticipantBelongsToCalendar(t *testing.T) {
 	var storeCalled bool
 	ms := &mockStore{
+		tokenHashes: map[string]string{"p1": hashParticipantToken("tok-p1")},
 		getParticipant: func(_ context.Context, id string) (model.Participant, error) {
 			return model.Participant{ID: id, CalendarID: "cal1"}, nil
 		},
@@ -232,7 +269,7 @@ func TestSetAvailability_ParticipantBelongsToCalendar(t *testing.T) {
 	}
 
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
-	err := s.SetAvailability(context.Background(), "cal1", "p1", []string{"2026-05-01"}, nil, nil)
+	err := s.SetAvailability(context.Background(), "cal1", "p1", ParticipantCaller{Token: "tok-p1"}, []string{"2026-05-01"}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -249,7 +286,7 @@ func TestSetAvailability_ParticipantNotFound(t *testing.T) {
 	}
 
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
-	err := s.SetAvailability(context.Background(), "cal1", "missing", []string{"2026-05-01"}, nil, nil)
+	err := s.SetAvailability(context.Background(), "cal1", "missing", ParticipantCaller{}, []string{"2026-05-01"}, nil, nil)
 	if err != store.ErrNotFound {
 		t.Fatalf("err = %v, want ErrNotFound", err)
 	}
@@ -263,7 +300,7 @@ func TestSetAvailability_ParticipantWrongCalendar(t *testing.T) {
 	}
 
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
-	err := s.SetAvailability(context.Background(), "cal1", "p1", []string{"2026-05-01"}, nil, nil)
+	err := s.SetAvailability(context.Background(), "cal1", "p1", ParticipantCaller{}, []string{"2026-05-01"}, nil, nil)
 	if err != store.ErrNotFound {
 		t.Fatalf("err = %v, want ErrNotFound", err)
 	}
@@ -316,7 +353,7 @@ func TestSetAvailability_StoreError(t *testing.T) {
 	}
 
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
-	err := s.SetAvailability(context.Background(), "cal1", "p1", []string{"2026-05-01"}, nil, nil)
+	err := s.SetAvailability(context.Background(), "cal1", "p1", ParticipantCaller{}, []string{"2026-05-01"}, nil, nil)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -494,7 +531,7 @@ func TestAddParticipant_TouchesCalendar(t *testing.T) {
 	}
 
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
-	if _, err := s.AddParticipant(context.Background(), "cal1", "Alice", nil, nil); err != nil {
+	if _, _, err := s.AddParticipant(context.Background(), "cal1", "Alice", nil, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if touchCalendarID != "cal1" {
@@ -505,6 +542,7 @@ func TestAddParticipant_TouchesCalendar(t *testing.T) {
 func TestSetAvailability_TouchesCalendar(t *testing.T) {
 	var touched bool
 	ms := &mockStore{
+		tokenHashes: map[string]string{"p1": hashParticipantToken("tok-p1")},
 		getParticipant: func(_ context.Context, id string) (model.Participant, error) {
 			return model.Participant{ID: id, CalendarID: "cal1"}, nil
 		},
@@ -521,7 +559,7 @@ func TestSetAvailability_TouchesCalendar(t *testing.T) {
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-	if err := s.SetAvailability(context.Background(), "cal1", "p1", []string{"2026-05-01"}, nil, nil); err != nil {
+	if err := s.SetAvailability(context.Background(), "cal1", "p1", ParticipantCaller{Token: "tok-p1"}, []string{"2026-05-01"}, nil, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !touched {
@@ -537,7 +575,7 @@ func TestAddParticipant_CapReached(t *testing.T) {
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-	_, err := s.AddParticipant(context.Background(), "cal1", "Alice", nil, nil)
+	_, _, err := s.AddParticipant(context.Background(), "cal1", "Alice", nil, nil)
 	if !errors.Is(err, store.ErrCalendarFull) {
 		t.Fatalf("err = %v, want ErrCalendarFull", err)
 	}
@@ -554,7 +592,7 @@ func TestAddParticipant_UnderCap(t *testing.T) {
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-	p, err := s.AddParticipant(context.Background(), "cal1", "Alice", nil, nil)
+	p, _, err := s.AddParticipant(context.Background(), "cal1", "Alice", nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -603,13 +641,18 @@ func TestRenameParticipant_OwnerAllowed(t *testing.T) {
 		getCalendarOnly: func(_ context.Context, _ string) (model.Calendar, error) {
 			return model.Calendar{ID: "c1", OwnerID: ownerID}, nil
 		},
+		getParticipant: func(_ context.Context, id string) (model.Participant, error) {
+			return model.Participant{ID: id, CalendarID: "c1"}, nil
+		},
+		// Target has a token the owner does not hold — owner power still applies.
+		tokenHashes: map[string]string{"p1": hashParticipantToken("someone-elses-token")},
 		updateParticipantName: func(_ context.Context, calendarID, pid, name string) (model.Participant, error) {
 			return model.Participant{ID: pid, CalendarID: calendarID, Name: name}, nil
 		},
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-	p, err := s.RenameParticipant(context.Background(), "c1", "p1", &ownerID, "", "Alicia")
+	p, err := s.RenameParticipant(context.Background(), "c1", "p1", ParticipantCaller{UserID: &ownerID}, "Alicia")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -618,20 +661,43 @@ func TestRenameParticipant_OwnerAllowed(t *testing.T) {
 	}
 }
 
-func TestRenameParticipant_SelfViaParticipantID(t *testing.T) {
+func TestRenameParticipant_SelfViaToken(t *testing.T) {
 	ms := &mockStore{
 		getCalendarOnly: func(_ context.Context, _ string) (model.Calendar, error) {
 			return model.Calendar{ID: "c1", OwnerID: "owner1"}, nil
 		},
+		getParticipant: func(_ context.Context, id string) (model.Participant, error) {
+			return model.Participant{ID: id, CalendarID: "c1"}, nil
+		},
+		tokenHashes: map[string]string{"p1": hashParticipantToken("tok-p1")},
 		updateParticipantName: func(_ context.Context, calendarID, pid, name string) (model.Participant, error) {
 			return model.Participant{ID: pid, CalendarID: calendarID, Name: name}, nil
 		},
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-	_, err := s.RenameParticipant(context.Background(), "c1", "p1", nil, "p1", "Alicia")
+	_, err := s.RenameParticipant(context.Background(), "c1", "p1", ParticipantCaller{Token: "tok-p1"}, "Alicia")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// M1 regression: an anonymous caller holding someone else's token (or none)
+// can no longer rename a participant just by knowing its public id.
+func TestRenameParticipant_AnonWrongTokenForbidden(t *testing.T) {
+	for _, tok := range []string{"", "tok-p2"} {
+		ms := &mockStore{
+			getParticipant: func(_ context.Context, id string) (model.Participant, error) {
+				return model.Participant{ID: id, CalendarID: "c1"}, nil
+			},
+			tokenHashes: map[string]string{"p1": hashParticipantToken("tok-p1")},
+		}
+		s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
+
+		_, err := s.RenameParticipant(context.Background(), "c1", "p1", ParticipantCaller{Token: tok}, "Mallory")
+		if !errors.Is(err, ErrForbidden) {
+			t.Fatalf("token %q: err = %v, want ErrForbidden", tok, err)
+		}
 	}
 }
 
@@ -650,7 +716,7 @@ func TestRenameParticipant_SelfViaLinkedUser(t *testing.T) {
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-	_, err := s.RenameParticipant(context.Background(), "c1", "p1", &userID, "", "Alicia")
+	_, err := s.RenameParticipant(context.Background(), "c1", "p1", ParticipantCaller{UserID: &userID}, "Alicia")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -669,7 +735,7 @@ func TestRenameParticipant_StrangerForbidden(t *testing.T) {
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-	_, err := s.RenameParticipant(context.Background(), "c1", "p1", &callerID, "", "Alicia")
+	_, err := s.RenameParticipant(context.Background(), "c1", "p1", ParticipantCaller{UserID: &callerID}, "Alicia")
 	if !errors.Is(err, ErrForbidden) {
 		t.Fatalf("err = %v, want ErrForbidden", err)
 	}
@@ -685,7 +751,7 @@ func TestRenameParticipant_FinalisedRejected(t *testing.T) {
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-	_, err := s.RenameParticipant(context.Background(), "c1", "p1", &ownerID, "", "Alicia")
+	_, err := s.RenameParticipant(context.Background(), "c1", "p1", ParticipantCaller{UserID: &ownerID}, "Alicia")
 	if !errors.Is(err, store.ErrCalendarFinalised) {
 		t.Fatalf("err = %v, want ErrCalendarFinalised", err)
 	}
@@ -700,7 +766,7 @@ func TestRenameParticipant_EmptyNameRejected(t *testing.T) {
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-	_, err := s.RenameParticipant(context.Background(), "c1", "p1", &ownerID, "", "   ")
+	_, err := s.RenameParticipant(context.Background(), "c1", "p1", ParticipantCaller{UserID: &ownerID}, "   ")
 	if !errors.Is(err, ErrInvalidName) {
 		t.Fatalf("err = %v, want ErrInvalidName", err)
 	}
@@ -723,6 +789,7 @@ func (r *recordingPublisher) Publish(calendarID, eventType string) {
 
 func TestPublisher_SetAvailability_PublishesOnSuccess(t *testing.T) {
 	ms := &mockStore{
+		tokenHashes: map[string]string{"p1": hashParticipantToken("tok-p1")},
 		getParticipant: func(_ context.Context, id string) (model.Participant, error) {
 			return model.Participant{ID: id, CalendarID: "cal1"}, nil
 		},
@@ -733,7 +800,7 @@ func TestPublisher_SetAvailability_PublishesOnSuccess(t *testing.T) {
 	rp := &recordingPublisher{}
 	s := New(ms, rp, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-	if err := s.SetAvailability(context.Background(), "cal1", "p1", []string{"2026-05-01"}, nil, nil); err != nil {
+	if err := s.SetAvailability(context.Background(), "cal1", "p1", ParticipantCaller{Token: "tok-p1"}, []string{"2026-05-01"}, nil, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(rp.events) != 1 ||
@@ -755,7 +822,7 @@ func TestPublisher_SetAvailability_NoPublishOnStoreError(t *testing.T) {
 	rp := &recordingPublisher{}
 	s := New(ms, rp, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-	if err := s.SetAvailability(context.Background(), "cal1", "p1", []string{"2026-05-01"}, nil, nil); err == nil {
+	if err := s.SetAvailability(context.Background(), "cal1", "p1", ParticipantCaller{}, []string{"2026-05-01"}, nil, nil); err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if len(rp.events) != 0 {

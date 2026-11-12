@@ -347,6 +347,10 @@ func TestDuplicateCalendar_CopiesCoreFields(t *testing.T) {
 	if _, err := s.AddParticipant(ctx, src.ID, "Bob", nil, nil); err != nil {
 		t.Fatalf("add bob: %v", err)
 	}
+	carol := createTestUser(t, s, "Carol")
+	if _, err := s.AddParticipant(ctx, src.ID, "Carol", &carol.ID, nil); err != nil {
+		t.Fatalf("add carol: %v", err)
+	}
 
 	dup, ownerP, err := s.DuplicateCalendar(ctx, src.ID, owner.ID, "Tennis (copy)", "Owner", true)
 	if err != nil {
@@ -366,8 +370,15 @@ func TestDuplicateCalendar_CopiesCoreFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get dup: %v", err)
 	}
-	if len(got.Participants) != 3 {
-		t.Fatalf("participants len = %d, want 3 (owner + alice + bob)", len(got.Participants))
+	// Only user-linked participants are copied: anonymous Alice and Bob
+	// would have no participant token on the copy, so they rejoin instead.
+	if len(got.Participants) != 2 {
+		t.Fatalf("participants len = %d, want 2 (owner + carol)", len(got.Participants))
+	}
+	for _, p := range got.Participants {
+		if p.UserID == nil {
+			t.Fatalf("anonymous participant %q copied; only user-linked rows may be", p.Name)
+		}
 	}
 	if len(got.Availability) != 0 {
 		t.Fatalf("expected no availability on duplicate, got %d rows", len(got.Availability))

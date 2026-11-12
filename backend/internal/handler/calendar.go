@@ -46,7 +46,8 @@ func (h *Handler) CreateCalendar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Auto-join the owner as a participant
-	participant, err := h.service.AddParticipant(r.Context(), cal.ID, user.Name, &user.ID, nil)
+	// Owner auto-join is user-linked, so no participant token is issued.
+	participant, _, err := h.service.AddParticipant(r.Context(), cal.ID, user.Name, &user.ID, nil)
 	if err != nil {
 		// Calendar was created but participant failed — still return the calendar.
 		// The owner can join manually on the calendar page.
@@ -144,6 +145,30 @@ func (h *Handler) DuplicateCalendar(w http.ResponseWriter, r *http.Request) {
 // AccessHeader is the HTTP header carrying a calendar access token issued by
 // POST /calendars/{id}/unlock.
 const AccessHeader = "X-Calendar-Access"
+
+// ParticipantTokenHeader carries the per-participant secret. Clients send it
+// on participant-scoped writes; the server sets it only on the anonymous join
+// response, the one place a token is issued.
+const ParticipantTokenHeader = "X-Participant-Token"
+
+// participantCaller builds the caller identity for a participant-scoped
+// write from the session user and the participant-token header.
+func participantCaller(r *http.Request) service.ParticipantCaller {
+	c := service.ParticipantCaller{Token: r.Header.Get(ParticipantTokenHeader)}
+	if u := UserFromContext(r); u != nil {
+		uid := u.ID
+		c.UserID = &uid
+	}
+	return c
+}
+
+// setJoinParticipantToken hands an anonymous joiner their freshly issued
+// participant token. No-op for "" (signed-in joiners get no token).
+func setJoinParticipantToken(w http.ResponseWriter, token string) {
+	if token != "" {
+		w.Header().Set(ParticipantTokenHeader, token)
+	}
+}
 
 // calendarResponseDTO wraps CalendarWithDetails so we can inject
 // passphrase-specific fields that don't belong on the shared model. The

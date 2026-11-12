@@ -11,11 +11,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"regexp"
+	"sync"
 	"testing"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/freewhen/backend/internal/config"
+	"github.com/freewhen/backend/internal/handler"
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/server"
 	"github.com/freewhen/backend/internal/store"
@@ -25,6 +28,55 @@ import (
 type testServer struct {
 	*httptest.Server
 	sessionToken string
+
+	// participantTokens is a per-test "browser storage" of participant
+	// tokens (participant id → raw token), filled from X-Participant-Token
+	// response headers and replayed automatically by doJSON* on writes that
+	// target that participant. Tests probing authorization use
+	// doJSONRaw to control the header explicitly.
+	mu                sync.Mutex
+	participantTokens map[string]string
+}
+
+// participantPathRE extracts the participant id from
+// /calendars/{id}/participants/{pid}[/claim].
+var participantPathRE = regexp.MustCompile(`^/calendars/[^/]+/participants/([^/?]+)`)
+
+// joinPathRE matches the anonymous-join endpoint.
+var joinPathRE = regexp.MustCompile(`^/calendars/[^/]+/participants$`)
+
+// targetParticipantID returns the participant a request acts on: the
+// participant_id body field, or the {participantId} path segment.
+func targetParticipantID(path string, body any) string {
+	switch b := body.(type) {
+	case map[string]any:
+		if s, ok := b["participant_id"].(string); ok && s != "" {
+			return s
+		}
+	case map[string]string:
+		if s := b["participant_id"]; s != "" {
+			return s
+		}
+	}
+	if m := participantPathRE.FindStringSubmatch(path); m != nil && m[1] != "me" {
+		return m[1]
+	}
+	return ""
+}
+
+func (ts *testServer) participantToken(pid string) string {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	return ts.participantTokens[pid]
+}
+
+func (ts *testServer) rememberParticipantToken(pid, tok string) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	if ts.participantTokens == nil {
+		ts.participantTokens = map[string]string{}
+	}
+	ts.participantTokens[pid] = tok
 }
 
 func setupTestServer(t *testing.T) *testServer {
@@ -84,6 +136,36 @@ func doJSONAuth(t *testing.T, ts *testServer, method, path string, body any) (*h
 func doJSONWithSession(t *testing.T, ts *testServer, method, path string, body any, sessionToken string) (*http.Response, []byte) {
 	t.Helper()
 
+	target := targetParticipantID(path, body)
+	headers := map[string]string{}
+	if target != "" {
+		if tok := ts.participantToken(target); tok != "" {
+			headers[handler.ParticipantTokenHeader] = tok
+		}
+	}
+	resp, data := doJSONRaw(t, ts, method, path, body, sessionToken, headers)
+
+	if tok := resp.Header.Get(handler.ParticipantTokenHeader); tok != "" {
+		pid := target
+		if method == http.MethodPost && joinPathRE.MatchString(path) {
+			var p struct {
+				ID string `json:"id"`
+			}
+			_ = json.Unmarshal(data, &p)
+			pid = p.ID
+		}
+		if pid != "" {
+			ts.rememberParticipantToken(pid, tok)
+		}
+	}
+	return resp, data
+}
+
+// doJSONRaw sends a request with exactly the given extra headers and no
+// automatic participant-token handling.
+func doJSONRaw(t *testing.T, ts *testServer, method, path string, body any, sessionToken string, headers map[string]string) (*http.Response, []byte) {
+	t.Helper()
+
 	var buf io.Reader
 	if body != nil {
 		switch b := body.(type) {
@@ -105,6 +187,9 @@ func doJSONWithSession(t *testing.T, ts *testServer, method, path string, body a
 		t.Fatalf("new request: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 	if sessionToken != "" {
 		req.AddCookie(&http.Cookie{Name: "session", Value: sessionToken})
 	}
