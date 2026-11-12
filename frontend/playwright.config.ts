@@ -41,7 +41,9 @@ export default defineConfig({
     },
     {
       // Loopback only, like the e2e backend — avoids Windows Firewall prompts.
-      command: `pnpm exec next dev --hostname 127.0.0.1 --port ${FRONTEND_PORT}`,
+      // `localhost`, not 127.0.0.1: tests load http://localhost, and a
+      // mismatched bind slowed page startup enough to drop typed input.
+      command: `pnpm exec next dev --hostname localhost --port ${FRONTEND_PORT}`,
       env: {
         NEXT_PUBLIC_API_URL: BACKEND_URL,
       },

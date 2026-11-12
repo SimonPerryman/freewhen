@@ -13,7 +13,8 @@ reach the e2e servers, so bind them to loopback.
 ## Plan
 
 - `backend/cmd/e2e-server/main.go`: listen on `127.0.0.1:$PORT` instead of `:$PORT`.
-- `frontend/playwright.config.ts`: start `next dev` with `--hostname 127.0.0.1`.
+- `frontend/playwright.config.ts`: start `next dev` with `--hostname localhost`
+  (loopback-only, matches the URLs the tests load).
 - URLs stay `http://localhost:...` so cookies/CORS origins are unchanged;
   Node and Chromium both fall back from `::1` to `127.0.0.1` when resolving
   `localhost` (verified with Node 24 `fetch` and `http.get`).
@@ -23,3 +24,6 @@ reach the e2e servers, so bind them to loopback.
 ## Log
 
 - 2026-11-12 15:40 — Created plan; e2e-server and Playwright next dev bound to 127.0.0.1.
+- 2026-11-12 16:20 — Switched next dev to `--hostname localhost`: the e2e-failures
+  investigation (#88) found a 127.0.0.1 bind with `localhost` test URLs slowed
+  startup enough that create-calendar / magic-link lost typed input.
