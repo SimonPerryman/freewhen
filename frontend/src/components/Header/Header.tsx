@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider/AuthProvider";
 import { ColorSchemeIconButton } from "@/components/ColorSchemeToggle/ColorSchemeToggle";
@@ -9,11 +8,7 @@ import styles from "./Header.module.css";
 
 export default function Header() {
   const pathname = usePathname();
-  const { user, isLoading, checkAuth } = useAuth();
-
-  useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
+  const { user, isLoading } = useAuth();
 
   if (pathname === "/login") return null;
 

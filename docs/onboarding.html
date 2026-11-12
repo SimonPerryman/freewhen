@@ -547,7 +547,8 @@ erDiagram
         └── &lt;ShareButton&gt;
         └── &lt;LiveStatusDot&gt;           ← SSE connection indicator
 &lt;ToastProvider&gt;       ← in root layout
-&lt;AnalyticsProvider&gt;   ← in root layout (PostHog)</div>
+&lt;AnalyticsProvider&gt;   ← in root layout (PostHog, lazy-loaded when idle)
+&lt;AuthProvider&gt;        ← in root layout; sole /auth/me caller, read via useAuth()</div>
 
   <h3 class="kicker">House rules</h3>
   <ul class="tight">
