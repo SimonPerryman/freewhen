@@ -104,6 +104,19 @@ func TestRouteCoverage_AuthClassMatchesAllowList(t *testing.T) {
 	}
 }
 
+// TestRouteCoverage_OptionalRoutesRateLimited guards L6: every route reachable
+// without a session resolves a calendar by ID, so each must carry the per-IP
+// lookup limit.
+func TestRouteCoverage_OptionalRoutesRateLimited(t *testing.T) {
+	s := newRouteCoverageServer()
+	s.routes()
+	for _, spec := range s.routeSpecs {
+		if spec.kind == authOptional && !spec.rateLimited {
+			t.Errorf("optional-auth route %q is not rate limited", spec.pattern)
+		}
+	}
+}
+
 // TestRouteCoverage_RequiredRoutesReject401 hits every authRequired/authAdmin
 // route with no session cookie and asserts 401. Catches the case where a
 // handler is registered with handleAuth but the wrap was bypassed somewhere.
@@ -144,6 +157,7 @@ func newRouteCoverageServer() *Server {
 		auth:           (*handler.AuthHandler)(nil),
 		metrics:        (*handler.MetricsHandler)(nil),
 		calIntegration: (*handler.CalendarIntegrationHandler)(nil),
+		lookupLimiter:  handler.NewCalendarLookupLimiter(0),
 		mux:            http.NewServeMux(),
 		logger:         slog.New(slog.NewJSONHandler(io.Discard, nil)),
 	}

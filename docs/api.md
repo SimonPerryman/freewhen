@@ -78,6 +78,28 @@ CORS allows the `X-Participant-Token` request header and exposes it (and
 | GET | `/calendars/{id}/export.ics` | Optional + gate | Download the finalised event as .ics |
 | GET | `/calendars/{id}/export/{provider}` | Optional + gate | 302 to the provider's "add event" page (e.g. `google`) |
 
+### Calendar IDs and lookup rate limit
+
+Calendar IDs are lowercase `[a-z0-9]`. New calendars get 12-character IDs;
+calendars created before that keep their 8-character IDs and continue to
+work, so clients must accept either length (and shouldn't validate it).
+
+For a calendar without a passphrase the ID is the only secret, so every route
+that resolves a calendar by ID without requiring a session is rate-limited per
+client IP (the same trusted `X-Forwarded-For` hop as magic-link limiting,
+IPv6 grouped by /64). That's `GET /calendars/{id}`, joining, renaming a
+participant, `PUT /availability`, `POST /unlock` and the two export routes
+(shared budget: 120 requests/minute, burst 120) and the SSE stream
+`GET /calendars/{id}/events` (separate budget: 60 connects/minute, burst 60).
+The limit applies whether or not a session is attached. Over budget:
+
+```
+HTTP/1.1 429 Too Many Requests
+Retry-After: 1
+
+{"error": "too many requests, try again shortly", "code": "rate_limited"}
+```
+
 ## Admin
 
 | Method | Path | Auth | Description |

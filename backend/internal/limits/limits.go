@@ -20,6 +20,20 @@ const (
 	// MaxNoteLength is the per-date note ceiling in Unicode code points. The DB
 	// enforces the same rule via a check constraint on availability.note.
 	MaxNoteLength = 140
+
+	// CalendarLookupsPerIPPerMinute caps requests per client IP to the
+	// /calendars/{id} routes reachable without a session (read, join, vote,
+	// unlock, export). For a calendar without a passphrase the ID is the only
+	// secret, so these routes are an enumeration oracle. Token bucket: burst
+	// of this size, refilling at this rate. A real page view costs ~2; the
+	// polling fallback costs 4/min. See
+	// plans/tech-debt/calendar-id-entropy-and-lookup-rate-limit.md.
+	CalendarLookupsPerIPPerMinute = 120
+	// CalendarStreamsPerIPPerMinute caps SSE connects per client IP, in a
+	// bucket separate from lookups so a burst of refetches can't starve the
+	// stream. Browsers reconnect ~every 3s at worst (20/min) and the client
+	// falls back to polling after repeated errors.
+	CalendarStreamsPerIPPerMinute = 60
 )
 
 // DateWithinRange reports whether d falls inside the acceptable availability /

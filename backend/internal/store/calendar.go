@@ -13,7 +13,7 @@ import (
 func (s *Store) CreateCalendar(ctx context.Context, name, emoji, ownerID string) (model.Calendar, error) {
 	const maxRetries = 3
 	for i := 0; i < maxRetries; i++ {
-		id := generateID(8)
+		id := generateID(CalendarIDLength)
 		var cal model.Calendar
 		var emojiCol sql.NullString
 		err := s.db.QueryRowContext(ctx,
@@ -417,7 +417,7 @@ func (s *Store) DuplicateCalendar(
 	var newCal model.Calendar
 	const maxRetries = 3
 	for i := 0; i < maxRetries; i++ {
-		id := generateID(8)
+		id := generateID(CalendarIDLength)
 		var emojiOut sql.NullString
 		err = tx.QueryRowContext(ctx,
 			`INSERT INTO calendars (id, name, emoji, owner_id) VALUES ($1, $2, $3, $4)
