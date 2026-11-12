@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, duplicateCalendar } from "@/lib/api";
 import analytics from "@/lib/analytics";
 import { MAX_CALENDAR_NAME_LENGTH } from "@/lib/limits";
-import { useFocusTrap } from "@/lib/useFocusTrap";
 import Button from "@/components/Button/Button";
+import Sheet from "@/components/Sheet/Sheet";
 import TextField from "@/components/TextField/TextField";
 import styles from "./DuplicateCalendarSheet.module.css";
 
@@ -28,17 +28,16 @@ export default function DuplicateCalendarSheet({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const sheetRef = useFocusTrap<HTMLDivElement>({
-    enabled: !submitting,
-    onEscape: () => {
-      if (!submitting) onClose();
-    },
-    initialFocus: inputRef,
-  });
 
   useEffect(() => {
     inputRef.current?.select();
   }, []);
+
+  // The submit button is disabled mid-request, which drops focus; put it back
+  // on the field once an error re-enables the form.
+  useEffect(() => {
+    if (error) inputRef.current?.focus();
+  }, [error]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -83,63 +82,52 @@ export default function DuplicateCalendarSheet({
   );
 
   return (
-    <div
-      className={styles.backdrop}
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !submitting) onClose();
-      }}
+    <Sheet
+      title="Duplicate this calendar"
+      onClose={onClose}
+      dismissible={!submitting}
+      initialFocus={inputRef}
     >
-      <div
-        ref={sheetRef}
-        className={styles.sheet}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="duplicate-sheet-title"
-      >
-        <h2 id="duplicate-sheet-title" className={styles.heading}>
-          Duplicate this calendar
-        </h2>
-        <form onSubmit={handleSubmit} className={styles.form}>
-          <TextField
-            ref={inputRef}
-            label="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={MAX_CALENDAR_NAME_LENGTH}
+      <form onSubmit={handleSubmit} className={styles.form}>
+        <TextField
+          ref={inputRef}
+          label="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={MAX_CALENDAR_NAME_LENGTH}
+          disabled={submitting}
+          aria-invalid={!!error}
+          aria-describedby={error ? "duplicate-sheet-error" : undefined}
+        />
+        <label className={styles.checkboxRow}>
+          <input
+            type="checkbox"
+            checked={includeParticipants}
+            onChange={(e) => setIncludeParticipants(e.target.checked)}
             disabled={submitting}
-            aria-invalid={!!error}
-            aria-describedby={error ? "duplicate-sheet-error" : undefined}
           />
-          <label className={styles.checkboxRow}>
-            <input
-              type="checkbox"
-              checked={includeParticipants}
-              onChange={(e) => setIncludeParticipants(e.target.checked)}
-              disabled={submitting}
-            />
-            <span>
-              <strong>Copy participants</strong>
-              <span className={styles.hint}>
-                Signed-in participants will be added to the new one. Others can rejoin via the link.
-                Everyone will need to re-mark availability.
-              </span>
+          <span>
+            <strong>Copy participants</strong>
+            <span className={styles.hint}>
+              Signed-in participants will be added to the new one. Others can rejoin via the link.
+              Everyone will need to re-mark availability.
             </span>
-          </label>
-          {error ? (
-            <p id="duplicate-sheet-error" className={styles.error} role="alert">
-              {error}
-            </p>
-          ) : null}
-          <div className={styles.actions}>
-            <Button variant="secondary" onClick={onClose} disabled={submitting}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" disabled={submitting}>
-              {submitting ? "Duplicating…" : "Duplicate →"}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+          </span>
+        </label>
+        {error ? (
+          <p id="duplicate-sheet-error" className={styles.error} role="alert">
+            {error}
+          </p>
+        ) : null}
+        <div className={styles.actions}>
+          <Button variant="secondary" onClick={onClose} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary" disabled={submitting}>
+            {submitting ? "Duplicating…" : "Duplicate →"}
+          </Button>
+        </div>
+      </form>
+    </Sheet>
   );
 }

@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Availability, Participant } from "@/lib/types";
 import { MAX_NOTE_LENGTH, codePointCount } from "@/lib/limits";
-import { useFocusTrap } from "@/lib/useFocusTrap";
 import Button from "@/components/Button/Button";
+import Sheet from "@/components/Sheet/Sheet";
 import styles from "./DayDetailSheet.module.css";
 
 interface DayDetailSheetProps {
@@ -75,14 +75,7 @@ export default function DayDetailSheet({
   onClose,
 }: DayDetailSheetProps) {
   const [draft, setDraft] = useState(currentNote);
-  const backdropRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const initialFocus = !finalised ? textareaRef : closeButtonRef;
-  const sheetRef = useFocusTrap<HTMLDivElement>({
-    onEscape: onClose,
-    initialFocus,
-  });
 
   useEffect(() => {
     setDraft(currentNote);
@@ -164,162 +157,136 @@ export default function DayDetailSheet({
     onClose();
   }
 
-  function handleBackdropClick(e: React.MouseEvent<HTMLDivElement>) {
-    if (e.target === backdropRef.current) onClose();
-  }
-
   const editable = !finalised && isSelected && currentParticipantId !== null;
 
   return (
-    <div
-      ref={backdropRef}
-      className={styles.backdrop}
-      onClick={handleBackdropClick}
-      role="presentation"
+    <Sheet
+      title={<span className={styles.title}>{formatFullDate(date)}</span>}
+      onClose={onClose}
+      closeLabel="Close day details"
+      // Without an editable note the close button (first focusable) gets focus.
+      initialFocus={finalised ? undefined : textareaRef}
     >
-      <div
-        ref={sheetRef}
-        className={styles.sheet}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="day-sheet-title"
-      >
-        <div className={styles.header}>
-          <h2 id="day-sheet-title" className={styles.title}>
-            {formatFullDate(date)}
-          </h2>
-          <button
-            ref={closeButtonRef}
-            type="button"
-            className={styles.closeButton}
-            onClick={onClose}
-            aria-label="Close day details"
-          >
-            ✕
-          </button>
-        </div>
-
-        <section className={styles.section} aria-labelledby="day-sheet-free-label">
-          <h3 id="day-sheet-free-label" className={styles.sectionLabel}>
-            {rows.length > 0
-              ? rows.length === 1
-                ? "1 person free"
-                : `${rows.length} people free`
-              : "No one's free"}
-          </h3>
-          {rows.length > 0 ? (
-            <ul className={styles.whoList}>
-              {rows.map(({ participant, note, isMe }) => (
-                <li key={participant.id} className={styles.whoItem}>
-                  <span
-                    className={styles.swatch}
-                    style={{ backgroundColor: participant.colour }}
-                    aria-hidden="true"
-                  />
-                  <div className={styles.whoBody}>
-                    <span className={styles.whoName}>
-                      {participant.name}
-                      {isMe ? <span className={styles.meTag}>you</span> : null}
-                      {preferredParticipantIds?.has(participant.id) ? (
-                        <span
-                          className={styles.preferStar}
-                          aria-label={`${participant.name} prefers this date`}
-                        >
-                          ★
-                        </span>
-                      ) : null}
-                    </span>
-                    {note ? <span className={styles.whoNote}>{note}</span> : null}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </section>
-
-        {editable && onToggleVote ? (
-          <section className={styles.section}>
-            <label className={styles.preferLabel}>
-              <input
-                type="checkbox"
-                className={styles.preferCheckbox}
-                checked={isPreferred}
-                onChange={(e) => onToggleVote(e.target.checked)}
-              />
-              <span className={styles.preferText}>
-                <span className={styles.preferTitle}>Prefer this date</span>
-                <span className={styles.preferHint}>
-                  Mark your top picks — helps the group pick a date everyone actually wants.
-                </span>
-              </span>
-            </label>
-          </section>
+      <section className={styles.section} aria-labelledby="day-sheet-free-label">
+        <h3 id="day-sheet-free-label" className={styles.sectionLabel}>
+          {rows.length > 0
+            ? rows.length === 1
+              ? "1 person free"
+              : `${rows.length} people free`
+            : "No one's free"}
+        </h3>
+        {rows.length > 0 ? (
+          <ul className={styles.whoList}>
+            {rows.map(({ participant, note, isMe }) => (
+              <li key={participant.id} className={styles.whoItem}>
+                <span
+                  className={styles.swatch}
+                  style={{ backgroundColor: participant.colour }}
+                  aria-hidden="true"
+                />
+                <div className={styles.whoBody}>
+                  <span className={styles.whoName}>
+                    {participant.name}
+                    {isMe ? <span className={styles.meTag}>you</span> : null}
+                    {preferredParticipantIds?.has(participant.id) ? (
+                      <span
+                        className={styles.preferStar}
+                        aria-label={`${participant.name} prefers this date`}
+                      >
+                        ★
+                      </span>
+                    ) : null}
+                  </span>
+                  {note ? <span className={styles.whoNote}>{note}</span> : null}
+                </div>
+              </li>
+            ))}
+          </ul>
         ) : null}
+      </section>
 
-        {editable ? (
-          <section className={styles.section}>
-            <label className={styles.editorLabel} htmlFor="day-sheet-note">
-              Your note
-              <span className={styles.editorHint}>Optional — 140 characters</span>
-            </label>
-            <textarea
-              ref={textareaRef}
-              id="day-sheet-note"
-              className={styles.textarea}
-              value={draft}
-              onChange={handleTextChange}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSave();
-                }
-              }}
-              placeholder="e.g. only after 6pm"
-              aria-describedby="day-sheet-note-counter"
+      {editable && onToggleVote ? (
+        <section className={styles.section}>
+          <label className={styles.preferLabel}>
+            <input
+              type="checkbox"
+              className={styles.preferCheckbox}
+              checked={isPreferred}
+              onChange={(e) => onToggleVote(e.target.checked)}
             />
-            <div className={styles.editorFoot}>
-              <span
-                id="day-sheet-note-counter"
-                className={tooLong ? styles.counterOver : styles.counter}
-                aria-live="polite"
-              >
-                {draftCount}/{MAX_NOTE_LENGTH}
+            <span className={styles.preferText}>
+              <span className={styles.preferTitle}>Prefer this date</span>
+              <span className={styles.preferHint}>
+                Mark your top picks — helps the group pick a date everyone actually wants.
               </span>
-              <div className={styles.editorActions}>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setDraft(currentNote)}
-                  disabled={draft === currentNote}
-                >
-                  Reset
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleSave}
-                  disabled={!canSave || draft.trim() === currentNote.trim()}
-                >
-                  Save
-                </Button>
-              </div>
-            </div>
-          </section>
-        ) : null}
+            </span>
+          </label>
+        </section>
+      ) : null}
 
-        {editable ? (
-          <button
-            type="button"
-            className={styles.removeButton}
-            onClick={() => {
-              onRemoveAvailability();
-              onClose();
+      {editable ? (
+        <section className={styles.section}>
+          <label className={styles.editorLabel} htmlFor="day-sheet-note">
+            Your note
+            <span className={styles.editorHint}>Optional — 140 characters</span>
+          </label>
+          <textarea
+            ref={textareaRef}
+            id="day-sheet-note"
+            className={styles.textarea}
+            value={draft}
+            onChange={handleTextChange}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSave();
+              }
             }}
-          >
-            Remove my availability
-          </button>
-        ) : null}
-      </div>
-    </div>
+            placeholder="e.g. only after 6pm"
+            aria-describedby="day-sheet-note-counter"
+          />
+          <div className={styles.editorFoot}>
+            <span
+              id="day-sheet-note-counter"
+              className={tooLong ? styles.counterOver : styles.counter}
+              aria-live="polite"
+            >
+              {draftCount}/{MAX_NOTE_LENGTH}
+            </span>
+            <div className={styles.editorActions}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setDraft(currentNote)}
+                disabled={draft === currentNote}
+              >
+                Reset
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleSave}
+                disabled={!canSave || draft.trim() === currentNote.trim()}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {editable ? (
+        <button
+          type="button"
+          className={styles.removeButton}
+          onClick={() => {
+            onRemoveAvailability();
+            onClose();
+          }}
+        >
+          Remove my availability
+        </button>
+      ) : null}
+    </Sheet>
   );
 }
