@@ -99,6 +99,12 @@
   --z-grain: 9999;
   --z-skip-link: 10000;
 
+  /* Overlays (Sheet) */
+  --sheet-max-width: 540px;
+  --dialog-max-width: 360px;
+  --scrim: color-mix(in srgb, black 45%, transparent);
+  --scrim-strong: color-mix(in srgb, black 55%, transparent);
+
   /* Radii */
   --radius-sm: 6px;
   --radius-md: 10px;

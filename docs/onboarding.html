@@ -573,6 +573,7 @@ erDiagram
   <ul class="tight">
     <li><strong>Tokens</strong> live in <code>src/app/globals.css</code>: colours (Paper / Ink palettes behind semantic names like <code>--text-primary</code>), spacing <code>--space-0-5</code>…<code>--space-16</code> (4px base), type <code>--text-3xs</code>…<code>--text-6xl</code> (base <code>--text-base</code> = 14px), line heights <code>--leading-*</code>, radii, shadows and stacking order <code>--z-*</code>. CSS modules use tokens, not raw px — only hairlines and 1–5px optical nudges stay literal.</li>
     <li><strong>Primitives</strong>: <code>Button</code> (primary / secondary / ghost / danger · sm / md / lg · <code>loading</code>; <code>buttonClassName()</code> for links) and <code>TextField</code> (label · hint · error, wired with <code>aria-describedby</code>). Reach for these before writing a new <code>.button</code> or <code>.input</code> rule.</li>
+    <li><strong>Overlays</strong>: <code>Sheet</code> is the one modal surface — bottom sheet on phones, centred card from 640px (<code>layout="dialog"</code> for compact confirms that stack above sheets). It owns the backdrop, <code>aria-modal</code> + title labelling, <code>useFocusTrap</code>, Escape/backdrop close, safe-area padding and the reduced-motion-aware enter animation. <code>UserMenu</code> stays a non-modal menu/popover.</li>
   </ul>
 </section>
 

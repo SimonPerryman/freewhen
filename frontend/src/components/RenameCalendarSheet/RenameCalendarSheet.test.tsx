@@ -63,6 +63,7 @@ describe("RenameCalendarSheet", () => {
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
     expect(await screen.findByRole("alert")).toHaveTextContent("That name is too long.");
     expect(input).toHaveAttribute("aria-invalid", "true");
+    await waitFor(() => expect(input).toHaveFocus());
   });
 
   it("closes on Escape and Cancel", () => {

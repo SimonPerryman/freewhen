@@ -1,7 +1,7 @@
 "use client";
 
-import { useFocusTrap } from "@/lib/useFocusTrap";
 import Button from "@/components/Button/Button";
+import Sheet from "@/components/Sheet/Sheet";
 import styles from "./CalendarSettingsSheet.module.css";
 
 interface Props {
@@ -25,84 +25,55 @@ export default function CalendarSettingsSheet({
   onDuplicate,
   onClose,
 }: Props) {
-  const sheetRef = useFocusTrap<HTMLDivElement>({ onEscape: onClose });
-
   return (
-    <div
-      className={styles.backdrop}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        ref={sheetRef}
-        className={styles.sheet}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="settings-sheet-title"
-      >
-        <div className={styles.header}>
-          <h2 id="settings-sheet-title" className={styles.heading}>
-            Settings
-          </h2>
-          <button
-            type="button"
-            className={styles.closeButton}
-            onClick={onClose}
-            aria-label="Close settings"
-          >
-            ×
-          </button>
-        </div>
+    <Sheet title="Settings" onClose={onClose} closeLabel="Close settings">
+      <section className={styles.section}>
+        <Button variant="secondary" onClick={onRename}>
+          Rename calendar →
+        </Button>
+      </section>
 
-        <section className={styles.section}>
-          <Button variant="secondary" onClick={onRename}>
-            Rename calendar →
-          </Button>
-        </section>
-
-        <section className={styles.section}>
-          <p className={styles.sectionLabel}>Passphrase</p>
-          {hasPassphrase ? (
-            <div className={styles.passphrase}>
-              <code className={styles.passphraseValue}>{passphrase ?? "••••••••"}</code>
-              <p className={styles.sectionHint}>
-                Anyone with the share link opens the calendar without typing this. Give it out if
-                you want someone to unlock by hand.
-              </p>
-              <div className={styles.destructiveRow}>
-                <button
-                  type="button"
-                  className={styles.destructiveLink}
-                  onClick={onRegeneratePassphrase}
-                >
-                  Regenerate
-                </button>
-                <span aria-hidden="true" className={styles.dot}>
-                  ·
-                </span>
-                <button
-                  type="button"
-                  className={styles.destructiveLink}
-                  onClick={onDisablePassphrase}
-                >
-                  Remove passphrase
-                </button>
-              </div>
+      <section className={styles.section}>
+        <p className={styles.sectionLabel}>Passphrase</p>
+        {hasPassphrase ? (
+          <div className={styles.passphrase}>
+            <code className={styles.passphraseValue}>{passphrase ?? "••••••••"}</code>
+            <p className={styles.sectionHint}>
+              Anyone with the share link opens the calendar without typing this. Give it out if you
+              want someone to unlock by hand.
+            </p>
+            <div className={styles.destructiveRow}>
+              <button
+                type="button"
+                className={styles.destructiveLink}
+                onClick={onRegeneratePassphrase}
+              >
+                Regenerate
+              </button>
+              <span aria-hidden="true" className={styles.dot}>
+                ·
+              </span>
+              <button
+                type="button"
+                className={styles.destructiveLink}
+                onClick={onDisablePassphrase}
+              >
+                Remove passphrase
+              </button>
             </div>
-          ) : (
-            <Button variant="secondary" onClick={onEnablePassphrase}>
-              Require a passphrase →
-            </Button>
-          )}
-        </section>
-
-        <section className={styles.section}>
-          <Button variant="secondary" onClick={onDuplicate}>
-            Duplicate this calendar →
+          </div>
+        ) : (
+          <Button variant="secondary" onClick={onEnablePassphrase}>
+            Require a passphrase →
           </Button>
-        </section>
-      </div>
-    </div>
+        )}
+      </section>
+
+      <section className={styles.section}>
+        <Button variant="secondary" onClick={onDuplicate}>
+          Duplicate this calendar →
+        </Button>
+      </section>
+    </Sheet>
   );
 }
