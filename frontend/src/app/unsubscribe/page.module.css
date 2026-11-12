@@ -1,25 +1,25 @@
 .main {
   max-width: 480px;
-  margin: var(--space-3xl) auto;
-  padding: 0 var(--space-lg);
+  margin: var(--space-10) auto;
+  padding: 0 var(--space-4);
   font-family: var(--font-stack-body);
   color: var(--text-primary);
 }
 
 .heading {
-  margin: 0 0 var(--space-sm);
+  margin: 0 0 var(--space-2);
   font-family: var(--font-stack-display);
-  font-size: 22px;
+  font-size: var(--text-3xl);
 }
 
 .body {
   margin: 0;
-  line-height: 1.5;
+  line-height: var(--leading-normal);
   color: var(--text-secondary);
 }
 
 @media (min-width: 640px) {
   .main {
-    margin-top: 64px;
+    margin-top: var(--space-16);
   }
 }

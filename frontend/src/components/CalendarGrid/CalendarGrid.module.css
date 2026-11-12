@@ -1,20 +1,20 @@
 .container {
   position: relative;
-  margin-top: 20px;
+  margin-top: var(--space-5);
 }
 
 .toolbar {
   display: flex;
   justify-content: center;
-  gap: 6px;
-  margin-bottom: 10px;
+  gap: var(--space-1-5);
+  margin-bottom: var(--space-2-5);
 }
 
 .toolbarButton {
   min-height: 44px;
-  padding: 8px 14px;
+  padding: var(--space-2) var(--space-3-5);
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--text-primary);
   background: var(--tile-bg);
@@ -32,7 +32,7 @@
 
 .toolbarButtonSecondary {
   margin-left: auto;
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   background: transparent;
   color: var(--text-secondary);
   box-shadow: none;
@@ -52,7 +52,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
 }
 
 .navButton {
@@ -61,7 +61,7 @@
   justify-content: center;
   width: 44px;
   height: 44px;
-  font-size: 20px;
+  font-size: var(--text-2xl);
   font-family: inherit;
   color: var(--text-primary);
   background: var(--tile-bg);
@@ -85,15 +85,15 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: var(--space-1);
   min-height: 44px;
 }
 
 .rangeLabel {
-  font-size: 14px;
+  font-size: var(--text-base);
   font-weight: 500;
   color: var(--text-primary);
-  line-height: 1.2;
+  line-height: var(--leading-tight);
 }
 
 @keyframes todayButtonIn {
@@ -111,9 +111,9 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 10px 3px 8px;
+  padding: 3px var(--space-2-5) 3px var(--space-2);
   font-family: inherit;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.2px;
   color: var(--accent);
@@ -140,8 +140,8 @@
 
 .todayButtonIcon {
   display: inline-block;
-  font-size: 13px;
-  line-height: 1;
+  font-size: var(--text-sm);
+  line-height: var(--leading-none);
   transform: translateY(-0.5px);
 }
 
@@ -152,10 +152,10 @@
 }
 
 .instructionStrip {
-  font-size: 12.5px;
-  line-height: 1.5;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
   color: var(--text-secondary);
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--accent) 4%, transparent),
@@ -163,7 +163,7 @@
   );
   border-left: 2px solid var(--accent);
   border-radius: 2px 8px 8px 2px;
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
 }
 
 .instructionStrip strong {
@@ -179,16 +179,16 @@
 
 @media (min-width: 640px) {
   .grid {
-    gap: 4px;
+    gap: var(--space-1);
   }
 }
 
 .dayHeader {
   text-align: center;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 500;
   color: var(--text-secondary);
-  padding: 4px 0 8px;
+  padding: var(--space-1) 0 var(--space-2);
 }
 
 .dayHeaderFull {
@@ -235,9 +235,9 @@
   flex-direction: column;
   align-items: center;
   min-height: 56px;
-  padding: 6px 2px;
+  padding: var(--space-1-5) var(--space-0-5);
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--text-base);
   color: var(--text-primary);
   background: var(--tile-bg);
   border: 1px solid var(--border-soft);
@@ -317,23 +317,23 @@
 }
 
 .monthLabel {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--text-secondary);
-  line-height: 1;
+  line-height: var(--leading-none);
 }
 
 .dayNumber {
-  line-height: 1.2;
+  line-height: var(--leading-tight);
 }
 
 .slotGrid {
   display: grid;
   gap: 1px;
   width: 100%;
-  margin-top: 2px;
+  margin-top: var(--space-0-5);
   flex: 1;
 }
 
@@ -347,7 +347,7 @@
 .slotInitial {
   font-size: 9px;
   font-weight: 600;
-  line-height: 1;
+  line-height: var(--leading-none);
   pointer-events: none;
   user-select: none;
   font-family: inherit;

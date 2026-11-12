@@ -2,6 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { ApiError, unlockCalendar } from "@/lib/api";
+import Button from "@/components/Button/Button";
+import TextField from "@/components/TextField/TextField";
 import styles from "./PassphraseGate.module.css";
 
 interface PassphraseGateProps {
@@ -53,9 +55,9 @@ export default function PassphraseGate({
       <h1 className={styles.heading}>This calendar is private</h1>
       <p className={styles.sub}>Enter the passphrase you were given to continue.</p>
       <form className={styles.form} onSubmit={handleSubmit}>
-        <input
-          type="text"
-          className={styles.input}
+        <TextField
+          label="Passphrase"
+          hideLabel
           placeholder="correct-horse-battery-staple"
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -64,18 +66,11 @@ export default function PassphraseGate({
           disabled={submitting}
           required
           aria-required="true"
-          aria-label="Passphrase"
-          aria-invalid={!!error}
-          aria-describedby={error ? "passphrase-gate-error" : undefined}
+          error={error}
         />
-        <button type="submit" className={styles.button} disabled={submitting || !value.trim()}>
+        <Button type="submit" variant="primary" size="lg" disabled={submitting || !value.trim()}>
           {submitting ? "Unlocking…" : "Unlock →"}
-        </button>
-        {error ? (
-          <p id="passphrase-gate-error" className={styles.error} role="alert">
-            {error}
-          </p>
-        ) : null}
+        </Button>
       </form>
     </div>
   );

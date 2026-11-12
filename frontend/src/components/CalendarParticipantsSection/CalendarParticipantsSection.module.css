@@ -1,9 +1,9 @@
 .summaryCard {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin-top: 24px;
-  padding: 20px;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+  padding: var(--space-5);
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -12,6 +12,6 @@
 
 @media (min-width: 640px) {
   .summaryCard {
-    padding: 24px;
+    padding: var(--space-6);
   }
 }

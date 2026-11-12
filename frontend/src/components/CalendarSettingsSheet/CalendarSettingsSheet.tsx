@@ -1,6 +1,7 @@
 "use client";
 
 import { useFocusTrap } from "@/lib/useFocusTrap";
+import Button from "@/components/Button/Button";
 import styles from "./CalendarSettingsSheet.module.css";
 
 interface Props {
@@ -55,9 +56,9 @@ export default function CalendarSettingsSheet({
         </div>
 
         <section className={styles.section}>
-          <button type="button" className={styles.primaryAction} onClick={onRename}>
+          <Button variant="secondary" onClick={onRename}>
             Rename calendar →
-          </button>
+          </Button>
         </section>
 
         <section className={styles.section}>
@@ -90,16 +91,16 @@ export default function CalendarSettingsSheet({
               </div>
             </div>
           ) : (
-            <button type="button" className={styles.primaryAction} onClick={onEnablePassphrase}>
+            <Button variant="secondary" onClick={onEnablePassphrase}>
               Require a passphrase →
-            </button>
+            </Button>
           )}
         </section>
 
         <section className={styles.section}>
-          <button type="button" className={styles.primaryAction} onClick={onDuplicate}>
+          <Button variant="secondary" onClick={onDuplicate}>
             Duplicate this calendar →
-          </button>
+          </Button>
         </section>
       </div>
     </div>

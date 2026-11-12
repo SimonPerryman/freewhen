@@ -1,19 +1,19 @@
 .banner {
-  margin: 20px 0;
-  padding: 20px;
+  margin: var(--space-5) 0;
+  padding: var(--space-5);
   background: var(--accent);
   color: var(--card-bg);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .contents {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
+  gap: var(--space-3-5);
   min-width: 0;
   flex: 1;
 }
@@ -24,13 +24,13 @@
 }
 
 .emoji {
-  font-size: 32px;
-  line-height: 1;
+  font-size: var(--text-6xl);
+  line-height: var(--leading-none);
 }
 
 .label {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 500;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -38,9 +38,9 @@
 }
 
 .date {
-  margin: 2px 0 0;
+  margin: var(--space-0-5) 0 0;
   font-family: var(--font-display), system-ui, sans-serif;
-  font-size: 22px;
+  font-size: var(--text-3xl);
   font-weight: 600;
   line-height: 1.1;
 }
@@ -48,15 +48,15 @@
 .actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1-5);
 }
 
 .unfinaliseButton,
 .confirmButton,
 .cancelButton {
   font-family: inherit;
-  font-size: 13px;
-  padding: 6px 12px;
+  font-size: var(--text-sm);
+  padding: var(--space-1-5) var(--space-3);
   border-radius: var(--radius-sm);
   cursor: pointer;
   border: 1px solid currentColor;
@@ -86,19 +86,19 @@
 
 .noteList {
   list-style: none;
-  margin: 12px 0 0;
+  margin: var(--space-3) 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .noteItem {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  font-size: 14px;
-  line-height: 1.35;
+  gap: var(--space-2);
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
   min-width: 0;
 }
 
@@ -131,7 +131,7 @@
 }
 
 .voteLine {
-  margin: 4px 0 0;
-  font-size: 12px;
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
   color: var(--text-secondary);
 }

@@ -7,8 +7,8 @@
 .trigger {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 8px 4px 4px;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-1);
   font: inherit;
   color: var(--text-primary);
   background: transparent;
@@ -44,7 +44,7 @@
   width: 28px;
   height: 28px;
   font-family: var(--font-display), system-ui, sans-serif;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 700;
   color: var(--accent);
   background: var(--accent-subtle);
@@ -86,7 +86,7 @@
 .triggerName {
   display: none;
   max-width: 140px;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--text-primary);
   white-space: nowrap;
@@ -121,7 +121,7 @@
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.35);
-  z-index: 40;
+  z-index: var(--z-overlay);
   animation: fadeIn 0.15s ease-out;
 }
 
@@ -146,8 +146,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 50;
-  padding: 8px 8px calc(12px + env(safe-area-inset-bottom));
+  z-index: var(--z-sheet);
+  padding: var(--space-2) var(--space-2) calc(var(--space-3) + env(safe-area-inset-bottom));
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
@@ -174,7 +174,7 @@
     right: 0;
     bottom: auto;
     width: 288px;
-    padding: 8px;
+    padding: var(--space-2);
     border-radius: var(--radius-lg);
     animation: fadeSlide 0.15s ease-out;
   }
@@ -202,7 +202,7 @@
   display: block;
   width: 36px;
   height: 4px;
-  margin: 2px auto 8px;
+  margin: var(--space-0-5) auto var(--space-2);
   background: var(--border);
   border-radius: 2px;
 }
@@ -217,8 +217,8 @@
 .identity {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 8px 8px 12px;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-3);
 }
 
 .avatarLarge {
@@ -229,7 +229,7 @@
   width: 40px;
   height: 40px;
   font-family: var(--font-display), system-ui, sans-serif;
-  font-size: 18px;
+  font-size: var(--text-xl);
   font-weight: 700;
   color: var(--accent);
   background: var(--accent-subtle);
@@ -242,13 +242,13 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0-5);
 }
 
 .nameRow {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1-5);
   padding: 0;
   font: inherit;
   color: var(--text-primary);
@@ -260,7 +260,7 @@
 
 .name {
   font-family: var(--font-display), system-ui, sans-serif;
-  font-size: 16px;
+  font-size: var(--text-lg);
   font-weight: 600;
   letter-spacing: -0.2px;
   color: var(--text-primary);
@@ -297,7 +297,7 @@
 }
 
 .email {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -308,14 +308,14 @@
 .editForm {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
   width: 100%;
 }
 
 .nameInput {
   width: 100%;
-  padding: 8px 10px;
-  font-size: 15px;
+  padding: var(--space-2) var(--space-2-5);
+  font-size: var(--text-md);
   font-family: inherit;
   color: var(--text-primary);
   background: var(--page-bg);
@@ -335,65 +335,25 @@
 .editActions {
   display: flex;
   justify-content: flex-end;
-  gap: 6px;
-}
-
-.textButton {
-  padding: 6px 10px;
-  font-size: 13px;
-  font-weight: 500;
-  font-family: inherit;
-  color: var(--text-secondary);
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-
-.textButton:hover:not(:disabled) {
-  color: var(--text-primary);
-  background: var(--accent-subtle);
-}
-
-.primaryButton {
-  padding: 6px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  font-family: inherit;
-  color: var(--accent-text);
-  background: var(--accent);
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.primaryButton:hover:not(:disabled) {
-  background: var(--accent-hover);
-}
-
-.primaryButton:disabled,
-.textButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  gap: var(--space-1-5);
 }
 
 .counter {
   margin: 0;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--text-secondary);
   text-align: right;
 }
 
 .error {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--error);
 }
 
 .divider {
   height: 1px;
-  margin: 4px 0;
+  margin: var(--space-1) 0;
   background: var(--border);
 }
 
@@ -401,10 +361,10 @@
 .menuItem {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2-5);
   width: 100%;
-  padding: 10px 12px;
-  font-size: 14px;
+  padding: var(--space-2-5) var(--space-3);
+  font-size: var(--text-base);
   font-weight: 500;
   font-family: inherit;
   color: var(--text-primary);
@@ -445,12 +405,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 8px 12px;
+  gap: var(--space-2-5);
+  padding: var(--space-2) var(--space-3);
 }
 
 .appearanceLabel {
-  font-size: 14px;
+  font-size: var(--text-base);
   font-weight: 500;
   color: var(--text-primary);
 }

@@ -5,6 +5,8 @@ import { ApiError, renameCalendar } from "@/lib/api";
 import analytics from "@/lib/analytics";
 import { MAX_CALENDAR_NAME_LENGTH } from "@/lib/limits";
 import { useFocusTrap } from "@/lib/useFocusTrap";
+import Button from "@/components/Button/Button";
+import TextField from "@/components/TextField/TextField";
 import styles from "./RenameCalendarSheet.module.css";
 
 interface Props {
@@ -80,32 +82,22 @@ export default function RenameCalendarSheet({
           Rename calendar
         </h2>
         <form onSubmit={handleSubmit} className={styles.form}>
-          <label className={styles.label}>
-            <span>Name</span>
-            <input
-              ref={inputRef}
-              type="text"
-              className={styles.input}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={MAX_CALENDAR_NAME_LENGTH}
-              disabled={submitting}
-              aria-invalid={!!error}
-              aria-describedby={error ? "rename-sheet-error" : undefined}
-            />
-          </label>
-          {error ? (
-            <p id="rename-sheet-error" className={styles.error} role="alert">
-              {error}
-            </p>
-          ) : null}
+          <TextField
+            ref={inputRef}
+            label="Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={MAX_CALENDAR_NAME_LENGTH}
+            disabled={submitting}
+            error={error}
+          />
           <div className={styles.actions}>
-            <button type="button" className={styles.cancel} onClick={onClose} disabled={submitting}>
+            <Button variant="secondary" onClick={onClose} disabled={submitting}>
               Cancel
-            </button>
-            <button type="submit" className={styles.submit} disabled={submitting}>
+            </Button>
+            <Button type="submit" variant="primary" disabled={submitting}>
               {submitting ? "Saving…" : "Save →"}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
