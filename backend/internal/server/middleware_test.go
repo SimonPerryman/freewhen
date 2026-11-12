@@ -301,6 +301,66 @@ func TestRequireJSONContentType(t *testing.T) {
 	}
 }
 
+// readAllHandler reads the whole body and reports 200, or 400 on read error
+// (mirroring how JSON handlers fail on a truncated body).
+func readAllHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, err := io.ReadAll(r.Body); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+}
+
+func TestLimitBody_SmallBodyPasses(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader(`{"a":1}`))
+	rec := httptest.NewRecorder()
+	limitBodyN(readAllHandler(), 16).ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+}
+
+func TestLimitBody_OversizeContentLengthReturns413(t *testing.T) {
+	called := false
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	})
+	req := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader(strings.Repeat("a", 17)))
+	rec := httptest.NewRecorder()
+	limitBodyN(next, 16).ServeHTTP(rec, req)
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("status = %d, want 413", rec.Code)
+	}
+	if called {
+		t.Error("next handler called for oversize body")
+	}
+	if !strings.Contains(rec.Body.String(), "request_too_large") {
+		t.Errorf("body = %s", rec.Body.String())
+	}
+}
+
+func TestLimitBody_OversizeChunkedBodyFailsRead(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader(strings.Repeat("a", 17)))
+	req.ContentLength = -1 // unknown length, as with chunked transfer encoding
+	rec := httptest.NewRecorder()
+	limitBodyN(readAllHandler(), 16).ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want read failure (400)", rec.Code)
+	}
+}
+
+func TestLimitBody_DefaultIsOneMiB(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/x", bytes.NewReader(make([]byte, 1<<20+1)))
+	rec := httptest.NewRecorder()
+	limitBody(readAllHandler()).ServeHTTP(rec, req)
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("status = %d, want 413", rec.Code)
+	}
+}
+
 func TestGenerateRequestID_UniqueAndHex(t *testing.T) {
 	seen := map[string]bool{}
 	for i := 0; i < 100; i++ {

@@ -73,7 +73,7 @@ func (g *Google) Name() string { return "google" }
 func (g *Google) OAuthConfig() *oauth2.Config { return g.oauth }
 
 // Identify implements Provider — calls Google's OIDC userinfo endpoint with
-// the access token and returns the {sub, email, name} triple. The token is
+// the access token and returns {sub, email, email_verified, name}. The token is
 // used once and not retained.
 func (g *Google) Identify(ctx context.Context, token *oauth2.Token) (Identity, error) {
 	if g.oauth == nil {
@@ -91,12 +91,18 @@ func (g *Google) Identify(ctx context.Context, token *oauth2.Token) (Identity, e
 	}
 
 	var payload struct {
-		Sub   string `json:"sub"`
-		Email string `json:"email"`
-		Name  string `json:"name"`
+		Sub           string `json:"sub"`
+		Email         string `json:"email"`
+		EmailVerified bool   `json:"email_verified"`
+		Name          string `json:"name"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		return Identity{}, fmt.Errorf("decode userinfo: %w", err)
 	}
-	return Identity{Sub: payload.Sub, Email: payload.Email, Name: payload.Name}, nil
+	return Identity{
+		Sub:           payload.Sub,
+		Email:         payload.Email,
+		EmailVerified: payload.EmailVerified,
+		Name:          payload.Name,
+	}, nil
 }

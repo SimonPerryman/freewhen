@@ -11,22 +11,21 @@ import (
 	"github.com/freewhen/backend/internal/calprovider"
 	"github.com/freewhen/backend/internal/ics"
 	"github.com/freewhen/backend/internal/model"
+	"github.com/freewhen/backend/internal/service"
 	"github.com/freewhen/backend/internal/store"
 )
 
-// ExportICS serves a .ics file for a finalised calendar. Public — the export
-// is intentionally available to anyone (signed-in or not) once finalised, so
-// anonymous joiners can also add the event to their own calendar.
+// ExportICS serves a .ics file for a finalised calendar. Available to anyone
+// (signed-in or not) who can read the calendar, so anonymous joiners can also
+// add the event to their own calendar. Passphrase-protected calendars apply
+// the same gate as GET /calendars/{id}: owner session, or a valid access
+// token via the X-Calendar-Access header or `?access=` query param (plain
+// link navigations can't set headers).
 func (h *Handler) ExportICS(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
-	cal, err := h.service.GetCalendar(r.Context(), id)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
-			return
-		}
-		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
+	cal, ok := h.loadExportableCalendar(w, r, id)
+	if !ok {
 		return
 	}
 	if cal.Calendar.FinalisedDate == nil {
@@ -54,8 +53,8 @@ func (h *Handler) ExportICS(w http.ResponseWriter, r *http.Request) {
 }
 
 // ExportToProvider redirects to the given calendar provider's "add event"
-// deep link with the event pre-filled. Public — no OAuth, no write scope, no
-// API call. Provider name comes from the `{provider}` path param.
+// deep link with the event pre-filled. No OAuth, no write scope, no API call.
+// Gated like ExportICS. Provider name comes from the `{provider}` path param.
 func (h *Handler) ExportToProvider(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
@@ -65,13 +64,8 @@ func (h *Handler) ExportToProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cal, err := h.service.GetCalendar(r.Context(), id)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
-			return
-		}
-		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
+	cal, ok := h.loadExportableCalendar(w, r, id)
+	if !ok {
 		return
 	}
 	if cal.Calendar.FinalisedDate == nil {
@@ -92,6 +86,39 @@ func (h *Handler) ExportToProvider(w http.ResponseWriter, r *http.Request) {
 		AllDay:      true,
 	})
 	http.Redirect(w, r, target, http.StatusFound)
+}
+
+// loadExportableCalendar loads the calendar with details and enforces the
+// passphrase gate. Writes the error response and returns ok=false on failure.
+func (h *Handler) loadExportableCalendar(w http.ResponseWriter, r *http.Request, id string) (model.CalendarWithDetails, bool) {
+	cal, err := h.service.GetCalendar(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
+			return model.CalendarWithDetails{}, false
+		}
+		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
+		return model.CalendarWithDetails{}, false
+	}
+
+	viewer := service.Viewer{}
+	if u := UserFromContext(r); u != nil {
+		uid := u.ID
+		viewer.UserID = &uid
+	}
+	token := r.Header.Get(AccessHeader)
+	if token == "" {
+		token = r.URL.Query().Get("access")
+	}
+	if err := h.service.AuthorizeAccess(r.Context(), cal.Calendar, viewer, token); err != nil {
+		if errors.Is(err, service.ErrPassphraseRequired) {
+			respondError(w, http.StatusUnauthorized, "passphrase_required", "passphrase required")
+			return model.CalendarWithDetails{}, false
+		}
+		respondInternalError(r, w, err, "internal_error", "failed to authorize access")
+		return model.CalendarWithDetails{}, false
+	}
+	return cal, true
 }
 
 // calendarSummary formats the calendar title for export — includes the emoji

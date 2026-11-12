@@ -336,3 +336,79 @@ func TestExportGoogle_Redirect(t *testing.T) {
 		}
 	}
 }
+
+// TestExport_PassphraseGate verifies both export endpoints apply the same
+// passphrase gate as GET /calendars/{id}: anonymous callers without a valid
+// access token get 401; the token works via header or `?access=`; the owner
+// bypasses the gate via session.
+func TestExport_PassphraseGate(t *testing.T) {
+	ts := setupTestServer(t)
+	cal, _ := createCalendarAuth(t, ts, "Secret Trip")
+
+	resp, body := doJSONAuth(t, ts, http.MethodPost, "/calendars/"+cal.ID+"/finalise", map[string]string{"date": "2026-06-01"})
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("finalise: %d %s", resp.StatusCode, body)
+	}
+	resp, body = doJSONAuth(t, ts, http.MethodPost, "/calendars/"+cal.ID+"/passphrase", nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("set passphrase: %d %s", resp.StatusCode, body)
+	}
+	var setResp struct {
+		Passphrase string `json:"passphrase"`
+	}
+	decodeJSON(t, body, &setResp)
+
+	for _, path := range []string{"/export.ics", "/export/google"} {
+		resp, body = doJSON(t, ts, http.MethodGet, "/calendars/"+cal.ID+path, nil)
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("%s anon: expected 401, got %d", path, resp.StatusCode)
+		}
+		if strings.Contains(string(body), "Secret Trip") {
+			t.Errorf("%s anon: response leaked calendar title", path)
+		}
+		resp, _ = doJSON(t, ts, http.MethodGet, "/calendars/"+cal.ID+path+"?access=bogus", nil)
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("%s bogus token: expected 401, got %d", path, resp.StatusCode)
+		}
+	}
+
+	resp, body = doJSON(t, ts, http.MethodPost, "/calendars/"+cal.ID+"/unlock", map[string]string{"passphrase": setResp.Passphrase})
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("unlock: %d %s", resp.StatusCode, body)
+	}
+	var unlock struct {
+		Token string `json:"token"`
+	}
+	decodeJSON(t, body, &unlock)
+
+	// Header token.
+	resp, body = doJSONWithAccess(t, ts, http.MethodGet, "/calendars/"+cal.ID+"/export.ics", nil, unlock.Token)
+	if resp.StatusCode != http.StatusOK || !strings.Contains(string(body), "Secret Trip") {
+		t.Errorf("header token: status %d body %s", resp.StatusCode, body)
+	}
+	// Query-param token (plain link navigation can't set headers).
+	resp, body = doJSON(t, ts, http.MethodGet, "/calendars/"+cal.ID+"/export.ics?access="+url.QueryEscape(unlock.Token), nil)
+	if resp.StatusCode != http.StatusOK || !strings.Contains(string(body), "Secret Trip") {
+		t.Errorf("query token: status %d body %s", resp.StatusCode, body)
+	}
+	// Owner session bypasses the gate.
+	resp, body = doJSONAuth(t, ts, http.MethodGet, "/calendars/"+cal.ID+"/export.ics", nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("owner: status %d body %s", resp.StatusCode, body)
+	}
+
+	client := ts.Client()
+	client.CheckRedirect = func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse }
+	req, err := http.NewRequest(http.MethodGet, ts.URL+"/calendars/"+cal.ID+"/export/google?access="+url.QueryEscape(unlock.Token), nil)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	gresp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("do: %v", err)
+	}
+	defer gresp.Body.Close()
+	if gresp.StatusCode != http.StatusFound {
+		t.Errorf("google with token: status = %d, want 302", gresp.StatusCode)
+	}
+}

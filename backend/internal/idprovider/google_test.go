@@ -25,18 +25,38 @@ func TestGoogleIdentify_SuccessReturnsIdentity(t *testing.T) {
 	g := withGoogle(t, func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, `{"sub":"google-123","email":"a@example.com","name":"Alice"}`)
+		_, _ = io.WriteString(w, `{"sub":"google-123","email":"a@example.com","email_verified":true,"name":"Alice"}`)
 	})
 
 	id, err := g.Identify(context.Background(), &oauth2.Token{AccessToken: "tok"})
 	if err != nil {
 		t.Fatalf("Identify: %v", err)
 	}
-	if id.Sub != "google-123" || id.Email != "a@example.com" || id.Name != "Alice" {
+	if id.Sub != "google-123" || id.Email != "a@example.com" || id.Name != "Alice" || !id.EmailVerified {
 		t.Errorf("identity = %+v", id)
 	}
 	if !strings.HasPrefix(gotAuth, "Bearer ") {
 		t.Errorf("Authorization = %q, want Bearer ...", gotAuth)
+	}
+}
+
+func TestGoogleIdentify_EmailVerifiedDefaultsFalse(t *testing.T) {
+	for name, body := range map[string]string{
+		"explicit false": `{"sub":"s","email":"a@example.com","email_verified":false}`,
+		"missing":        `{"sub":"s","email":"a@example.com"}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			g := withGoogle(t, func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = io.WriteString(w, body)
+			})
+			id, err := g.Identify(context.Background(), &oauth2.Token{AccessToken: "tok"})
+			if err != nil {
+				t.Fatalf("Identify: %v", err)
+			}
+			if id.EmailVerified {
+				t.Errorf("EmailVerified = true, want false")
+			}
+		})
 	}
 }
 

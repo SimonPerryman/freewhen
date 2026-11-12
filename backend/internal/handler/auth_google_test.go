@@ -54,7 +54,7 @@ func newFakeGoogle(t *testing.T) *fakeGoogle {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"sub":"google-123","email":"new@example.com","name":"New User"}`))
+		_, _ = w.Write([]byte(`{"sub":"google-123","email":"new@example.com","email_verified":true,"name":"New User"}`))
 	})
 	g.server = httptest.NewServer(g.mux)
 	t.Cleanup(g.server.Close)
@@ -301,6 +301,71 @@ func TestOAuthCallback_EmailCollision_LinksByEmail(t *testing.T) {
 	}
 	if sess == nil || sess.Value != "sess_u_email" {
 		t.Fatalf("session not bound to existing email user: %+v", sess)
+	}
+}
+
+// unverifiedUserInfo serves a userinfo payload whose email isn't verified.
+func unverifiedUserInfo(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = io.WriteString(w, `{"sub":"google-123","email":"new@example.com","email_verified":false,"name":"New User"}`)
+}
+
+func assertNoSession(t *testing.T, rec *httptest.ResponseRecorder) {
+	t.Helper()
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == "session" && c.MaxAge >= 0 && c.Value != "" {
+			t.Fatalf("session cookie set: %+v", c)
+		}
+	}
+}
+
+func TestOAuthCallback_UnverifiedEmail_DoesNotLinkByEmail(t *testing.T) {
+	fg := newFakeGoogle(t)
+	fg.userInfoHandler = unverifiedUserInfo
+	st := newFakeAuthStore()
+	existing := model.User{ID: "u_email", Email: "new@example.com", Provider: "email"}
+	st.usersByEmail["new@example.com"] = existing
+	st.usersByID["u_email"] = existing
+	h := newGoogleTestAuthHandler(t, st, fg)
+
+	rec := driveLoginThenCallback(t, h, "abc")
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status: %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "email_not_verified") {
+		t.Errorf("body missing email_not_verified: %s", rec.Body.String())
+	}
+	assertNoSession(t, rec)
+}
+
+func TestOAuthCallback_UnverifiedEmail_DoesNotCreateUser(t *testing.T) {
+	fg := newFakeGoogle(t)
+	fg.userInfoHandler = unverifiedUserInfo
+	st := newFakeAuthStore()
+	h := newGoogleTestAuthHandler(t, st, fg)
+
+	rec := driveLoginThenCallback(t, h, "abc")
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status: %d body=%s", rec.Code, rec.Body.String())
+	}
+	if len(st.usersByPID) != 0 || len(st.usersByEmail) != 0 {
+		t.Errorf("user created despite unverified email: %+v %+v", st.usersByPID, st.usersByEmail)
+	}
+	assertNoSession(t, rec)
+}
+
+func TestOAuthCallback_UnverifiedEmail_ExistingProviderLinkStillWorks(t *testing.T) {
+	fg := newFakeGoogle(t)
+	fg.userInfoHandler = unverifiedUserInfo
+	st := newFakeAuthStore()
+	existing := model.User{ID: "u_old", Email: "old@example.com", Provider: "google", ProviderID: "google-123"}
+	st.usersByPID["google:google-123"] = existing
+	st.usersByID["u_old"] = existing
+	h := newGoogleTestAuthHandler(t, st, fg)
+
+	rec := driveLoginThenCallback(t, h, "abc")
+	if rec.Code != http.StatusTemporaryRedirect {
+		t.Fatalf("status: %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 
