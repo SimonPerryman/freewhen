@@ -532,20 +532,28 @@ erDiagram
 
   <h3 class="kicker">The calendar page, decomposed</h3>
   <div class="ascii">src/app/calendars/[id]/page.tsx
-└── &lt;AuthProvider&gt;                   ← session context (useAuth)
-    └── &lt;Header&gt;                      ← title · user menu · share
+└── CalendarPageClient.tsx              ← wiring only; state lives in hooks:
+    │   useCalendarData                 ← fetch · ?unlock= · SSE refresh · error/gate state
+    │   useParticipantIdentity          ← who "you" are: stored id · claim · join · rename
+    │   useAvailabilitySave             ← optimistic dates/notes/votes · serialized PUT · undo
+    │   useCalendarRename / useCalendarOwnerActions
+    │   useAvailabilityMaps             ← derived per-date maps (src/lib/availabilityMaps.ts)
     └── &lt;PassphraseGate&gt;              ← unlock UI if locked
+        └── &lt;CalendarHeader&gt;          ← title / inline rename · settings cog · live dot
+            └── &lt;LiveStatusDot&gt;       ← SSE connection indicator
+        └── &lt;FinalisedBanner&gt;         ← read-only overlay when locked
+        └── &lt;JoinForm&gt;
+        └── &lt;BestDay&gt;
+        └── &lt;ImportFromGoogle&gt;        ← consent → OAuth → FreeBusy
         └── &lt;CalendarGrid&gt;            ← THE main UI: dates × participants
             ├── &lt;PreferencePill&gt;
             └── &lt;NotesPill&gt;
-        └── &lt;ParticipantList&gt;         ← sidebar w/ colours
-        └── &lt;SummaryView&gt;
-            └── &lt;BestDay&gt;
+        └── &lt;CalendarParticipantsSection&gt;
+            ├── &lt;SummaryView&gt; · &lt;ShareButton&gt; · &lt;InvitePrompt&gt;
+            └── &lt;ParticipantList&gt;     ← sidebar w/ colours
         └── &lt;WhosMissingPanel&gt;        ← invite tracking
-        └── &lt;ImportFromGoogle&gt;        ← consent → OAuth → FreeBusy
-        └── &lt;FinalisedBanner&gt;         ← read-only overlay when locked
-        └── &lt;ShareButton&gt;
-        └── &lt;LiveStatusDot&gt;           ← SSE connection indicator
+        └── &lt;CalendarOwnerDialogs&gt;    ← settings sheet + confirm dialogs
+&lt;Header&gt;              ← in root layout; title · user menu
 &lt;ToastProvider&gt;       ← in root layout
 &lt;AnalyticsProvider&gt;   ← in root layout (PostHog, lazy-loaded when idle)
 &lt;AuthProvider&gt;        ← in root layout; sole /auth/me caller, read via useAuth()</div>
