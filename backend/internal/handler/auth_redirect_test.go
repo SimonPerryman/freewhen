@@ -29,11 +29,23 @@ func TestIsRelativePath(t *testing.T) {
 		{"protocol relative", "//evil.com", false},
 		{"protocol relative with path", "//evil.com/x", false},
 
-		// Single leading slash + backslash. Browsers historically normalised
-		// `\` → `/` while parsing the *host*; here the host is already locked
-		// to frontendURL, so `/\evil.com` is just a path. Safe.
-		{"slash backslash", "/\\evil.com", true},
-		{"slash double backslash", "/\\\\evil.com", true},
+		// Single leading slash + backslash. Browsers normalise `\` → `/`, so
+		// if this value is ever followed without the frontendURL prefix
+		// (e.g. by the frontend) `/\evil.com` becomes `//evil.com`. Reject
+		// backslashes anywhere — no legitimate path needs one.
+		{"slash backslash", "/\\evil.com", false},
+		{"slash double backslash", "/\\\\evil.com", false},
+		{"backslash mid path", "/path\\evil", false},
+
+		// Tabs/newlines are stripped by the URL parser, so `/\t/evil.com`
+		// collapses to `//evil.com`. Reject whitespace and control chars.
+		{"slash tab slash", "/\t/evil.com", false},
+		{"slash newline slash", "/\n/evil.com", false},
+		{"slash carriage return", "/\r/evil.com", false},
+		{"nul byte", "/\x00/evil.com", false},
+		{"del byte", "/\x7f", false},
+		{"embedded space", "/path with space", false},
+		{"nbsp", "/ /evil.com", false},
 
 		// Percent-encoded slashes — also just path content once the host is
 		// fixed by the frontendURL prefix.

@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"unicode"
 
 	"github.com/freewhen/backend/internal/config"
 	"github.com/freewhen/backend/internal/idprovider"
@@ -526,13 +527,24 @@ func generateNonce() string {
 	return hex.EncodeToString(b)
 }
 
-// isRelativePath validates that the URL is a relative path (starts with /).
-// Prevents open redirect attacks.
+// isRelativePath validates that the URL is a relative path (starts with a
+// single /). Prevents open redirect attacks. Mirrors the frontend's
+// safeReturnPath: backslashes, whitespace and control characters are
+// rejected outright — browsers strip tabs/newlines and normalise `\` to `/`,
+// so those characters are only ever useful for smuggling a second slash.
 func isRelativePath(s string) bool {
 	if s == "" {
 		return false
 	}
-	return strings.HasPrefix(s, "/") && !strings.HasPrefix(s, "//")
+	if !strings.HasPrefix(s, "/") || strings.HasPrefix(s, "//") {
+		return false
+	}
+	for _, r := range s {
+		if r == '\\' || unicode.IsSpace(r) || unicode.IsControl(r) {
+			return false
+		}
+	}
+	return true
 }
 
 // normalizeEmail lowercases and trims surrounding whitespace, producing the

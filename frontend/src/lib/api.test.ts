@@ -8,6 +8,7 @@ import {
   finaliseCalendar,
   unfinaliseCalendar,
   renameParticipant,
+  verifyMagicLink,
   ApiError,
 } from "./api";
 
@@ -316,5 +317,16 @@ describe("base URL", () => {
     await createCalendar({ name: "Test" });
 
     expect(mockFetch.mock.calls[0][0]).toBe("http://localhost:8080/calendars");
+  });
+});
+
+describe("verifyMagicLink", () => {
+  // The backend sends `return_url`; request() camel-cases response keys, so
+  // callers read `returnUrl`. Pin that so a refactor of the key conversion
+  // doesn't silently drop users on "/" after magic-link sign-in.
+  it("maps the backend return_url key to returnUrl", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ return_url: "/calendars/abc" }));
+    const result = await verifyMagicLink("tok");
+    expect(result.returnUrl).toBe("/calendars/abc");
   });
 });

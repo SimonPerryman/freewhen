@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ApiError, verifyMagicLink } from "@/lib/api";
 import log from "@/lib/log";
+import { safeReturnPath } from "@/lib/safeReturnPath";
 
 export default function MagicLinkCallbackPage() {
   return (
@@ -41,7 +42,9 @@ function MagicLinkCallbackContent() {
     setError(null);
     try {
       const { returnUrl } = await verifyMagicLink(token);
-      window.location.href = returnUrl || "/";
+      // The backend already validates this, but re-check client-side so a
+      // backend regression can't turn this into an open redirect.
+      window.location.href = safeReturnPath(returnUrl);
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : "Could not sign you in. Try again.";
       log.warn("magic-link verify failed", { error: msg });
