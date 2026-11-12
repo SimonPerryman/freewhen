@@ -105,12 +105,22 @@ func TestRouteCoverage_AuthClassMatchesAllowList(t *testing.T) {
 }
 
 // TestRouteCoverage_OptionalRoutesRateLimited guards L6: every route reachable
-// without a session resolves a calendar by ID, so each must carry the per-IP
-// lookup limit.
+// without a session that resolves a calendar by ID must carry the per-IP
+// lookup limit. The only exemptions are optional routes that never take a
+// calendar ID.
 func TestRouteCoverage_OptionalRoutesRateLimited(t *testing.T) {
+	notCalendarLookup := map[string]bool{
+		"GET /auth/me": true, // session probe; 200 null when signed out
+	}
 	s := newRouteCoverageServer()
 	s.routes()
 	for _, spec := range s.routeSpecs {
+		if notCalendarLookup[spec.pattern] {
+			if spec.rateLimited {
+				t.Errorf("route %q is exempt but registered with the calendar lookup limit", spec.pattern)
+			}
+			continue
+		}
 		if spec.kind == authOptional && !spec.rateLimited {
 			t.Errorf("optional-auth route %q is not rate limited", spec.pattern)
 		}

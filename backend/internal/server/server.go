@@ -185,14 +185,22 @@ func (s *Server) handleAdmin(pattern string, fn http.HandlerFunc) {
 // but the handler must enforce its own access rules (passphrase, participant
 // token, etc.) when no session is attached.
 //
-// Every optional route resolves a calendar by ID and answers 404 for an
-// unknown one, so for passphrase-less calendars it's an ID-enumeration
+// Every calendar-scoped optional route resolves a calendar by ID and answers
+// 404 for an unknown one, so for passphrase-less calendars it's an ID-enumeration
 // oracle. Each therefore takes a per-IP rate limit (s.lookupLimiter.Lookups
 // or .Streams). The limit runs before optionalAuth so throttled requests
 // don't cost a session lookup.
 func (s *Server) handleOptional(pattern string, limit func(http.HandlerFunc) http.HandlerFunc, fn http.HandlerFunc) {
 	s.mux.HandleFunc(pattern, limit(s.optionalAuth(fn)))
 	s.routeSpecs = append(s.routeSpecs, routeSpec{pattern: pattern, kind: authOptional, rateLimited: true})
+}
+
+// handleOptionalSession registers an optional-auth route that doesn't
+// resolve a calendar by ID, so it isn't an ID-enumeration oracle and takes no
+// lookup rate limit (GET /auth/me runs on every page load).
+func (s *Server) handleOptionalSession(pattern string, fn http.HandlerFunc) {
+	s.mux.HandleFunc(pattern, s.optionalAuth(fn))
+	s.routeSpecs = append(s.routeSpecs, routeSpec{pattern: pattern, kind: authOptional})
 }
 
 func (s *Server) routes() {
@@ -202,7 +210,7 @@ func (s *Server) routes() {
 	s.handlePublic("GET /auth/{provider}", s.auth.OAuthLogin)
 	s.handlePublic("GET /auth/{provider}/callback", s.auth.OAuthCallback)
 	// Optional: returns the user, or 200 null when signed out.
-	s.handleOptional("GET /auth/me", s.auth.Me)
+	s.handleOptionalSession("GET /auth/me", s.auth.Me)
 	s.handleAuth("PATCH /auth/me", s.auth.UpdateMe)
 	s.handlePublic("POST /auth/logout", s.auth.Logout)
 	s.handleAuth("POST /auth/logout-all", s.auth.LogoutAll)
