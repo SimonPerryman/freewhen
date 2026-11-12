@@ -6,7 +6,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  z-index: 50;
+  z-index: var(--z-sheet);
   animation: backdropIn 0.16s ease-out;
 }
 
@@ -22,7 +22,7 @@
 .sheet {
   width: 100%;
   max-width: 540px;
-  padding: 20px 20px max(24px, env(safe-area-inset-bottom));
+  padding: var(--space-5) var(--space-5) max(var(--space-6), env(safe-area-inset-bottom));
   background: var(--card-bg);
   border-top-left-radius: var(--radius-md);
   border-top-right-radius: var(--radius-md);
@@ -64,18 +64,18 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
 }
 
 .title {
   margin: 0;
   font-family: var(--font-display), system-ui, sans-serif;
-  font-size: 20px;
+  font-size: var(--text-2xl);
   font-weight: 600;
   letter-spacing: -0.3px;
   color: var(--text-primary);
-  line-height: 1.2;
+  line-height: var(--leading-tight);
 }
 
 .closeButton {
@@ -87,7 +87,7 @@
   padding: 0;
   margin: -6px -6px 0 0;
   font-family: inherit;
-  font-size: 16px;
+  font-size: var(--text-lg);
   color: var(--text-secondary);
   background: transparent;
   border: none;
@@ -104,12 +104,12 @@
 }
 
 .section + .section {
-  margin-top: 18px;
+  margin-top: var(--space-4-5);
 }
 
 .sectionLabel {
-  margin: 0 0 10px;
-  font-size: 11px;
+  margin: 0 0 var(--space-2-5);
+  font-size: var(--text-2xs);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -122,12 +122,12 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-2-5);
 }
 
 .whoItem {
   display: flex;
-  gap: 10px;
+  gap: var(--space-2-5);
   align-items: flex-start;
 }
 
@@ -142,20 +142,20 @@
 .whoBody {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0-5);
   min-width: 0;
 }
 
 .whoName {
-  font-size: 14px;
+  font-size: var(--text-base);
   font-weight: 500;
   color: var(--text-primary);
 }
 
 .meTag {
-  margin-left: 6px;
-  padding: 1px 6px;
-  font-size: 10px;
+  margin-left: var(--space-1-5);
+  padding: 1px var(--space-1-5);
+  font-size: var(--text-3xs);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -166,9 +166,9 @@
 }
 
 .whoNote {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-secondary);
-  line-height: 1.4;
+  line-height: var(--leading-snug);
   word-break: break-word;
 }
 
@@ -176,25 +176,25 @@
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  margin-bottom: 6px;
-  font-size: 13px;
+  margin-bottom: var(--space-1-5);
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--text-primary);
 }
 
 .editorHint {
   font-weight: 400;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-secondary);
 }
 
 .textarea {
   width: 100%;
   min-height: 72px;
-  padding: 10px 12px;
+  padding: var(--space-2-5) var(--space-3);
   font-family: inherit;
-  font-size: 14px;
-  line-height: 1.4;
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
   color: var(--text-primary);
   background: var(--card-bg);
   border: 1px solid var(--border);
@@ -213,13 +213,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 8px;
-  gap: 12px;
+  margin-top: var(--space-2);
+  gap: var(--space-3);
 }
 
 .counter,
 .counterOver {
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
 }
@@ -231,62 +231,16 @@
 
 .editorActions {
   display: inline-flex;
-  gap: 8px;
-}
-
-.cancelButton,
-.saveButton {
-  padding: 8px 14px;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    border-color 0.15s,
-    color 0.15s;
-}
-
-.cancelButton {
-  color: var(--text-secondary);
-  background: transparent;
-  border: 1px solid var(--border);
-}
-
-.cancelButton:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--text-primary);
-}
-
-.cancelButton:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.saveButton {
-  color: var(--accent-text);
-  background: var(--accent);
-  border: 1px solid var(--accent);
-}
-
-.saveButton:hover:not(:disabled) {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
-}
-
-.saveButton:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+  gap: var(--space-2);
 }
 
 .removeButton {
   display: block;
-  margin: 20px 0 0;
-  padding: 10px 14px;
+  margin: var(--space-5) 0 0;
+  padding: var(--space-2-5) var(--space-3-5);
   width: 100%;
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--error);
   background: transparent;
@@ -306,13 +260,13 @@
 .preferLabel {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: var(--space-2-5);
   cursor: pointer;
-  padding: 4px 0;
+  padding: var(--space-1) 0;
 }
 
 .preferCheckbox {
-  margin-top: 2px;
+  margin-top: var(--space-0-5);
   width: 18px;
   height: 18px;
   flex: 0 0 18px;
@@ -323,23 +277,23 @@
 .preferText {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0-5);
 }
 
 .preferTitle {
-  font-size: 14px;
+  font-size: var(--text-base);
   font-weight: 500;
   color: var(--text-primary);
 }
 
 .preferHint {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-secondary);
-  line-height: 1.4;
+  line-height: var(--leading-snug);
 }
 
 .preferStar {
-  margin-left: 4px;
-  font-size: 12px;
+  margin-left: var(--space-1);
+  font-size: var(--text-xs);
   color: var(--accent);
 }

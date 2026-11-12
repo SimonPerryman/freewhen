@@ -5,7 +5,7 @@
   min-height: 100dvh;
   align-items: center;
   justify-content: center;
-  padding: var(--space-xl) var(--space-lg);
+  padding: var(--space-6) var(--space-4);
   font-family: var(--font-stack-body);
   background-color: var(--page-bg);
   color: var(--text-primary);
@@ -18,23 +18,23 @@
 }
 
 .title {
-  margin: 0 0 var(--space-sm);
-  font-size: 28px;
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-5xl);
   font-weight: 600;
   letter-spacing: -0.5px;
 }
 
 .message {
-  margin: 0 0 28px;
-  font-size: 15px;
+  margin: 0 0 var(--space-7);
+  font-size: var(--text-md);
   color: var(--text-secondary);
 }
 
 .action {
   display: inline-block;
   min-height: 44px;
-  padding: var(--space-md) var(--space-lg);
-  font-size: 15px;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-md);
   font-weight: 500;
   font-family: inherit;
   color: var(--accent-text);

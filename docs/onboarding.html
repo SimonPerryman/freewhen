@@ -568,6 +568,12 @@ erDiagram
     <li>Logging via <code>src/lib/log.ts</code> wrapper, never <code>console.*</code>.</li>
     <li>Reversible actions use the <code>Toast</code> primitive with an <em>Undo</em> action — never <code>window.confirm</code>.</li>
   </ul>
+
+  <h3 class="kicker">Design system</h3>
+  <ul class="tight">
+    <li><strong>Tokens</strong> live in <code>src/app/globals.css</code>: colours (Paper / Ink palettes behind semantic names like <code>--text-primary</code>), spacing <code>--space-0-5</code>…<code>--space-16</code> (4px base), type <code>--text-3xs</code>…<code>--text-6xl</code> (base <code>--text-base</code> = 14px), line heights <code>--leading-*</code>, radii, shadows and stacking order <code>--z-*</code>. CSS modules use tokens, not raw px — only hairlines and 1–5px optical nudges stay literal.</li>
+    <li><strong>Primitives</strong>: <code>Button</code> (primary / secondary / ghost / danger · sm / md / lg · <code>loading</code>; <code>buttonClassName()</code> for links) and <code>TextField</code> (label · hint · error, wired with <code>aria-describedby</code>). Reach for these before writing a new <code>.button</code> or <code>.input</code> rule.</li>
+  </ul>
 </section>
 
 <!-- ─────────── 5. Flows ─────────── -->

@@ -1,7 +1,7 @@
 .entryButton {
   font-family: inherit;
-  font-size: 13px;
-  padding: 6px 12px;
+  font-size: var(--text-sm);
+  padding: var(--space-1-5) var(--space-3);
   border-radius: var(--radius-sm);
   border: 1px solid var(--accent);
   background: transparent;
@@ -16,19 +16,19 @@
 .chromeRow {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin: 8px 0;
+  gap: var(--space-1);
+  margin: var(--space-2) 0;
 }
 
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
+  gap: var(--space-2);
+  padding: var(--space-1-5) var(--space-2-5);
   background: color-mix(in srgb, var(--accent) 12%, var(--card-bg));
   color: var(--accent);
   border-radius: 999px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   align-self: flex-start;
 }
 
@@ -56,9 +56,9 @@
 
 .acceptAll {
   font-family: inherit;
-  font-size: 12px;
-  margin-left: 4px;
-  padding: 2px 8px;
+  font-size: var(--text-xs);
+  margin-left: var(--space-1);
+  padding: var(--space-0-5) var(--space-2);
   border-radius: 999px;
   border: 1px solid currentColor;
   background: transparent;
@@ -72,11 +72,11 @@
 
 .keyStrip {
   margin: 0;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--text-secondary);
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--space-2-5);
 }
 
 .interstitialBackdrop {
@@ -86,8 +86,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
-  z-index: 50;
+  padding: var(--space-4);
+  z-index: var(--z-sheet);
 }
 
 .interstitial {
@@ -95,37 +95,37 @@
   width: 100%;
   background: var(--card-bg);
   border-radius: var(--radius-md);
-  padding: 20px;
+  padding: var(--space-5);
   box-shadow: var(--shadow-lg, 0 16px 48px rgba(0, 0, 0, 0.25));
 }
 
 .interstitialTitle {
-  margin: 0 0 12px;
+  margin: 0 0 var(--space-3);
   font-family: var(--font-display), system-ui, sans-serif;
-  font-size: 20px;
+  font-size: var(--text-2xl);
 }
 
 .interstitialList {
-  margin: 0 0 20px;
+  margin: 0 0 var(--space-5);
   padding: 0;
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
   color: var(--text-secondary);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--space-3-5);
 }
 
 .interstitialItem {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 4px;
-  padding-left: 12px;
+  gap: var(--space-1);
+  padding-left: var(--space-3);
   border-left: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 .interstitialItem dt {
-  font-size: 10px;
+  font-size: var(--text-3xs);
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -141,27 +141,27 @@
   .interstitialItem {
     grid-template-columns: 92px 1fr;
     align-items: baseline;
-    gap: 12px;
+    gap: var(--space-3);
     padding-left: 0;
     border-left: none;
   }
 
   .interstitialItem dt {
-    padding-top: 2px;
+    padding-top: var(--space-0-5);
   }
 }
 
 .interstitialActions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .interstitialCancel,
 .interstitialContinue {
   font-family: inherit;
-  font-size: 14px;
-  padding: 8px 14px;
+  font-size: var(--text-base);
+  padding: var(--space-2) var(--space-3-5);
   border-radius: var(--radius-sm);
   cursor: pointer;
 }

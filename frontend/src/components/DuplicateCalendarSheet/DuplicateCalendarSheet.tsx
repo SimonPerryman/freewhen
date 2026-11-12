@@ -5,6 +5,8 @@ import { ApiError, duplicateCalendar } from "@/lib/api";
 import analytics from "@/lib/analytics";
 import { MAX_CALENDAR_NAME_LENGTH } from "@/lib/limits";
 import { useFocusTrap } from "@/lib/useFocusTrap";
+import Button from "@/components/Button/Button";
+import TextField from "@/components/TextField/TextField";
 import styles from "./DuplicateCalendarSheet.module.css";
 
 interface Props {
@@ -98,20 +100,16 @@ export default function DuplicateCalendarSheet({
           Duplicate this calendar
         </h2>
         <form onSubmit={handleSubmit} className={styles.form}>
-          <label className={styles.label}>
-            <span>Name</span>
-            <input
-              ref={inputRef}
-              type="text"
-              className={styles.input}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={MAX_CALENDAR_NAME_LENGTH}
-              disabled={submitting}
-              aria-invalid={!!error}
-              aria-describedby={error ? "duplicate-sheet-error" : undefined}
-            />
-          </label>
+          <TextField
+            ref={inputRef}
+            label="Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={MAX_CALENDAR_NAME_LENGTH}
+            disabled={submitting}
+            aria-invalid={!!error}
+            aria-describedby={error ? "duplicate-sheet-error" : undefined}
+          />
           <label className={styles.checkboxRow}>
             <input
               type="checkbox"
@@ -133,12 +131,12 @@ export default function DuplicateCalendarSheet({
             </p>
           ) : null}
           <div className={styles.actions}>
-            <button type="button" className={styles.cancel} onClick={onClose} disabled={submitting}>
+            <Button variant="secondary" onClick={onClose} disabled={submitting}>
               Cancel
-            </button>
-            <button type="submit" className={styles.submit} disabled={submitting}>
+            </Button>
+            <Button type="submit" variant="primary" disabled={submitting}>
               {submitting ? "Duplicating…" : "Duplicate →"}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

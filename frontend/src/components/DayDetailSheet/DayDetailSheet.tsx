@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Availability, Participant } from "@/lib/types";
 import { MAX_NOTE_LENGTH, codePointCount } from "@/lib/limits";
 import { useFocusTrap } from "@/lib/useFocusTrap";
+import Button from "@/components/Button/Button";
 import styles from "./DayDetailSheet.module.css";
 
 interface DayDetailSheetProps {
@@ -285,22 +286,22 @@ export default function DayDetailSheet({
                 {draftCount}/{MAX_NOTE_LENGTH}
               </span>
               <div className={styles.editorActions}>
-                <button
-                  type="button"
-                  className={styles.cancelButton}
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={() => setDraft(currentNote)}
                   disabled={draft === currentNote}
                 >
                   Reset
-                </button>
-                <button
-                  type="button"
-                  className={styles.saveButton}
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
                   onClick={handleSave}
                   disabled={!canSave || draft.trim() === currentNote.trim()}
                 >
                   Save
-                </button>
+                </Button>
               </div>
             </div>
           </section>

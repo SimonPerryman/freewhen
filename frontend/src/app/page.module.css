@@ -1,6 +1,6 @@
 .page {
   min-height: 100svh;
-  padding: 20px 16px 48px;
+  padding: var(--space-5) var(--space-4) var(--space-12);
   background-color: var(--page-bg);
   color: var(--text-primary);
   display: flex;
@@ -25,26 +25,26 @@
   animation: entrance 0.4s ease-out;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: var(--space-4-5);
 }
 
 @media (min-width: 640px) {
   .page {
-    padding: 32px 24px 64px;
+    padding: var(--space-8) var(--space-6) var(--space-16);
   }
 }
 
 .headline {
   margin: 0;
   font-size: clamp(40px, 11vw, 56px);
-  line-height: 1;
+  line-height: var(--leading-none);
 }
 
 .subheading {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--text-lg);
   color: var(--text-secondary);
-  line-height: 1.45;
+  line-height: var(--leading-normal);
   max-width: 34ch;
   text-wrap: balance;
 }
@@ -52,27 +52,27 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 6px;
+  gap: var(--space-2-5);
+  margin-top: var(--space-1-5);
 }
 
 .label {
   font-family: var(--font-stack-body);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--text-secondary);
 }
 
 .cta {
   display: flex;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .input {
   flex: 1;
   min-width: 0;
-  padding: 12px 14px;
-  font-size: 16px;
+  padding: var(--space-3) var(--space-3-5);
+  font-size: var(--text-lg);
   font-family: inherit;
   color: var(--text-primary);
   background: var(--card-bg);
@@ -97,8 +97,8 @@
 .button {
   flex: 0 0 auto;
   min-width: 196px;
-  padding: 12px 18px;
-  font-size: 15px;
+  padding: var(--space-3) var(--space-4-5);
+  font-size: var(--text-md);
   font-weight: 600;
   font-family: var(--font-stack-body);
   color: var(--accent-text);
@@ -130,6 +130,6 @@
 
 .error {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-base);
   color: var(--error);
 }

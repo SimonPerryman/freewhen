@@ -1,71 +1,32 @@
 .panel {
   max-width: 420px;
-  margin: 48px auto;
-  padding: 24px;
+  margin: var(--space-12) auto;
+  padding: var(--space-6);
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .heading {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--text-xl);
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .sub {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-base);
   color: var(--text-secondary);
-  line-height: 1.45;
+  line-height: var(--leading-normal);
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-.input {
-  padding: 10px 14px;
-  font-size: 15px;
-  font-family: inherit;
-  color: var(--text-primary);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  outline: none;
-}
-
-.input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
-}
-
-.button {
-  padding: 10px 20px;
-  font-size: 15px;
-  font-weight: 600;
-  font-family: inherit;
-  color: var(--accent-text);
-  background: var(--accent);
-  border: none;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-}
-
-.button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.error {
-  margin: 0;
-  font-size: 14px;
-  color: var(--error);
+  gap: var(--space-2-5);
 }

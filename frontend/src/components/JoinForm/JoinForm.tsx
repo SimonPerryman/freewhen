@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { MAX_PARTICIPANT_NAME_LENGTH } from "@/lib/limits";
+import Button from "@/components/Button/Button";
 import styles from "./JoinForm.module.css";
 
 // Show a live character count once the user is within this many characters of the cap.
@@ -62,9 +63,9 @@ export default function JoinForm({
           aria-invalid={!!error}
           aria-describedby={error ? "participant-name-error" : undefined}
         />
-        <button type="submit" className={styles.button} disabled={submitting || !name.trim()}>
+        <Button type="submit" variant="primary" size="lg" disabled={submitting || !name.trim()}>
           {submitting ? "Joining…" : "Join →"}
-        </button>
+        </Button>
       </div>
       {showCounter ? (
         <p className={styles.counter} aria-live="polite">

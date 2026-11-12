@@ -45,14 +45,59 @@
   --note-accent-subtle: #eaf2fa;
   --error: #c2185b;
 
-  /* Spacing */
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 12px;
-  --space-lg: 16px;
-  --space-xl: 24px;
-  --space-2xl: 32px;
-  --space-3xl: 40px;
+  /* Spacing — 4px base. Half steps (0-5, 1-5, 2-5, 3-5, 4-5) exist because
+     the UI genuinely uses 2/6/10/14/18px rhythm; prefer whole steps for new
+     work. Hairlines and 1/3/5px optical nudges stay as raw px. */
+  --space-0-5: 2px;
+  --space-1: 4px;
+  --space-1-5: 6px;
+  --space-2: 8px;
+  --space-2-5: 10px;
+  --space-3: 12px;
+  --space-3-5: 14px;
+  --space-4: 16px;
+  --space-4-5: 18px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-9: 36px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Type scale — base is 14px (--text-base). Inputs use --text-lg (16px) so
+     iOS Safari doesn't zoom on focus. */
+  --text-3xs: 10px;
+  --text-2xs: 11px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 20px;
+  --text-3xl: 22px;
+  --text-4xl: 24px;
+  --text-5xl: 28px;
+  --text-6xl: 32px;
+
+  /* Line heights */
+  --leading-none: 1;
+  --leading-tight: 1.2;
+  --leading-snug: 1.4;
+  --leading-normal: 1.5;
+
+  /* Stacking order — use these instead of raw z-index numbers. */
+  --z-raised: 2;
+  --z-popover: 20;
+  --z-coachmark: 30;
+  --z-overlay: 40;
+  --z-sheet: 50;
+  --z-dialog: 60;
+  --z-toast: 1000;
+  --z-grain: 9999;
+  --z-skip-link: 10000;
 
   /* Radii */
   --radius-sm: 6px;
@@ -142,7 +187,7 @@ body {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 256px 256px;
-  z-index: 9999;
+  z-index: var(--z-grain);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -168,7 +213,7 @@ h2,
 h3 {
   font-family: var(--font-stack-display);
   font-weight: 400;
-  line-height: 1;
+  line-height: var(--leading-none);
   letter-spacing: -0.02em;
   font-optical-sizing: auto;
 }
@@ -201,7 +246,7 @@ h3 {
   font-family: var(--font-stack-body);
   text-transform: uppercase;
   letter-spacing: 0.18em;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--accent);
   font-weight: 600;
 }
@@ -210,13 +255,13 @@ h3 {
 .pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+  gap: var(--space-1-5);
+  padding: var(--space-1) var(--space-2-5);
   border-radius: 99px;
   background: var(--accent-subtle);
   color: color-mix(in oklab, var(--accent) 70%, black);
   font-weight: 500;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 [data-color-scheme="dark"] .pill {
@@ -234,13 +279,13 @@ h3 {
   position: absolute;
   top: 8px;
   left: 8px;
-  padding: 10px 14px;
+  padding: var(--space-2-5) var(--space-3-5);
   background: var(--accent);
   color: var(--accent-text);
   font-weight: 600;
   border-radius: var(--radius-sm);
   text-decoration: none;
-  z-index: 10000;
+  z-index: var(--z-skip-link);
   transform: translateY(-200%);
   transition: transform 0.15s;
 }

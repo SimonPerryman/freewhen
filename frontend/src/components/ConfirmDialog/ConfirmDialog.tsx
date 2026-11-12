@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { useFocusTrap } from "@/lib/useFocusTrap";
+import Button from "@/components/Button/Button";
 import styles from "./ConfirmDialog.module.css";
 
 interface Props {
@@ -51,17 +52,16 @@ export default function ConfirmDialog({
           {message}
         </p>
         <div className={styles.actions}>
-          <button type="button" className={styles.button} onClick={onCancel}>
+          <Button variant="secondary" onClick={onCancel}>
             {cancelLabel}
-          </button>
-          <button
+          </Button>
+          <Button
             ref={confirmRef}
-            type="button"
-            className={`${styles.button} ${destructive ? styles.confirm : ""}`}
+            variant={destructive ? "danger" : "secondary"}
             onClick={onConfirm}
           >
             {confirmLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

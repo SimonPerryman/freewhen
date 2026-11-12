@@ -2,7 +2,7 @@
   display: flex;
   min-height: 100vh;
   justify-content: center;
-  padding: 16px;
+  padding: var(--space-4);
   background-color: var(--page-bg);
   color: var(--text-primary);
 }
@@ -15,20 +15,20 @@
 
 @media (min-width: 640px) {
   .page {
-    padding: 40px 24px;
+    padding: var(--space-10) var(--space-6);
   }
 }
 
 .loading {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 15px;
+  font-size: var(--text-md);
 }
 
 .error {
   margin: 0;
   color: var(--error);
-  font-size: 15px;
+  font-size: var(--text-md);
 }
 
 .errorPanel {
@@ -36,29 +36,29 @@
   max-width: 480px;
   align-self: center;
   text-align: center;
-  padding: 24px 8px;
+  padding: var(--space-6) var(--space-2);
 }
 
 .errorHeading {
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-2);
   font-family: var(--font-display), system-ui, sans-serif;
-  font-size: 24px;
+  font-size: var(--text-4xl);
   font-weight: 600;
   letter-spacing: -0.5px;
   color: var(--text-primary);
 }
 
 .errorSub {
-  margin: 0 0 24px;
-  font-size: 15px;
-  line-height: 1.5;
+  margin: 0 0 var(--space-6);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
   color: var(--text-secondary);
 }
 
 .errorCta {
   display: inline-block;
-  padding: 12px 16px;
-  font-size: 15px;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-md);
   font-weight: 500;
   font-family: inherit;
   color: var(--accent-text);
@@ -76,7 +76,7 @@
 
 @media (min-width: 640px) {
   .errorHeading {
-    font-size: 28px;
+    font-size: var(--text-5xl);
   }
 }
 
@@ -84,10 +84,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 10px 14px;
-  margin-top: 16px;
-  font-size: 14px;
+  gap: var(--space-3);
+  padding: var(--space-2-5) var(--space-3-5);
+  margin-top: var(--space-4);
+  font-size: var(--text-base);
   color: var(--error);
   background: var(--card-bg);
   border: 1px solid var(--error);
@@ -96,8 +96,8 @@
 }
 
 .retryButton {
-  padding: 4px 12px;
-  font-size: 13px;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
   font-weight: 500;
   font-family: inherit;
   color: var(--accent-text);
@@ -113,12 +113,12 @@
 }
 
 .emptyHint {
-  margin: 0 0 8px;
-  padding: 12px 14px;
-  font-size: 14px;
+  margin: 0 0 var(--space-2);
+  padding: var(--space-3) var(--space-3-5);
+  font-size: var(--text-base);
   color: var(--text-secondary);
   background: var(--accent-subtle);
   border: 1px dashed var(--border);
   border-radius: var(--radius-md);
-  line-height: 1.5;
+  line-height: var(--leading-normal);
 }

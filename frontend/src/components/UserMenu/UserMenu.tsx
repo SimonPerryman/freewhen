@@ -15,6 +15,7 @@ import { updateMe, logoutEverywhere, ApiError } from "@/lib/api";
 import { MAX_USER_NAME_LENGTH } from "@/lib/limits";
 import log from "@/lib/log";
 import { useToast } from "@/lib/toast";
+import Button from "@/components/Button/Button";
 import styles from "./UserMenu.module.css";
 
 const COUNTER_THRESHOLD = 10;
@@ -232,21 +233,17 @@ export default function UserMenu() {
                       aria-label="Display name"
                     />
                     <div className={styles.editActions}>
-                      <button
-                        type="button"
-                        className={styles.textButton}
-                        onClick={cancelEdit}
-                        disabled={saving}
-                      >
+                      <Button variant="ghost" size="sm" onClick={cancelEdit} disabled={saving}>
                         Cancel
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="submit"
-                        className={styles.primaryButton}
+                        variant="primary"
+                        size="sm"
                         disabled={saving || !nameDraft.trim()}
                       >
                         {saving ? "Saving…" : "Save"}
-                      </button>
+                      </Button>
                     </div>
                     {showCounter ? (
                       <p className={styles.counter} aria-live="polite">
