@@ -40,26 +40,56 @@ test("anonymous joiner picks a date, adds a note, marks it preferred, and reload
   // Sheet closes (Save calls handleSave then onClose).
   await expect(sheet).toBeHidden();
 
+  // A second date: mark it free, then flip "Prefer" rapidly. Each toggle is
+  // its own request; the last one must win after a reload (vote-toggle race).
+  const secondCell = dayCells.nth(1);
+  await secondCell.click();
+  await secondCell.click();
+  await expect(sheet).toBeVisible();
+  // Focus starts inside the sheet and Tab can't escape it.
+  await expect(sheet.locator(":focus")).toHaveCount(1);
+  for (let i = 0; i < 8; i++) await page.keyboard.press("Tab");
+  await expect(sheet.locator(":focus")).toHaveCount(1);
+  const prefer = sheet.getByRole("checkbox", { name: /Prefer this date/ });
+  for (let i = 0; i < 5; i++) await prefer.click(); // odd count → ends checked
+  await expect(prefer).toBeChecked();
+  // Escape dismisses the sheet.
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+
+  // Verify via API that availability + note + preferred all landed. Saves are
+  // serialized client-side, so the toggles drain one request at a time —
+  // poll until they settle; the last toggle must win.
+  const myAvailability = async () => {
+    const res = await api.get(`/calendars/${calendar.id}`);
+    expect(res.ok()).toBeTruthy();
+    const body = (await res.json()) as {
+      participants: Array<{ id: string; name: string }>;
+      availability: Array<{
+        participant_id: string;
+        date: string;
+        note: string | null;
+        preferred?: boolean;
+      }>;
+    };
+    const me = body.participants.find((p) => p.name === joinerName);
+    expect(me).toBeDefined();
+    return body.availability
+      .filter((a) => a.participant_id === me!.id)
+      .sort((a, b) => a.date.localeCompare(b.date));
+  };
+  await expect
+    .poll(async () => (await myAvailability()).map((a) => [a.note ?? null, a.preferred ?? false]))
+    .toEqual([
+      [note, true],
+      [null, true],
+    ]);
+
   // Reload the page and assert the picks survived a round-trip.
   await page.reload();
   await expect(page.getByText(joinerName).first()).toBeVisible();
 
-  // Verify via API that availability + note + preferred all landed.
-  const res = await api.get(`/calendars/${calendar.id}`);
-  expect(res.ok()).toBeTruthy();
-  const body = (await res.json()) as {
-    participants: Array<{ id: string; name: string }>;
-    availability: Array<{
-      participant_id: string;
-      date: string;
-      note: string | null;
-      preferred: boolean;
-    }>;
-  };
-  const me = body.participants.find((p) => p.name === joinerName);
-  expect(me).toBeDefined();
-  const myAvail = body.availability.filter((a) => a.participant_id === me!.id);
-  expect(myAvail.length, "should have one availability row").toBe(1);
-  expect(myAvail[0].note).toBe(note);
-  expect(myAvail[0].preferred).toBe(true);
+  // And the UI agrees after the reload.
+  await secondCell.click();
+  await expect(sheet.getByRole("checkbox", { name: /Prefer this date/ })).toBeChecked();
 });
