@@ -2,6 +2,8 @@ import { useEffect, useMemo } from "react";
 import type { Participant } from "@/lib/types";
 import { computeSummary } from "@/lib/summary";
 import analytics from "@/lib/analytics";
+import { parseLocalDate } from "@/lib/localDate";
+import { useToday } from "@/lib/useToday";
 import styles from "./BestDay.module.css";
 
 interface BestDayProps {
@@ -22,10 +24,11 @@ function formatDate(dateStr: string): string {
 }
 
 export default function BestDay({ participants, freeByDate, voteCountsByDate }: BestDayProps) {
+  const today = useToday();
   const bestDay = useMemo(() => {
     if (participants.length < 2) return null;
 
-    const summary = computeSummary(participants, freeByDate, new Date());
+    const summary = computeSummary(participants, freeByDate, parseLocalDate(today));
     const votes = (date: string): number => voteCountsByDate?.get(date) ?? 0;
     const voteSuffix = (date: string): string => {
       const n = votes(date);
@@ -86,7 +89,7 @@ export default function BestDay({ participants, freeByDate, voteCountsByDate }: 
     }
 
     return null;
-  }, [participants, freeByDate, voteCountsByDate]);
+  }, [participants, freeByDate, voteCountsByDate, today]);
 
   useEffect(() => {
     if (bestDay) {

@@ -10,6 +10,8 @@ import {
   textOnColour,
 } from "@/lib/overlap";
 import analytics from "@/lib/analytics";
+import { parseLocalDate } from "@/lib/localDate";
+import { useToday } from "@/lib/useToday";
 import CoachmarkPreferNote from "./CoachmarkPreferNote";
 import styles from "./CalendarGrid.module.css";
 
@@ -92,10 +94,6 @@ function formatDate(d: Date): string {
 
 function formatDateLabel(d: Date): string {
   return `${MONTH_SHORT[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
-}
-
-function getToday(): string {
-  return formatDate(new Date());
 }
 
 function getMonday(date: Date): Date {
@@ -260,8 +258,10 @@ export default function CalendarGrid({
     [onToggle, onOpenDay, calendarId, currentParticipantId, coachmarkAnchor, dismissCoachmark],
   );
 
-  const today = getToday();
-  const baseMonday = getMonday(new Date());
+  // From useToday() rather than `new Date()` so a server-rendered grid
+  // hydrates with the same week the server picked (see useToday).
+  const today = useToday();
+  const baseMonday = getMonday(parseLocalDate(today));
 
   const sorted = useMemo(() => sortParticipants(participants), [participants]);
   const layout = useMemo(() => layoutSlots(sorted.length), [sorted.length]);

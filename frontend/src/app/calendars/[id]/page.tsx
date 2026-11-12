@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getCalendar } from "@/lib/api";
+import { getCalendarForServer, initialCalendarData, serverToday } from "@/lib/serverCalendar";
 import { titlePlain } from "@/lib/title";
 import CalendarPageClient from "./CalendarPageClient";
 
@@ -11,7 +11,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
 
   try {
-    const data = await getCalendar(id);
+    // Same request-scoped fetch the page body uses (React cache()).
+    const data = await getCalendarForServer(id);
+    if (!data) throw new Error("calendar unavailable");
     const rawName = data.calendar.name || "Untitled Calendar";
     const name = titlePlain(rawName);
     const participantCount = data.participants.length;
@@ -53,5 +55,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function CalendarPage({ params }: Props) {
   const { id } = await params;
-  return <CalendarPageClient calendarId={id} />;
+  // Only calendars an anonymous visitor can read are rendered on the server;
+  // anything gated or failing falls back to the client fetch, which carries
+  // the viewer's own credentials. See plans/ui/calendar-page-server-render.md.
+  const initialData = initialCalendarData(await getCalendarForServer(id));
+  return (
+    <CalendarPageClient
+      key={id}
+      calendarId={id}
+      initialData={initialData}
+      initialToday={initialData ? serverToday() : null}
+    />
+  );
 }

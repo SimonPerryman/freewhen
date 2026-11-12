@@ -25,6 +25,11 @@ export interface UseCalendarDataOptions {
   onLoaded?: (data: CalendarWithDetails) => void | Promise<void>;
   // Runs after every successful live-update refresh.
   onRefreshed?: (data: CalendarWithDetails) => void;
+  // Calendar fetched anonymously on the server (see serverCalendar.ts). When
+  // set, the first load starts from it: no loading state and no client
+  // fetch; onLoaded still runs against it. Later loads (retry, unlock) are
+  // normal client loads. Read on mount only.
+  initialData?: CalendarWithDetails | null;
 }
 
 export interface UseCalendarDataResult {
@@ -56,8 +61,14 @@ export function useCalendarData(
 ): UseCalendarDataResult {
   const { showToast } = useToast();
   const router = useRouter();
-  const [calendar, setCalendar] = useState<CalendarWithDetails | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Only used when it is for this calendar (the page also keys on the id).
+  const [serverData] = useState<CalendarWithDetails | null>(() =>
+    options.initialData && options.initialData.calendar.id === calendarId
+      ? options.initialData
+      : null,
+  );
+  const [calendar, setCalendar] = useState<CalendarWithDetails | null>(serverData);
+  const [loading, setLoading] = useState(!serverData);
   const [error, setError] = useState<LoadError | null>(null);
   const [requiresPassphrase, setRequiresPassphrase] = useState(false);
   const [magicLinkError, setMagicLinkError] = useState<string | null>(null);
@@ -83,7 +94,9 @@ export function useCalendarData(
   useEffect(() => {
     let cancelled = false;
     const { user, onLoaded } = optionsRef.current;
-    setLoading(true);
+    // First load of a server-rendered page: the data is already on screen.
+    const hydrateFrom = loadAttempt === 0 ? serverData : null;
+    if (!hydrateFrom) setLoading(true);
     setError(null);
 
     async function load() {
@@ -115,7 +128,11 @@ export function useCalendarData(
           }
         }
 
-        const data = await getCalendar(calendarId);
+        // The await keeps the server-data path async too, so a cancelled run
+        // (StrictMode double-invoke, unmount) bails out the same way.
+        const data = hydrateFrom
+          ? await Promise.resolve(hydrateFrom)
+          : await getCalendar(calendarId);
         if (cancelled) return;
 
         if (data.requiresPassphrase) {
@@ -153,7 +170,7 @@ export function useCalendarData(
     };
     // Deliberately keyed on the calendar and explicit retries only — auth
     // resolving later does not re-run the load.
-  }, [calendarId, loadAttempt]);
+  }, [calendarId, loadAttempt, serverData]);
 
   // Lightweight refresh used by the live-updates stream. Unlike the full
   // load it does not re-run the claim flow or re-seed selected dates — those

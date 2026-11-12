@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import PassphraseGate from "@/components/PassphraseGate/PassphraseGate";
 import analytics from "@/lib/analytics";
 import { useCalendarEvents } from "@/lib/useCalendarEvents";
 import { MAX_PARTICIPANTS_PER_CALENDAR } from "@/lib/limits";
@@ -15,22 +15,55 @@ import { useAvailabilitySave } from "@/lib/useAvailabilitySave";
 import { useCalendarRename } from "@/lib/useCalendarRename";
 import { useCalendarOwnerActions } from "@/lib/useCalendarOwnerActions";
 import { calendarMetaLabels, useAvailabilityMaps } from "@/lib/availabilityMaps";
-import { localToday } from "@/lib/localDate";
+import { ServerTodayProvider, useToday } from "@/lib/useToday";
 import CalendarGrid from "@/components/CalendarGrid/CalendarGrid";
 import CalendarHeader from "@/components/CalendarHeader/CalendarHeader";
-import CalendarOwnerDialogs from "@/components/CalendarOwnerDialogs/CalendarOwnerDialogs";
 import CalendarParticipantsSection from "@/components/CalendarParticipantsSection/CalendarParticipantsSection";
-import DayDetailSheet from "@/components/DayDetailSheet/DayDetailSheet";
-import DuplicateCalendarSheet from "@/components/DuplicateCalendarSheet/DuplicateCalendarSheet";
 import FinalisedBanner from "@/components/FinalisedBanner/FinalisedBanner";
 import { useImportFromGoogle } from "@/components/ImportFromGoogle/ImportFromGoogle";
 import JoinForm from "@/components/JoinForm/JoinForm";
 import BestDay from "@/components/BestDay/BestDay";
 import WhosMissingPanel from "@/components/WhosMissingPanel/WhosMissingPanel";
+import CalendarPageLoading from "./loading";
 import styles from "./page.module.css";
 
-export default function CalendarPageClient({ calendarId }: { calendarId: string }) {
+// Overlays that only appear after an interaction (or, for the gate, only on
+// passphrase-protected calendars) — split out of the first-load chunk.
+const PassphraseGate = dynamic(() => import("@/components/PassphraseGate/PassphraseGate"));
+const DayDetailSheet = dynamic(() => import("@/components/DayDetailSheet/DayDetailSheet"));
+const DuplicateCalendarSheet = dynamic(
+  () => import("@/components/DuplicateCalendarSheet/DuplicateCalendarSheet"),
+);
+const CalendarOwnerDialogs = dynamic(
+  () => import("@/components/CalendarOwnerDialogs/CalendarOwnerDialogs"),
+);
+
+interface Props {
+  calendarId: string;
+  // Calendar fetched anonymously by the server component, when it was
+  // readable without credentials. Null → the client fetches as before.
+  initialData?: CalendarWithDetails | null;
+  // The server's "today", so date-dependent markup hydrates identically.
+  initialToday?: string | null;
+}
+
+export default function CalendarPageClient({ initialToday, ...props }: Props) {
+  return (
+    <ServerTodayProvider value={initialToday}>
+      <CalendarPageContent {...props} />
+    </ServerTodayProvider>
+  );
+}
+
+function CalendarPageContent({
+  calendarId,
+  initialData,
+}: {
+  calendarId: string;
+  initialData?: CalendarWithDetails | null;
+}) {
   const { user } = useAuth();
+  const today = useToday();
   const router = useRouter();
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -41,6 +74,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   // your participant record and re-hydrates your notes / votes.
   const data = useCalendarData(calendarId, {
     user,
+    initialData,
     onLoaded: async (fresh: CalendarWithDetails) => {
       const resolved = await identity.resolveFromLoad(fresh);
       if (resolved) availability.seed(fresh, resolved.id);
@@ -59,7 +93,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     setCalendar,
     markLocalMutation,
   });
-  const { currentParticipant } = identity;
+  const { currentParticipant, identityResolved } = identity;
 
   const finalisedDate = calendar?.calendar.finalisedDate ?? null;
   const availability = useAvailabilitySave({
@@ -73,8 +107,10 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   const rename = useCalendarRename({ calendarId, calendar, setCalendar, markLocalMutation });
   const owner = useCalendarOwnerActions({ calendarId, calendar, setCalendar, markLocalMutation });
 
+  // Wait for identity so the stream opens once, already tagged with our
+  // participant (a server-rendered page has the calendar before that).
   const { status: streamStatus } = useCalendarEvents(
-    calendar ? calendarId : "",
+    calendar && identityResolved ? calendarId : "",
     currentParticipant?.id ?? null,
     data.refresh,
   );
@@ -107,6 +143,12 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     [calendar, calendarId],
   );
 
+  // Warm the (lazy) day sheet chunk as soon as you can open it.
+  const joined = !!currentParticipant;
+  useEffect(() => {
+    if (joined) void import("@/components/DayDetailSheet/DayDetailSheet");
+  }, [joined]);
+
   const handleCloseDay = useCallback(() => {
     setOpenDayDate(null);
   }, []);
@@ -128,13 +170,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
     });
 
   if (data.loading) {
-    return (
-      <div className={styles.page}>
-        <div className={styles.container}>
-          <p className={styles.loading}>Loading…</p>
-        </div>
-      </div>
-    );
+    return <CalendarPageLoading />;
   }
 
   if (data.requiresPassphrase) {
@@ -183,7 +219,17 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
   const passphrase = calendar.calendar.passphrase ?? null;
   const isOwner = !!user && calendar.calendar.ownerId === user.id;
   const isFull = calendar.participants.length >= MAX_PARTICIPANTS_PER_CALENDAR;
-  const { peopleLabel, dateLabel } = calendarMetaLabels(calendar, selectedDates, localToday());
+  const { peopleLabel, dateLabel } = calendarMetaLabels(calendar, selectedDates, today);
+  // "You haven't joined" UI waits until we know who you are: a server-rendered
+  // page paints before localStorage has been read.
+  const notJoined = identityResolved && !currentParticipant;
+  // Mount the (lazy) owner overlays only while one is open, so their chunk
+  // is fetched on first use rather than on every page view.
+  const ownerOverlayOpen =
+    settingsOpen ||
+    owner.removePassphraseOpen ||
+    owner.regeneratePassphraseOpen ||
+    owner.participantToRemove !== null;
 
   return (
     <div className={styles.page}>
@@ -215,7 +261,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           />
         ) : null}
 
-        {!currentParticipant && !finalisedDate ? (
+        {notJoined && !finalisedDate ? (
           isFull ? (
             <p className={styles.emptyHint}>
               This calendar is full ({MAX_PARTICIPANTS_PER_CALENDAR} people).
@@ -230,7 +276,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           )
         ) : null}
 
-        {!currentParticipant && finalisedDate ? (
+        {notJoined && finalisedDate ? (
           <p className={styles.emptyHint}>
             This calendar is finalised — no further changes needed.
           </p>
@@ -245,7 +291,7 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           </div>
         ) : null}
 
-        {calendar.participants.length === 0 && !currentParticipant ? (
+        {calendar.participants.length === 0 && notJoined ? (
           <p className={styles.emptyHint}>
             Share the link — when people join, you&apos;ll see their availability here.
           </p>
@@ -336,15 +382,17 @@ export default function CalendarPageClient({ calendarId }: { calendarId: string 
           />
         ) : null}
 
-        <CalendarOwnerDialogs
-          hasPassphrase={calendar.calendar.hasPassphrase ?? false}
-          passphrase={passphrase}
-          actions={owner}
-          settingsOpen={settingsOpen}
-          onCloseSettings={() => setSettingsOpen(false)}
-          onStartRename={rename.handleRenameStart}
-          onOpenDuplicate={() => setDuplicateOpen(true)}
-        />
+        {ownerOverlayOpen ? (
+          <CalendarOwnerDialogs
+            hasPassphrase={calendar.calendar.hasPassphrase ?? false}
+            passphrase={passphrase}
+            actions={owner}
+            settingsOpen={settingsOpen}
+            onCloseSettings={() => setSettingsOpen(false)}
+            onStartRename={rename.handleRenameStart}
+            onOpenDuplicate={() => setDuplicateOpen(true)}
+          />
+        ) : null}
       </div>
     </div>
   );
