@@ -44,6 +44,12 @@
   --note-accent: #2a5d8f;
   --note-accent-subtle: #eaf2fa;
   --error: #c2185b;
+  /* Disabled controls: a flat, recessed fill with muted text, distinct from
+     every live variant in both themes (not an opacity fade, which leaves a
+     bright accent reading as enabled). Label stays ≥3:1 against the fill. */
+  --disabled-bg: #e6dfd1;
+  --disabled-border: #d8d1c5;
+  --disabled-text: #7d7468;
 
   /* Spacing — 4px base. Half steps (0-5, 1-5, 2-5, 3-5, 4-5) exist because
      the UI genuinely uses 2/6/10/14/18px rhythm; prefer whole steps for new
@@ -139,6 +145,9 @@
   --note-accent: #8fb8e0;
   --note-accent-subtle: #1e2c3d;
   --error: #f06292;
+  --disabled-bg: #211d19;
+  --disabled-border: #38332d;
+  --disabled-text: #736a5f;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.5);

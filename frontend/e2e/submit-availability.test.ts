@@ -53,9 +53,10 @@ test("anonymous joiner picks a date, adds a note, marks it preferred, and reload
   const prefer = sheet.getByRole("checkbox", { name: /Prefer this date/ });
   for (let i = 0; i < 5; i++) await prefer.click(); // odd count → ends checked
   await expect(prefer).toBeChecked();
-  // Escape dismisses the sheet.
+  // Escape dismisses the sheet and focus returns to the day that opened it.
   await page.keyboard.press("Escape");
   await expect(sheet).toBeHidden();
+  await expect(secondCell).toBeFocused();
 
   // Verify via API that availability + note + preferred all landed. Saves are
   // serialized client-side, so the toggles drain one request at a time —

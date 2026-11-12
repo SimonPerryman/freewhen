@@ -15,6 +15,10 @@ interface Options {
   initialFocus?: RefObject<HTMLElement | null>;
 }
 
+// Active traps, oldest first. Only the last (topmost) one handles keys, so
+// Escape on a confirm dialog stacked over a sheet closes just the dialog.
+const stack: object[] = [];
+
 // Traps Tab/Shift-Tab focus inside the returned ref's container, handles
 // Escape, and restores focus to whatever was active before the trap mounted.
 // Used by every modal sheet/dialog so behaviour stays consistent.
@@ -36,6 +40,8 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>({
     if (!enabled) return;
     const root = ref.current;
     if (!root) return;
+    const token = {};
+    stack.push(token);
     const previouslyFocused = document.activeElement as HTMLElement | null;
 
     const target =
@@ -43,6 +49,7 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>({
     target.focus?.();
 
     function onKey(e: KeyboardEvent) {
+      if (stack[stack.length - 1] !== token) return;
       if (e.key === "Escape") {
         const handler = onEscapeRef.current;
         if (handler) {
@@ -62,7 +69,11 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>({
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       const active = document.activeElement as HTMLElement | null;
-      if (e.shiftKey && active === first) {
+      if (!root.contains(active)) {
+        // Focus escaped (e.g. a click on the backdrop) — pull it back in.
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      } else if (e.shiftKey && active === first) {
         e.preventDefault();
         last.focus();
       } else if (!e.shiftKey && active === last) {
@@ -74,7 +85,13 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>({
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
-      previouslyFocused?.focus?.();
+      const index = stack.indexOf(token);
+      const wasTop = index === stack.length - 1;
+      if (index !== -1) stack.splice(index, 1);
+      // Restore only when this was the topmost trap — a lower layer closing
+      // underneath an open dialog mustn't pull focus out of the dialog — and
+      // only to an element still in the page (else focus would land on body).
+      if (wasTop && previouslyFocused?.isConnected) previouslyFocused.focus?.();
     };
   }, [enabled, initialFocus]);
 
