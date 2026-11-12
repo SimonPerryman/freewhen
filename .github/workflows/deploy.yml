@@ -23,6 +23,11 @@ jobs:
       is_head: ${{ steps.check.outputs.is_head }}
       head_sha: ${{ steps.check.outputs.head_sha }}
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
       - id: check
         env:
           # `gh api` uses GH_TOKEN; the workflow's default GITHUB_TOKEN has
@@ -53,6 +58,10 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       infra: ${{ steps.filter.outputs.infra }}
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
         id: filter
@@ -82,6 +91,11 @@ jobs:
       contents: read
       id-token: write
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
       - uses: actions/checkout@v4
 
       - uses: google-github-actions/auth@v2
@@ -116,6 +130,11 @@ jobs:
       contents: read
       id-token: write
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
       - uses: actions/checkout@v4
 
       - id: auth
@@ -163,6 +182,11 @@ jobs:
       run:
         working-directory: frontend
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
