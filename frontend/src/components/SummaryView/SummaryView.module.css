@@ -77,6 +77,10 @@
   align-items: center;
 }
 
+.nowrap {
+  white-space: nowrap;
+}
+
 .confirmButton {
   font-family: inherit;
   font-size: var(--text-xs);

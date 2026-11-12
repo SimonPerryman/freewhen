@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { countResponded } from "@/lib/availabilityMaps";
 import { getCalendarForServer, initialCalendarData, serverToday } from "@/lib/serverCalendar";
 import { titlePlain } from "@/lib/title";
 import CalendarPageClient from "./CalendarPageClient";
@@ -16,10 +17,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     if (!data) throw new Error("calendar unavailable");
     const rawName = data.calendar.name || "Untitled Calendar";
     const name = titlePlain(rawName);
-    const participantCount = data.participants.length;
+    const respondedCount = countResponded(data.participants, data.availability);
     const description =
-      participantCount > 0
-        ? `${participantCount} ${participantCount === 1 ? "person has" : "people have"} responded — mark your availability`
+      respondedCount > 0
+        ? `${respondedCount} ${respondedCount === 1 ? "person has" : "people have"} responded — mark your availability`
         : "Mark your availability — no sign-up needed";
 
     // Cache-buster — bump whenever the calendar mutates so social previews

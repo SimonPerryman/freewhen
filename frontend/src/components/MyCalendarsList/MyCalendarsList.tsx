@@ -141,7 +141,7 @@ export default function MyCalendarsList({ status, calendars, hasMore, onRetry }:
 
   return (
     <>
-      <ul className={styles.list}>
+      <ul className={styles.list} role="list">
         {visibleCalendars.map((cal) => {
           const displayName = localNames[cal.id] ?? cal.name;
           const items: RowMenuItem[] = [];

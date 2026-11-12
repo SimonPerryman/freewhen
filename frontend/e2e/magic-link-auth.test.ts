@@ -32,7 +32,19 @@ test("magic-link: request a link, fetch it from the captured-email endpoint, cli
   // only fires from the user-initiated POST behind this button, not on
   // page load, so link prefetchers can't burn the token. Click through to
   // finish the sign-in.
-  await page.getByRole("button", { name: "Continue" }).click();
+  // The interstitial once shipped Tailwind classes in a project without
+  // Tailwind and rendered as a browser-default page. Guard the styling: the
+  // copy is centred and Continue is the shared primary Button, not a grey
+  // UA-default button.
+  await expect(page.getByRole("heading", { name: "Sign in to FreeWhen" })).toHaveCSS(
+    "text-align",
+    "center",
+  );
+  const continueButton = page.getByRole("button", { name: "Continue" });
+  await expect(continueButton).toBeVisible();
+  await expect(continueButton).toHaveClass(/primary/);
+  await expect(continueButton).not.toHaveCSS("background-color", "rgb(239, 239, 239)");
+  await continueButton.click();
 
   // After verify the page navigates to "/" with a session cookie set.
   await expect(page).toHaveURL(/\/$/);

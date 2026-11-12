@@ -2,9 +2,12 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Button from "@/components/Button/Button";
 import { ApiError, verifyMagicLink } from "@/lib/api";
 import log from "@/lib/log";
 import { safeReturnPath } from "@/lib/safeReturnPath";
+import loginStyles from "@/app/login/page.module.css";
+import styles from "./page.module.css";
 
 export default function MagicLinkCallbackPage() {
   return (
@@ -18,7 +21,7 @@ export default function MagicLinkCallbackPage() {
 // NOT consume the token on page load. Email link prefetchers — Outlook
 // SafeLinks, Slack unfurl, corporate AV scanners — fetch the URL once on
 // receipt and don't run JS or follow user-initiated POSTs, so the token
-// survives until the user clicks "Sign in" and the POST runs.
+// survives until the user clicks "Continue" and the POST runs.
 function MagicLinkCallbackContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
@@ -27,12 +30,14 @@ function MagicLinkCallbackContent() {
 
   if (!token) {
     return (
-      <main className="mx-auto max-w-sm px-4 py-12 text-center">
-        <h1 className="text-lg font-semibold">Invalid link</h1>
-        <p className="mt-2 text-sm text-neutral-600">
-          This sign-in link is missing a token. Try requesting a new one.
-        </p>
-      </main>
+      <div className={loginStyles.page}>
+        <main className={loginStyles.container}>
+          <h1 className={loginStyles.heading}>Invalid link</h1>
+          <p className={styles.message}>
+            This sign-in link is missing a token. Try requesting a new one.
+          </p>
+        </main>
+      </div>
     );
   }
 
@@ -54,18 +59,19 @@ function MagicLinkCallbackContent() {
   }
 
   return (
-    <main className="mx-auto max-w-sm px-4 py-12 text-center">
-      <h1 className="text-lg font-semibold">Sign in to FreeWhen</h1>
-      <p className="mt-2 text-sm text-neutral-600">Click below to finish signing in.</p>
-      <button
-        type="button"
-        onClick={onContinue}
-        disabled={submitting}
-        className="mt-6 w-full rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-      >
-        {submitting ? "Signing you in…" : "Continue"}
-      </button>
-      {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
-    </main>
+    <div className={loginStyles.page}>
+      <main className={loginStyles.container}>
+        <h1 className={loginStyles.heading}>Sign in to FreeWhen</h1>
+        <p className={loginStyles.subheading}>Click below to finish signing in.</p>
+        <Button variant="primary" size="lg" fullWidth loading={submitting} onClick={onContinue}>
+          {submitting ? "Signing you in…" : "Continue"}
+        </Button>
+        {error ? (
+          <p className={styles.error} role="alert">
+            {error}
+          </p>
+        ) : null}
+      </main>
+    </div>
   );
 }

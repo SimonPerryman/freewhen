@@ -1,0 +1,12 @@
+.message {
+  margin: 0;
+  font-size: var(--text-md);
+  color: var(--text-secondary);
+  line-height: var(--leading-normal);
+}
+
+.error {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-base);
+  color: var(--error);
+}

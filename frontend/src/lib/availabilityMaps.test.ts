@@ -7,8 +7,35 @@ import {
   buildPreferredByDate,
   buildVoteCountsByDate,
   calendarMetaLabels,
+  countResponded,
+  respondedParticipantIds,
   useAvailabilityMaps,
 } from "./availabilityMaps";
+
+describe("responded", () => {
+  it("respondedParticipantIds collects everyone free on any date", () => {
+    const ids = respondedParticipantIds(
+      new Map([
+        ["2026-06-01", new Set(["a", "b"])],
+        ["2026-06-02", new Set(["b", "c"])],
+      ]),
+    );
+    expect([...ids].sort()).toEqual(["a", "b", "c"]);
+    expect(respondedParticipantIds(new Map()).size).toBe(0);
+  });
+
+  it("countResponded ignores joined-but-silent participants and stale rows", () => {
+    const participants = [{ id: "owner" }, { id: "a" }, { id: "b" }];
+    expect(countResponded(participants, [])).toBe(0);
+    expect(
+      countResponded(participants, [
+        { participantId: "a" },
+        { participantId: "a" },
+        { participantId: "removed" },
+      ]),
+    ).toBe(1);
+  });
+});
 import type { CalendarWithDetails, Participant } from "./types";
 
 const me: Participant = { id: "me", calendarId: "c1", name: "Me", colour: "#f00" };
