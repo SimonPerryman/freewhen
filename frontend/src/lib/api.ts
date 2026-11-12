@@ -20,10 +20,11 @@ import {
   getCalendarAccessToken,
   setCalendarAccessToken,
 } from "./calendarAccess";
+import { API_BASE_URL } from "./config";
 
 const ACCESS_HEADER = "X-Calendar-Access";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+const BASE_URL = API_BASE_URL;
 
 export class ApiError extends Error {
   public requestId: string | null;
@@ -432,4 +433,14 @@ export async function verifyMagicLink(token: string): Promise<{ returnUrl: strin
     method: "POST",
     body: JSON.stringify({ token }),
   });
+}
+
+// unsubscribe consumes an email-unsubscribe token. The backend responds with
+// an HTML page (it's also hit directly from email links), so this resolves to
+// whether the token was accepted rather than parsing a body.
+export async function unsubscribe(token: string): Promise<boolean> {
+  const res = await fetch(`${BASE_URL}/unsubscribe?t=${encodeURIComponent(token)}`, {
+    method: "GET",
+  });
+  return res.ok;
 }

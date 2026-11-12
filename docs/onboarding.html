@@ -766,7 +766,7 @@ Registry := calprovider.NewRegistry(google)
   <ul class="tight">
     <li><strong>Backend unit</strong> — <code>go test ./...</code> · fast · no DB.</li>
     <li><strong>Backend integration</strong> — <code>make test-integration</code> · embedded Postgres downloaded to <code>~/.embedded-postgres-go/</code> · <code>integration</code> build tag.</li>
-    <li><strong>Frontend unit</strong> — vitest + jsdom · <code>@</code> alias to <code>src/</code>.</li>
+    <li><strong>Frontend unit</strong> — vitest + happy-dom · <code>@</code> alias to <code>src/</code>.</li>
     <li><strong>E2E</strong> — Playwright spins up embedded Postgres + Go (<code>E2E_TEST_MODE=true</code>) + Next.js dev server.</li>
     <li><strong>PII linting</strong> — <code>make lint-pii</code> blocks logger calls with <code>email</code>/<code>phone</code>/<code>ip</code> fields.</li>
   </ul>
@@ -790,7 +790,7 @@ Registry := calprovider.NewRegistry(google)
     <div class="panel tile">
       <strong style="font-family: var(--display); font-size: 16px;">Frontend</strong>
       <ul class="tight">
-        <li><code>NEXT_PUBLIC_API_URL</code></li>
+        <li><code>NEXT_PUBLIC_API_URL</code> (read once in <code>src/lib/config.ts</code>)</li>
         <li><code>NEXT_PUBLIC_LOG_LEVEL</code></li>
         <li><code>NEXT_PUBLIC_POSTHOG_KEY</code></li>
         <li><code>NEXT_PUBLIC_POSTHOG_HOST</code></li>

@@ -122,10 +122,10 @@
 }
 
 .destructive {
-  color: var(--danger, #b91c1c);
+  color: var(--error);
 }
 
 .destructive:hover,
 .destructive:focus-visible {
-  background: color-mix(in srgb, var(--danger, #b91c1c) 10%, transparent);
+  background: color-mix(in srgb, var(--error) 10%, transparent);
 }

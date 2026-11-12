@@ -2,8 +2,8 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+import { unsubscribe } from "@/lib/api";
+import styles from "./page.module.css";
 
 type Status = "pending" | "success" | "invalid";
 
@@ -18,10 +18,9 @@ function UnsubscribeInner() {
       return;
     }
     let cancelled = false;
-    void fetch(`${API_BASE}/unsubscribe?t=${encodeURIComponent(token)}`, { method: "GET" })
-      .then((res) => {
-        if (cancelled) return;
-        setStatus(res.ok ? "success" : "invalid");
+    void unsubscribe(token)
+      .then((ok) => {
+        if (!cancelled) setStatus(ok ? "success" : "invalid");
       })
       .catch(() => {
         if (!cancelled) setStatus("invalid");
@@ -32,29 +31,21 @@ function UnsubscribeInner() {
   }, [token]);
 
   return (
-    <main
-      style={{
-        fontFamily: "system-ui, sans-serif",
-        maxWidth: 480,
-        margin: "64px auto",
-        padding: "0 20px",
-        color: "#111",
-      }}
-    >
+    <main className={styles.main}>
       {status === "pending" ? (
-        <p style={{ color: "#555" }}>One moment…</p>
+        <p className={styles.body}>One moment…</p>
       ) : status === "success" ? (
         <>
-          <h1 style={{ fontSize: 22 }}>You&apos;re unsubscribed</h1>
-          <p style={{ lineHeight: 1.5, color: "#555" }}>
+          <h1 className={styles.heading}>You&apos;re unsubscribed</h1>
+          <p className={styles.body}>
             We won&apos;t email you about this calendar again. You can edit your participant on
             FreeWhen if you change your mind.
           </p>
         </>
       ) : (
         <>
-          <h1 style={{ fontSize: 22 }}>This unsubscribe link is invalid or expired.</h1>
-          <p style={{ lineHeight: 1.5, color: "#555" }}>
+          <h1 className={styles.heading}>This unsubscribe link is invalid or expired.</h1>
+          <p className={styles.body}>
             Open FreeWhen and edit your participant to clear your email.
           </p>
         </>

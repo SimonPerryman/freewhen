@@ -122,7 +122,7 @@ Status: pending | in-progress | done
 - `make test` to run all tests
 - `make test-backend` / `make test-frontend` to run tests per stack
 - `make test-integration` to run Go integration tests (runs against an embedded Postgres downloaded to `~/.embedded-postgres-go/` on first use — no local setup required; override with `TEST_DATABASE_URL=...` to point at an existing database)
-- Frontend uses vitest with jsdom; `@` alias maps to `src/`
+- Frontend uses vitest with happy-dom; `@` alias maps to `src/`
 - Single test file: `cd frontend && pnpm exec vitest run path/to/file`
 - Single Go test: `cd backend && go test ./internal/store/ -run TestName`
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
-import Toast, { type ToastAction } from "@/components/Toast/Toast";
+import Toast, { ToastRegion, type ToastAction } from "@/components/Toast/Toast";
 
 interface ShowToastInput {
   message: string;
@@ -48,16 +48,18 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      {toast ? (
-        <Toast
-          key={toast.id}
-          toastKey={toast.id}
-          message={toast.message}
-          action={toast.action}
-          durationMs={toast.durationMs}
-          onDismiss={dismiss}
-        />
-      ) : null}
+      <ToastRegion>
+        {toast ? (
+          <Toast
+            key={toast.id}
+            toastKey={toast.id}
+            message={toast.message}
+            action={toast.action}
+            durationMs={toast.durationMs}
+            onDismiss={dismiss}
+          />
+        ) : null}
+      </ToastRegion>
     </ToastContext.Provider>
   );
 }

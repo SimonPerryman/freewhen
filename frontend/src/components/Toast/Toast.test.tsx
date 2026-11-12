@@ -130,4 +130,46 @@ describe("Toast", () => {
     });
     expect(screen.queryByTestId("toast")).not.toBeInTheDocument();
   });
+
+  it("keeps the live region mounted with no toast showing", () => {
+    const getCtx = setup();
+    const region = screen.getByRole("status");
+    expect(region).toBeEmptyDOMElement();
+
+    act(() => {
+      getCtx().showToast({ message: "announced" });
+    });
+    // Same node: content is inserted into the pre-existing live region.
+    expect(screen.getByRole("status")).toBe(region);
+    expect(region).toHaveTextContent("announced");
+  });
+
+  it("focus inside the toast pauses the auto-dismiss timer", () => {
+    const getCtx = setup();
+
+    act(() => {
+      getCtx().showToast({
+        message: "focusme",
+        action: { label: "Undo", onClick: () => {} },
+        durationMs: 1000,
+      });
+    });
+
+    const undo = screen.getByRole("button", { name: "Undo" });
+    act(() => {
+      fireEvent.focus(undo);
+    });
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(screen.getByTestId("toast")).toBeInTheDocument();
+
+    act(() => {
+      fireEvent.blur(undo);
+    });
+    act(() => {
+      vi.advanceTimersByTime(1100);
+    });
+    expect(screen.queryByTestId("toast")).not.toBeInTheDocument();
+  });
 });
