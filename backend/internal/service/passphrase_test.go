@@ -144,9 +144,9 @@ func TestAuthorizeAccess_UnprotectedCalendar(t *testing.T) {
 }
 
 func TestRotateCalendarPassphrase_BumpsEpoch(t *testing.T) {
-	ps := &passphraseStore{cal: model.Calendar{ID: "cal1", AccessEpoch: 0}}
+	ps := &passphraseStore{cal: model.Calendar{ID: "cal1", OwnerID: "u1", AccessEpoch: 0}}
 	s := newSvc(t, ps)
-	p, err := s.RotateCalendarPassphrase(context.Background(), "cal1")
+	p, err := s.RotateCalendarPassphrase(context.Background(), "cal1", "u1")
 	if err != nil {
 		t.Fatalf("unexpected: %v", err)
 	}
@@ -159,9 +159,9 @@ func TestRotateCalendarPassphrase_BumpsEpoch(t *testing.T) {
 }
 
 func TestClearCalendarPassphrase_PassesNil(t *testing.T) {
-	ps := &passphraseStore{cal: model.Calendar{ID: "cal1", Passphrase: "p", AccessEpoch: 1}}
+	ps := &passphraseStore{cal: model.Calendar{ID: "cal1", OwnerID: "u1", Passphrase: "p", AccessEpoch: 1}}
 	s := newSvc(t, ps)
-	if err := s.ClearCalendarPassphrase(context.Background(), "cal1"); err != nil {
+	if err := s.ClearCalendarPassphrase(context.Background(), "cal1", "u1"); err != nil {
 		t.Fatalf("unexpected: %v", err)
 	}
 	if ps.setArg != nil {

@@ -17,7 +17,6 @@ import (
 	"github.com/freewhen/backend/internal/calprovider"
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/ratelimit"
-	"github.com/freewhen/backend/internal/store"
 
 	"golang.org/x/oauth2"
 )
@@ -405,7 +404,7 @@ func TestGetSuggestions_Unauthenticated(t *testing.T) {
 
 func TestGetSuggestions_CalendarNotFound(t *testing.T) {
 	cal := &mockService{getCalendarOnly: func(_ context.Context, _ string) (model.Calendar, error) {
-		return model.Calendar{}, store.ErrNotFound
+		return model.Calendar{}, model.ErrNotFound
 	}}
 	h := newCalIntegrationHandler(t, &fakeCalIntegrationStore{}, cal, newFakeGoogle(t), nil)
 	req := withUser(httptest.NewRequest(http.MethodGet, "/calendars/cal1/import/suggestions", nil), testUser)

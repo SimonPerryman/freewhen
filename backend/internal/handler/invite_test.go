@@ -9,7 +9,6 @@ import (
 
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/service"
-	"github.com/freewhen/backend/internal/store"
 )
 
 // inviteMock extends mockService with invite-specific overrides used by the
@@ -22,44 +21,55 @@ type inviteMock struct {
 	renameInviteFn func(ctx context.Context, inviteID, name string) (model.Invite, error)
 	deleteInviteFn func(ctx context.Context, inviteID string) error
 	manualMatchFn  func(ctx context.Context, calendarID, inviteID string, participantID *string) (model.Invite, error)
-	getInviteFn    func(ctx context.Context, inviteID string) (model.Invite, error)
 }
 
-func (m *inviteMock) GetMissingView(ctx context.Context, id string) (service.MissingView, error) {
+func (m *inviteMock) GetMissingView(ctx context.Context, id, userID string) (service.MissingView, error) {
+	if err := m.requireOwner(ctx, id, userID); err != nil {
+		return service.MissingView{}, err
+	}
 	if m.getMissingView != nil {
 		return m.getMissingView(ctx, id)
 	}
 	return service.MissingView{}, nil
 }
-func (m *inviteMock) AddInvites(ctx context.Context, id string, names []string) (service.AddInvitesResult, error) {
+func (m *inviteMock) AddInvites(ctx context.Context, id, userID string, names []string) (service.AddInvitesResult, error) {
+	if err := m.requireOwner(ctx, id, userID); err != nil {
+		return service.AddInvitesResult{}, err
+	}
+	if len(names) == 0 {
+		return service.AddInvitesResult{}, &service.ValidationError{Code: "names_required", Message: "names is required"}
+	}
 	if m.addInvitesFn != nil {
 		return m.addInvitesFn(ctx, id, names)
 	}
 	return service.AddInvitesResult{}, nil
 }
-func (m *inviteMock) RenameInvite(ctx context.Context, id, name string) (model.Invite, error) {
+func (m *inviteMock) RenameInvite(ctx context.Context, calID, userID, id, name string) (model.Invite, error) {
+	if err := m.requireOwner(ctx, calID, userID); err != nil {
+		return model.Invite{}, err
+	}
 	if m.renameInviteFn != nil {
 		return m.renameInviteFn(ctx, id, name)
 	}
 	return model.Invite{}, nil
 }
-func (m *inviteMock) DeleteInvite(ctx context.Context, id string) error {
+func (m *inviteMock) DeleteInvite(ctx context.Context, calID, userID, id string) error {
+	if err := m.requireOwner(ctx, calID, userID); err != nil {
+		return err
+	}
 	if m.deleteInviteFn != nil {
 		return m.deleteInviteFn(ctx, id)
 	}
 	return nil
 }
-func (m *inviteMock) ManualMatchInvite(ctx context.Context, calID, id string, pid *string) (model.Invite, error) {
+func (m *inviteMock) ManualMatchInvite(ctx context.Context, calID, userID, id string, pid *string) (model.Invite, error) {
+	if err := m.requireOwner(ctx, calID, userID); err != nil {
+		return model.Invite{}, err
+	}
 	if m.manualMatchFn != nil {
 		return m.manualMatchFn(ctx, calID, id, pid)
 	}
 	return model.Invite{}, nil
-}
-func (m *inviteMock) GetInvite(ctx context.Context, id string) (model.Invite, error) {
-	if m.getInviteFn != nil {
-		return m.getInviteFn(ctx, id)
-	}
-	return model.Invite{ID: id, CalendarID: "cal1"}, nil
 }
 
 func newInviteReq(t *testing.T, method, path, calendarID string, body any, user *model.User) *http.Request {
@@ -127,7 +137,7 @@ func TestListMissing_OwnerHappyPath(t *testing.T) {
 func TestAddInvites_NotFoundCalendar(t *testing.T) {
 	m := &inviteMock{}
 	m.getCalendarOnly = func(_ context.Context, _ string) (model.Calendar, error) {
-		return model.Calendar{}, store.ErrNotFound
+		return model.Calendar{}, model.ErrNotFound
 	}
 	h := New(m)
 	req := newInviteReq(t, http.MethodPost, "/calendars/cal1/invites", "cal1",
@@ -142,7 +152,7 @@ func TestAddInvites_NotFoundCalendar(t *testing.T) {
 func TestAddInvites_LimitReached(t *testing.T) {
 	m := &inviteMock{
 		addInvitesFn: func(_ context.Context, _ string, _ []string) (service.AddInvitesResult, error) {
-			return service.AddInvitesResult{}, store.ErrInviteLimitReached
+			return service.AddInvitesResult{}, model.ErrInviteLimitReached
 		},
 	}
 	m.getCalendarOnly = func(_ context.Context, id string) (model.Calendar, error) {

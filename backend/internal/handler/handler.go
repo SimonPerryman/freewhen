@@ -8,7 +8,6 @@ import (
 	"github.com/freewhen/backend/internal/flags"
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/service"
-	"github.com/freewhen/backend/internal/store"
 )
 
 type contextKey struct{ name string }
@@ -33,25 +32,24 @@ type CalendarService interface {
 	GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error)
 	AddParticipant(ctx context.Context, calendarID, name string, userID *string, email *string) (model.Participant, string, error)
 	UpdateParticipantEmail(ctx context.Context, calendarID, targetParticipantID string, caller service.ParticipantCaller, email *string) (model.Participant, error)
-	SetAvailability(ctx context.Context, calendarID, participantID string, caller service.ParticipantCaller, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) error
+	SetAvailability(ctx context.Context, calendarID, participantID string, caller service.ParticipantCaller, update service.AvailabilityUpdate) error
 	ImportAvailability(ctx context.Context, calendarID, participantID string, caller service.ParticipantCaller, dates []string) error
-	FinaliseCalendar(ctx context.Context, calendarID, date string) (model.Calendar, error)
-	UnfinaliseCalendar(ctx context.Context, calendarID string) (model.Calendar, error)
+	FinaliseCalendar(ctx context.Context, calendarID, userID, date string) (model.Calendar, error)
+	UnfinaliseCalendar(ctx context.Context, calendarID, userID string) (model.Calendar, error)
 	ClaimParticipant(ctx context.Context, calendarID, participantID string, caller service.ParticipantCaller) (model.Participant, error)
-	RenameCalendar(ctx context.Context, calendarID, name string) (model.Calendar, error)
-	RemoveParticipant(ctx context.Context, calendarID, participantID string) error
+	RenameCalendar(ctx context.Context, calendarID, userID, name string) (model.Calendar, error)
+	RemoveParticipant(ctx context.Context, calendarID, userID, participantID string) error
 	RenameParticipant(ctx context.Context, calendarID, targetParticipantID string, caller service.ParticipantCaller, name string) (model.Participant, error)
-	ListUserCalendars(ctx context.Context, userID string) ([]store.CalendarListItem, bool, error)
+	ListUserCalendars(ctx context.Context, userID string) ([]model.CalendarListItem, bool, error)
 	UnlockCalendar(ctx context.Context, calendarID, submitted, remoteAddr string) (string, error)
-	RotateCalendarPassphrase(ctx context.Context, calendarID string) (string, error)
-	ClearCalendarPassphrase(ctx context.Context, calendarID string) error
+	RotateCalendarPassphrase(ctx context.Context, calendarID, userID string) (string, error)
+	ClearCalendarPassphrase(ctx context.Context, calendarID, userID string) error
 	AuthorizeAccess(ctx context.Context, cal model.Calendar, viewer service.Viewer, tokenHeader string) error
-	GetMissingView(ctx context.Context, calendarID string) (service.MissingView, error)
-	AddInvites(ctx context.Context, calendarID string, rawNames []string) (service.AddInvitesResult, error)
-	RenameInvite(ctx context.Context, inviteID, name string) (model.Invite, error)
-	DeleteInvite(ctx context.Context, inviteID string) error
-	ManualMatchInvite(ctx context.Context, calendarID, inviteID string, participantID *string) (model.Invite, error)
-	GetInvite(ctx context.Context, inviteID string) (model.Invite, error)
+	GetMissingView(ctx context.Context, calendarID, userID string) (service.MissingView, error)
+	AddInvites(ctx context.Context, calendarID, userID string, rawNames []string) (service.AddInvitesResult, error)
+	RenameInvite(ctx context.Context, calendarID, userID, inviteID, name string) (model.Invite, error)
+	DeleteInvite(ctx context.Context, calendarID, userID, inviteID string) error
+	ManualMatchInvite(ctx context.Context, calendarID, userID, inviteID string, participantID *string) (model.Invite, error)
 	DeleteCalendar(ctx context.Context, calendarID, userID string) error
 	LeaveCalendar(ctx context.Context, calendarID, userID string) error
 	IsCalendarSoftDeleted(ctx context.Context, calendarID string) (bool, error)

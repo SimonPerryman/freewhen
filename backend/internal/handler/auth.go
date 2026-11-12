@@ -16,7 +16,6 @@ import (
 	"github.com/freewhen/backend/internal/idprovider"
 	"github.com/freewhen/backend/internal/limits"
 	"github.com/freewhen/backend/internal/model"
-	"github.com/freewhen/backend/internal/store"
 )
 
 // AuthStore defines the data operations the auth handler needs.
@@ -266,8 +265,7 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req updateMeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid_json", "invalid request body")
+	if !decodeJSONMessage(w, r, &req, "invalid request body") {
 		return
 	}
 
@@ -373,8 +371,7 @@ func (h *AuthHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req magicLinkRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid_json", "invalid request body")
+	if !decodeJSONMessage(w, r, &req, "invalid request body") {
 		return
 	}
 
@@ -435,8 +432,7 @@ type magicLinkVerifyResponse struct {
 // hole and is the bug this PR closed.
 func (h *AuthHandler) MagicLinkVerify(w http.ResponseWriter, r *http.Request) {
 	var req magicLinkVerifyRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid_json", "invalid request body")
+	if !decodeJSONMessage(w, r, &req, "invalid request body") {
 		return
 	}
 	if req.Token == "" {
@@ -481,7 +477,7 @@ func (h *AuthHandler) findOrCreateEmailUser(ctx context.Context, emailAddr strin
 	if err == nil {
 		return user, nil
 	}
-	if !errors.Is(err, store.ErrNotFound) {
+	if !errors.Is(err, model.ErrNotFound) {
 		return model.User{}, fmt.Errorf("find user by email: %w", err)
 	}
 
@@ -498,7 +494,7 @@ func (h *AuthHandler) findOrCreateUser(ctx context.Context, providerName string,
 	if err == nil {
 		return user, nil
 	}
-	if !errors.Is(err, store.ErrNotFound) {
+	if !errors.Is(err, model.ErrNotFound) {
 		return model.User{}, fmt.Errorf("find user by provider ID: %w", err)
 	}
 
@@ -516,7 +512,7 @@ func (h *AuthHandler) findOrCreateUser(ctx context.Context, providerName string,
 	if err == nil {
 		return user, nil
 	}
-	if !errors.Is(err, store.ErrNotFound) {
+	if !errors.Is(err, model.ErrNotFound) {
 		return model.User{}, fmt.Errorf("find user by email: %w", err)
 	}
 

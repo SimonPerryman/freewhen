@@ -1,19 +1,15 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/freewhen/backend/internal/limits"
+	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/service"
-	"github.com/freewhen/backend/internal/store"
 )
 
 func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-
 	calendarID := r.PathValue("id")
 
 	if ok, _ := h.requireCalendarAccess(w, r, calendarID); !ok {
@@ -24,8 +20,7 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 		Name  string  `json:"name"`
 		Email *string `json:"email"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -50,7 +45,7 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 
 	p, token, err := h.service.AddParticipant(r.Context(), calendarID, req.Name, userID, email)
 	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
+		if errors.Is(err, model.ErrNotFound) {
 			respondCalendarMissing(r, w, h.service, calendarID)
 			return
 		}
@@ -58,19 +53,19 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusBadRequest, "invalid_request", "name is required")
 			return
 		}
-		if errors.Is(err, store.ErrDuplicateName) {
+		if errors.Is(err, model.ErrDuplicateName) {
 			respondError(w, http.StatusConflict, "duplicate_name", "participant name already taken")
 			return
 		}
-		if errors.Is(err, store.ErrCalendarFinalised) {
+		if errors.Is(err, model.ErrCalendarFinalised) {
 			respondError(w, http.StatusConflict, "already_finalised", "calendar is finalised")
 			return
 		}
-		if errors.Is(err, store.ErrUserAlreadyJoined) {
+		if errors.Is(err, model.ErrUserAlreadyJoined) {
 			respondError(w, http.StatusConflict, "already_joined", "you have already joined this calendar")
 			return
 		}
-		if errors.Is(err, store.ErrCalendarFull) {
+		if errors.Is(err, model.ErrCalendarFull) {
 			respondError(w, http.StatusConflict, "calendar_full", "this calendar is full")
 			return
 		}
@@ -92,8 +87,6 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 // X-Participant-Token header (any `participant_id` body field is ignored);
 // see service.authorizeParticipantWrite for the rules.
 func (h *Handler) RenameParticipant(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-
 	calendarID := r.PathValue("id")
 	participantID := r.PathValue("participantId")
 
@@ -105,8 +98,7 @@ func (h *Handler) RenameParticipant(w http.ResponseWriter, r *http.Request) {
 		Name  *string `json:"name"`
 		Email *string `json:"email"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -126,7 +118,7 @@ func (h *Handler) RenameParticipant(w http.ResponseWriter, r *http.Request) {
 		p, err := h.service.UpdateParticipantEmail(r.Context(), calendarID, participantID, caller, req.Email)
 		if err != nil {
 			switch {
-			case errors.Is(err, store.ErrNotFound):
+			case errors.Is(err, model.ErrNotFound):
 				respondError(w, http.StatusNotFound, "not_found", "participant not found")
 			case errors.Is(err, service.ErrForbidden):
 				respondError(w, http.StatusForbidden, "forbidden", "not allowed to edit this participant")
@@ -141,32 +133,28 @@ func (h *Handler) RenameParticipant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Name == nil {
-		respondError(w, http.StatusBadRequest, "invalid_request", "name is required")
-		return
-	}
-	name := strings.TrimSpace(*req.Name)
-	if name == "" {
-		respondError(w, http.StatusBadRequest, "invalid_request", "name is required")
-		return
-	}
-	if len(name) > limits.MaxParticipantNameLength {
-		respondError(w, http.StatusBadRequest, "name_too_long", "participant name is too long")
-		return
+	// A missing name is the same as an empty one: the service rejects both
+	// with invalid_request before touching the calendar.
+	name := ""
+	if req.Name != nil {
+		name = *req.Name
 	}
 
 	p, err := h.service.RenameParticipant(r.Context(), calendarID, participantID, caller, name)
 	if err != nil {
+		if respondValidationError(w, err) {
+			return
+		}
 		switch {
-		case errors.Is(err, store.ErrNotFound):
+		case errors.Is(err, model.ErrNotFound):
 			respondCalendarMissing(r, w, h.service, calendarID)
 		case errors.Is(err, service.ErrForbidden):
 			respondError(w, http.StatusForbidden, "forbidden", "not allowed to rename this participant")
 		case errors.Is(err, service.ErrInvalidName):
 			respondError(w, http.StatusBadRequest, "invalid_request", "name is required")
-		case errors.Is(err, store.ErrDuplicateName):
+		case errors.Is(err, model.ErrDuplicateName):
 			respondError(w, http.StatusConflict, "duplicate_name", "participant name already taken")
-		case errors.Is(err, store.ErrCalendarFinalised):
+		case errors.Is(err, model.ErrCalendarFinalised):
 			respondError(w, http.StatusConflict, "already_finalised", "calendar is finalised")
 		default:
 			respondInternalError(r, w, err, "internal_error", "failed to rename participant")
@@ -207,7 +195,7 @@ func (h *Handler) ClaimParticipant(w http.ResponseWriter, r *http.Request) {
 
 	p, err := h.service.ClaimParticipant(r.Context(), calendarID, participantID, participantCaller(r))
 	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
+		if errors.Is(err, model.ErrNotFound) {
 			respondCalendarMissing(r, w, h.service, calendarID)
 			return
 		}
@@ -215,11 +203,11 @@ func (h *Handler) ClaimParticipant(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusForbidden, "forbidden", "not allowed to claim this participant")
 			return
 		}
-		if errors.Is(err, store.ErrAlreadyLinked) {
+		if errors.Is(err, model.ErrAlreadyLinked) {
 			respondError(w, http.StatusConflict, "already_linked", "participant already linked to a user")
 			return
 		}
-		if errors.Is(err, store.ErrUserAlreadyJoined) {
+		if errors.Is(err, model.ErrUserAlreadyJoined) {
 			respondError(w, http.StatusConflict, "already_joined", "you have already joined this calendar")
 			return
 		}

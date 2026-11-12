@@ -60,9 +60,18 @@ type JoinedEntry struct {
 	Name          string `json:"name"`
 }
 
-// GetInvite fetches a single invite by ID.
-func (s *Service) GetInvite(ctx context.Context, inviteID string) (model.Invite, error) {
-	return s.store.GetInvite(ctx, inviteID)
+// inviteOnCalendar loads an invite and verifies it belongs to calendarID.
+// An invite on another calendar is reported as ErrInviteNotFound so ids
+// can't be probed across calendars.
+func (s *Service) inviteOnCalendar(ctx context.Context, calendarID, inviteID string) (model.Invite, error) {
+	inv, err := s.store.GetInvite(ctx, inviteID)
+	if err != nil {
+		return model.Invite{}, err
+	}
+	if inv.CalendarID != calendarID {
+		return model.Invite{}, model.ErrInviteNotFound
+	}
+	return inv, nil
 }
 
 // ParseBulkNames splits a paste-style input on both commas and newlines. Empty
@@ -107,9 +116,15 @@ func validateInviteName(name string) error {
 // AddInvites parses, validates, and inserts a batch of invite names. Invalid
 // lines are reported in Invalid; already-present names in Skipped; fresh rows
 // in Added. The whole operation goes through a single store tx so the cap is
-// enforced atomically.
-func (s *Service) AddInvites(ctx context.Context, calendarID string, rawNames []string) (AddInvitesResult, error) {
+// enforced atomically. Owner-only.
+func (s *Service) AddInvites(ctx context.Context, calendarID, userID string, rawNames []string) (AddInvitesResult, error) {
 	res := AddInvitesResult{Added: []model.Invite{}, Skipped: []SkippedName{}, Invalid: []InvalidName{}}
+	if _, err := s.requireOwner(ctx, calendarID, userID); err != nil {
+		return res, err
+	}
+	if len(rawNames) == 0 {
+		return res, invalid("names_required", "names is required")
+	}
 	parsed := ParseBulkNames(rawNames)
 
 	// Validate and dedupe within the batch (case-insensitive on trimmed name).
@@ -149,8 +164,15 @@ func (s *Service) AddInvites(ctx context.Context, calendarID string, rawNames []
 	return res, nil
 }
 
-// RenameInvite renames an existing invite after server-side validation.
-func (s *Service) RenameInvite(ctx context.Context, inviteID, name string) (model.Invite, error) {
+// RenameInvite renames an existing invite on calendarID after server-side
+// validation. Owner-only.
+func (s *Service) RenameInvite(ctx context.Context, calendarID, userID, inviteID, name string) (model.Invite, error) {
+	if _, err := s.requireOwner(ctx, calendarID, userID); err != nil {
+		return model.Invite{}, err
+	}
+	if _, err := s.inviteOnCalendar(ctx, calendarID, inviteID); err != nil {
+		return model.Invite{}, err
+	}
 	trimmed := strings.TrimSpace(name)
 	if err := validateInviteName(trimmed); err != nil {
 		return model.Invite{}, err
@@ -160,20 +182,30 @@ func (s *Service) RenameInvite(ctx context.Context, inviteID, name string) (mode
 
 // DeleteInvite removes an invite. Matched participants are untouched (ON DELETE
 // SET NULL on matched_participant_id handles the reverse direction).
-func (s *Service) DeleteInvite(ctx context.Context, inviteID string) error {
-	return s.store.DeleteInvite(ctx, inviteID)
+// Owner-only. Returns ErrInviteNotFound only when the invite was never on
+// this calendar; losing a race with a concurrent delete is success.
+func (s *Service) DeleteInvite(ctx context.Context, calendarID, userID, inviteID string) error {
+	if _, err := s.requireOwner(ctx, calendarID, userID); err != nil {
+		return err
+	}
+	if _, err := s.inviteOnCalendar(ctx, calendarID, inviteID); err != nil {
+		return err
+	}
+	if err := s.store.DeleteInvite(ctx, inviteID); err != nil && !errors.Is(err, model.ErrInviteNotFound) {
+		return err
+	}
+	return nil
 }
 
-// ManualMatchInvite links or unlinks (participantID == nil) an invite. If a
-// participant ID is supplied, it must belong to the same calendar as the
-// invite; otherwise ErrParticipantNotOnCalendar is returned.
-func (s *Service) ManualMatchInvite(ctx context.Context, calendarID, inviteID string, participantID *string) (model.Invite, error) {
-	inv, err := s.store.GetInvite(ctx, inviteID)
-	if err != nil {
+// ManualMatchInvite links or unlinks (participantID == nil) an invite.
+// Owner-only. If a participant ID is supplied, it must belong to the same
+// calendar as the invite; otherwise ErrParticipantNotOnCalendar is returned.
+func (s *Service) ManualMatchInvite(ctx context.Context, calendarID, userID, inviteID string, participantID *string) (model.Invite, error) {
+	if _, err := s.requireOwner(ctx, calendarID, userID); err != nil {
 		return model.Invite{}, err
 	}
-	if inv.CalendarID != calendarID {
-		return model.Invite{}, store.ErrInviteNotFound
+	if _, err := s.inviteOnCalendar(ctx, calendarID, inviteID); err != nil {
+		return model.Invite{}, err
 	}
 	if participantID != nil {
 		p, err := s.store.GetParticipant(ctx, *participantID)
@@ -194,12 +226,15 @@ func (s *Service) ManualMatchInvite(ctx context.Context, calendarID, inviteID st
 // reads. "Not joined" = invites with no matched participant; "Joined but not
 // responded" = participants with zero availability rows. The same "has any
 // availability" signal powers submit-to-view, so this bucket stays in lockstep
-// with that reveal check.
-func (s *Service) GetMissingView(ctx context.Context, calendarID string) (MissingView, error) {
+// with that reveal check. Owner-only.
+func (s *Service) GetMissingView(ctx context.Context, calendarID, userID string) (MissingView, error) {
 	view := MissingView{
 		Invites:            []model.Invite{},
 		NotJoined:          []NotJoinedEntry{},
 		JoinedNotResponded: []JoinedEntry{},
+	}
+	if _, err := s.requireOwner(ctx, calendarID, userID); err != nil {
+		return view, err
 	}
 
 	invites, err := s.store.ListInvites(ctx, calendarID)

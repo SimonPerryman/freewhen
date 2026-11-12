@@ -102,9 +102,11 @@ func (s *Service) UnlockCalendar(ctx context.Context, calendarID, submitted, rem
 }
 
 // RotateCalendarPassphrase generates a new passphrase, stores it, bumps the
-// access_epoch, and returns the plaintext. Callers (handlers) are
-// responsible for enforcing the owner check.
-func (s *Service) RotateCalendarPassphrase(ctx context.Context, calendarID string) (string, error) {
+// access_epoch, and returns the plaintext. Owner-only.
+func (s *Service) RotateCalendarPassphrase(ctx context.Context, calendarID, userID string) (string, error) {
+	if _, err := s.requireOwner(ctx, calendarID, userID); err != nil {
+		return "", err
+	}
 	p := passphrase.Generate()
 	if _, err := s.store.SetCalendarPassphrase(ctx, calendarID, &p); err != nil {
 		return "", err
@@ -115,8 +117,11 @@ func (s *Service) RotateCalendarPassphrase(ctx context.Context, calendarID strin
 
 // ClearCalendarPassphrase nulls the passphrase column. Still bumps
 // access_epoch so outstanding tokens die immediately even though the gate is
-// now disabled.
-func (s *Service) ClearCalendarPassphrase(ctx context.Context, calendarID string) error {
+// now disabled. Owner-only.
+func (s *Service) ClearCalendarPassphrase(ctx context.Context, calendarID, userID string) error {
+	if _, err := s.requireOwner(ctx, calendarID, userID); err != nil {
+		return err
+	}
 	if _, err := s.store.SetCalendarPassphrase(ctx, calendarID, nil); err != nil {
 		return err
 	}

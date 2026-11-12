@@ -52,7 +52,7 @@ func TestAddParticipant_NoTokenHeaderWhenNoneIssued(t *testing.T) {
 
 func TestSetAvailability_ForwardsCallerCredentials(t *testing.T) {
 	ms := &mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
+		setAvailability: func(_ context.Context, _, _ string, _ service.AvailabilityUpdate) error {
 			return nil
 		},
 	}
@@ -75,7 +75,7 @@ func TestSetAvailability_ForwardsCallerCredentials(t *testing.T) {
 
 func TestSetAvailability_ForbiddenIs403(t *testing.T) {
 	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
+		setAvailability: func(_ context.Context, _, _ string, _ service.AvailabilityUpdate) error {
 			return service.ErrForbidden
 		},
 	})

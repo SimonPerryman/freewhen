@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -14,7 +15,6 @@ import (
 	"github.com/freewhen/backend/internal/limits"
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/service"
-	"github.com/freewhen/backend/internal/store"
 )
 
 // mockService implements CalendarService for testing.
@@ -24,14 +24,14 @@ type mockService struct {
 	getCalendar              func(ctx context.Context, id string) (model.CalendarWithDetails, error)
 	getCalendarOnly          func(ctx context.Context, id string) (model.Calendar, error)
 	addParticipant           func(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
-	setAvailability          func(ctx context.Context, calendarID, participantID string, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) error
+	setAvailability          func(ctx context.Context, calendarID, participantID string, update service.AvailabilityUpdate) error
 	finaliseCalendar         func(ctx context.Context, calendarID, date string) (model.Calendar, error)
 	unfinaliseCalendar       func(ctx context.Context, calendarID string) (model.Calendar, error)
 	claimParticipant         func(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error)
 	renameCalendar           func(ctx context.Context, calendarID, name string) (model.Calendar, error)
 	removeParticipant        func(ctx context.Context, calendarID, participantID string) error
 	renameParticipant        func(ctx context.Context, calendarID, targetParticipantID string, caller service.ParticipantCaller, name string) (model.Participant, error)
-	listUserCalendars        func(ctx context.Context, userID string) ([]store.CalendarListItem, bool, error)
+	listUserCalendars        func(ctx context.Context, userID string) ([]model.CalendarListItem, bool, error)
 	unlockCalendar           func(ctx context.Context, calendarID, submitted, remoteAddr string) (string, error)
 	rotateCalendarPassphrase func(ctx context.Context, calendarID string) (string, error)
 	clearCalendarPassphrase  func(ctx context.Context, calendarID string) error
@@ -51,7 +51,27 @@ func (m *mockService) CreateCalendar(ctx context.Context, name, ownerID string) 
 	return m.createCalendar(ctx, name, ownerID)
 }
 
+// requireOwner mirrors service.requireOwner over the mock's getCalendarOnly
+// stub, so handler tests can drive the 403 / 404 owner paths the same way
+// the real service reports them.
+func (m *mockService) requireOwner(ctx context.Context, calendarID, userID string) error {
+	cal, err := m.GetCalendarOnly(ctx, calendarID)
+	if err != nil {
+		if errors.Is(err, model.ErrNotFound) {
+			return model.ErrCalendarNotFound
+		}
+		return err
+	}
+	if cal.OwnerID != userID {
+		return service.ErrForbidden
+	}
+	return nil
+}
+
 func (m *mockService) DuplicateCalendar(ctx context.Context, sourceID, newOwnerID, ownerParticipantName, overrideName string, includeParticipants bool) (model.Calendar, model.Participant, error) {
+	if err := m.requireOwner(ctx, sourceID, newOwnerID); err != nil {
+		return model.Calendar{}, model.Participant{}, err
+	}
 	if m.duplicateCalendar == nil {
 		return model.Calendar{}, model.Participant{}, nil
 	}
@@ -87,9 +107,9 @@ func (m *mockService) ClaimParticipant(ctx context.Context, calendarID, particip
 	return m.claimParticipant(ctx, calendarID, participantID, uid)
 }
 
-func (m *mockService) SetAvailability(ctx context.Context, calendarID, participantID string, caller service.ParticipantCaller, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) error {
+func (m *mockService) SetAvailability(ctx context.Context, calendarID, participantID string, caller service.ParticipantCaller, update service.AvailabilityUpdate) error {
 	m.lastCaller = &caller
-	return m.setAvailability(ctx, calendarID, participantID, dates, noteOverrides, preferredOverrides)
+	return m.setAvailability(ctx, calendarID, participantID, update)
 }
 
 func (m *mockService) ImportAvailability(_ context.Context, _, _ string, caller service.ParticipantCaller, _ []string) error {
@@ -97,19 +117,31 @@ func (m *mockService) ImportAvailability(_ context.Context, _, _ string, caller 
 	return m.importErr
 }
 
-func (m *mockService) FinaliseCalendar(ctx context.Context, calendarID, date string) (model.Calendar, error) {
+func (m *mockService) FinaliseCalendar(ctx context.Context, calendarID, userID, date string) (model.Calendar, error) {
+	if err := m.requireOwner(ctx, calendarID, userID); err != nil {
+		return model.Calendar{}, err
+	}
 	return m.finaliseCalendar(ctx, calendarID, date)
 }
 
-func (m *mockService) UnfinaliseCalendar(ctx context.Context, calendarID string) (model.Calendar, error) {
+func (m *mockService) UnfinaliseCalendar(ctx context.Context, calendarID, userID string) (model.Calendar, error) {
+	if err := m.requireOwner(ctx, calendarID, userID); err != nil {
+		return model.Calendar{}, err
+	}
 	return m.unfinaliseCalendar(ctx, calendarID)
 }
 
-func (m *mockService) RenameCalendar(ctx context.Context, calendarID, name string) (model.Calendar, error) {
+func (m *mockService) RenameCalendar(ctx context.Context, calendarID, userID, name string) (model.Calendar, error) {
+	if err := m.requireOwner(ctx, calendarID, userID); err != nil {
+		return model.Calendar{}, err
+	}
 	return m.renameCalendar(ctx, calendarID, name)
 }
 
-func (m *mockService) RemoveParticipant(ctx context.Context, calendarID, participantID string) error {
+func (m *mockService) RemoveParticipant(ctx context.Context, calendarID, userID, participantID string) error {
+	if err := m.requireOwner(ctx, calendarID, userID); err != nil {
+		return err
+	}
 	return m.removeParticipant(ctx, calendarID, participantID)
 }
 
@@ -121,7 +153,7 @@ func (m *mockService) RenameParticipant(ctx context.Context, calendarID, targetP
 	return m.renameParticipant(ctx, calendarID, targetParticipantID, caller, name)
 }
 
-func (m *mockService) ListUserCalendars(ctx context.Context, userID string) ([]store.CalendarListItem, bool, error) {
+func (m *mockService) ListUserCalendars(ctx context.Context, userID string) ([]model.CalendarListItem, bool, error) {
 	return m.listUserCalendars(ctx, userID)
 }
 
@@ -132,14 +164,20 @@ func (m *mockService) UnlockCalendar(ctx context.Context, calendarID, submitted,
 	return m.unlockCalendar(ctx, calendarID, submitted, remoteAddr)
 }
 
-func (m *mockService) RotateCalendarPassphrase(ctx context.Context, calendarID string) (string, error) {
+func (m *mockService) RotateCalendarPassphrase(ctx context.Context, calendarID, userID string) (string, error) {
+	if err := m.requireOwner(ctx, calendarID, userID); err != nil {
+		return "", err
+	}
 	if m.rotateCalendarPassphrase == nil {
 		return "", nil
 	}
 	return m.rotateCalendarPassphrase(ctx, calendarID)
 }
 
-func (m *mockService) ClearCalendarPassphrase(ctx context.Context, calendarID string) error {
+func (m *mockService) ClearCalendarPassphrase(ctx context.Context, calendarID, userID string) error {
+	if err := m.requireOwner(ctx, calendarID, userID); err != nil {
+		return err
+	}
 	if m.clearCalendarPassphrase == nil {
 		return nil
 	}
@@ -153,28 +191,24 @@ func (m *mockService) AuthorizeAccess(ctx context.Context, cal model.Calendar, v
 	return m.authorizeAccess(ctx, cal, viewer, tokenHeader)
 }
 
-func (m *mockService) GetMissingView(_ context.Context, _ string) (service.MissingView, error) {
-	return service.MissingView{}, nil
+func (m *mockService) GetMissingView(ctx context.Context, calendarID, userID string) (service.MissingView, error) {
+	return service.MissingView{}, m.requireOwner(ctx, calendarID, userID)
 }
 
-func (m *mockService) AddInvites(_ context.Context, _ string, _ []string) (service.AddInvitesResult, error) {
-	return service.AddInvitesResult{}, nil
+func (m *mockService) AddInvites(ctx context.Context, calendarID, userID string, _ []string) (service.AddInvitesResult, error) {
+	return service.AddInvitesResult{}, m.requireOwner(ctx, calendarID, userID)
 }
 
-func (m *mockService) RenameInvite(_ context.Context, _, _ string) (model.Invite, error) {
-	return model.Invite{}, nil
+func (m *mockService) RenameInvite(ctx context.Context, calendarID, userID, _, _ string) (model.Invite, error) {
+	return model.Invite{}, m.requireOwner(ctx, calendarID, userID)
 }
 
-func (m *mockService) DeleteInvite(_ context.Context, _ string) error {
-	return nil
+func (m *mockService) DeleteInvite(ctx context.Context, calendarID, userID, _ string) error {
+	return m.requireOwner(ctx, calendarID, userID)
 }
 
-func (m *mockService) ManualMatchInvite(_ context.Context, _, _ string, _ *string) (model.Invite, error) {
-	return model.Invite{}, nil
-}
-
-func (m *mockService) GetInvite(_ context.Context, _ string) (model.Invite, error) {
-	return model.Invite{}, nil
+func (m *mockService) ManualMatchInvite(ctx context.Context, calendarID, userID, _ string, _ *string) (model.Invite, error) {
+	return model.Invite{}, m.requireOwner(ctx, calendarID, userID)
 }
 
 func (m *mockService) DeleteCalendar(_ context.Context, _, _ string) error {
@@ -198,7 +232,7 @@ func jsonBody(t *testing.T, v any) *bytes.Reader {
 	return bytes.NewReader(b)
 }
 
-func decodeJSON(t *testing.T, rec *httptest.ResponseRecorder, v any) {
+func decodeResponse(t *testing.T, rec *httptest.ResponseRecorder, v any) {
 	t.Helper()
 	if err := json.NewDecoder(rec.Body).Decode(v); err != nil {
 		t.Fatalf("decode response: %v", err)
@@ -251,7 +285,7 @@ func TestCreateCalendar_Valid(t *testing.T) {
 		Name        string             `json:"name"`
 		Participant *model.Participant `json:"participant"`
 	}
-	decodeJSON(t, rec, &got)
+	decodeResponse(t, rec, &got)
 	if got.ID != cal.ID || got.Name != cal.Name {
 		t.Fatalf("body id=%s name=%s, want id=%s name=%s", got.ID, got.Name, cal.ID, cal.Name)
 	}
@@ -332,7 +366,7 @@ func TestGetCalendar_Valid(t *testing.T) {
 func TestGetCalendar_NotFound(t *testing.T) {
 	h := New(&mockService{
 		getCalendarOnly: func(_ context.Context, _ string) (model.Calendar, error) {
-			return model.Calendar{}, store.ErrNotFound
+			return model.Calendar{}, model.ErrNotFound
 		},
 	})
 
@@ -386,7 +420,7 @@ func TestAddParticipant_Valid(t *testing.T) {
 	}
 
 	var got model.Participant
-	decodeJSON(t, rec, &got)
+	decodeResponse(t, rec, &got)
 	if got.Name != "Alice" {
 		t.Fatalf("name = %q, want Alice", got.Name)
 	}
@@ -419,7 +453,7 @@ func TestAddParticipant_MalformedJSON(t *testing.T) {
 func TestAddParticipant_NotFound(t *testing.T) {
 	h := New(&mockService{
 		addParticipant: func(_ context.Context, _, _ string, _ *string) (model.Participant, error) {
-			return model.Participant{}, store.ErrNotFound
+			return model.Participant{}, model.ErrNotFound
 		},
 	})
 
@@ -436,7 +470,7 @@ func TestAddParticipant_NotFound(t *testing.T) {
 func TestAddParticipant_DuplicateName(t *testing.T) {
 	h := New(&mockService{
 		addParticipant: func(_ context.Context, _, _ string, _ *string) (model.Participant, error) {
-			return model.Participant{}, store.ErrDuplicateName
+			return model.Participant{}, model.ErrDuplicateName
 		},
 	})
 
@@ -471,7 +505,8 @@ func TestAddParticipant_ServiceError(t *testing.T) {
 
 func TestSetAvailability_Valid(t *testing.T) {
 	h := New(&mockService{
-		setAvailability: func(_ context.Context, calendarID, participantID string, dates []string, _ map[string]string, _ map[string]bool) error {
+		setAvailability: func(_ context.Context, calendarID, participantID string, update service.AvailabilityUpdate) error {
+			dates := update.Dates
 			if calendarID != "cal1" || participantID != "p1" {
 				t.Fatalf("unexpected args: calendarID=%q participantID=%q", calendarID, participantID)
 			}
@@ -496,19 +531,6 @@ func TestSetAvailability_Valid(t *testing.T) {
 	}
 }
 
-func TestSetAvailability_EmptyParticipantID(t *testing.T) {
-	h := New(&mockService{})
-	body := map[string]any{"participant_id": "", "dates": []string{"2026-05-01"}}
-	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
-	req.SetPathValue("id", "cal1")
-	rec := httptest.NewRecorder()
-	h.SetAvailability(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
-	}
-}
-
 func TestSetAvailability_MalformedJSON(t *testing.T) {
 	h := New(&mockService{})
 	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", bytes.NewReader([]byte("{nope")))
@@ -521,23 +543,10 @@ func TestSetAvailability_MalformedJSON(t *testing.T) {
 	}
 }
 
-func TestSetAvailability_InvalidDateFormat(t *testing.T) {
-	h := New(&mockService{})
-	body := map[string]any{"participant_id": "p1", "dates": []string{"05/01/2026"}}
-	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
-	req.SetPathValue("id", "cal1")
-	rec := httptest.NewRecorder()
-	h.SetAvailability(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
-	}
-}
-
 func TestSetAvailability_NotFound(t *testing.T) {
 	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
-			return store.ErrNotFound
+		setAvailability: func(_ context.Context, _, _ string, _ service.AvailabilityUpdate) error {
+			return model.ErrNotFound
 		},
 	})
 
@@ -554,7 +563,7 @@ func TestSetAvailability_NotFound(t *testing.T) {
 
 func TestSetAvailability_ServiceError(t *testing.T) {
 	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
+		setAvailability: func(_ context.Context, _, _ string, _ service.AvailabilityUpdate) error {
 			return fmt.Errorf("db down")
 		},
 	})
@@ -572,8 +581,8 @@ func TestSetAvailability_ServiceError(t *testing.T) {
 
 func TestSetAvailability_Finalised(t *testing.T) {
 	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
-			return store.ErrCalendarFinalised
+		setAvailability: func(_ context.Context, _, _ string, _ service.AvailabilityUpdate) error {
+			return model.ErrCalendarFinalised
 		},
 	})
 	body := map[string]any{"participant_id": "p1", "dates": []string{"2026-05-01"}}
@@ -587,354 +596,10 @@ func TestSetAvailability_Finalised(t *testing.T) {
 	}
 }
 
-func TestSetAvailability_NotesAbsentPassesNilToService(t *testing.T) {
-	var got map[string]string
-	sawCall := false
-	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, noteOverrides map[string]string, _ map[string]bool) error {
-			sawCall = true
-			got = noteOverrides
-			return nil
-		},
-	})
-
-	body := map[string]any{"participant_id": "p1", "dates": []string{"2026-05-01"}}
-	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
-	req.SetPathValue("id", "cal1")
-	rec := httptest.NewRecorder()
-	h.SetAvailability(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
-	}
-	if !sawCall {
-		t.Fatal("service not called")
-	}
-	if got != nil {
-		t.Fatalf("noteOverrides = %v, want nil (don't-touch)", got)
-	}
-}
-
-func TestSetAvailability_NotesPresentPassesMap(t *testing.T) {
-	var got map[string]string
-	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, noteOverrides map[string]string, _ map[string]bool) error {
-			got = noteOverrides
-			return nil
-		},
-	})
-
-	body := map[string]any{
-		"participant_id": "p1",
-		"dates":          []string{"2026-05-01", "2026-05-02"},
-		"notes":          map[string]string{"2026-05-01": "  only after 6pm  "},
-	}
-	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
-	req.SetPathValue("id", "cal1")
-	rec := httptest.NewRecorder()
-	h.SetAvailability(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
-	}
-	if got == nil || got["2026-05-01"] != "only after 6pm" {
-		t.Fatalf("noteOverrides = %v, want trimmed value for 2026-05-01", got)
-	}
-	if _, ok := got["2026-05-02"]; ok {
-		t.Fatalf("noteOverrides has unexpected key for 2026-05-02: %v", got)
-	}
-}
-
-func TestSetAvailability_EmptyNoteClears(t *testing.T) {
-	var got map[string]string
-	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, noteOverrides map[string]string, _ map[string]bool) error {
-			got = noteOverrides
-			return nil
-		},
-	})
-
-	body := map[string]any{
-		"participant_id": "p1",
-		"dates":          []string{"2026-05-01"},
-		"notes":          map[string]string{"2026-05-01": ""},
-	}
-	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
-	req.SetPathValue("id", "cal1")
-	rec := httptest.NewRecorder()
-	h.SetAvailability(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
-	}
-	v, ok := got["2026-05-01"]
-	if !ok || v != "" {
-		t.Fatalf("expected explicit empty-string clear for 2026-05-01, got %v", got)
-	}
-}
-
-func TestSetAvailability_NoteUnknownDateRejected(t *testing.T) {
-	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
-			t.Fatal("service should not be called on validation error")
-			return nil
-		},
-	})
-
-	body := map[string]any{
-		"participant_id": "p1",
-		"dates":          []string{"2026-05-01"},
-		"notes":          map[string]string{"2026-05-02": "mystery"},
-	}
-	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
-	req.SetPathValue("id", "cal1")
-	rec := httptest.NewRecorder()
-	h.SetAvailability(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
-	}
-}
-
-func TestSetAvailability_PreferredAbsentPassesNilToService(t *testing.T) {
-	var got map[string]bool
-	var seen bool
-	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, preferred map[string]bool) error {
-			got = preferred
-			seen = true
-			return nil
-		},
-	})
-
-	body := map[string]any{
-		"participant_id": "p1",
-		"dates":          []string{"2026-05-01"},
-	}
-	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
-	req.SetPathValue("id", "cal1")
-	rec := httptest.NewRecorder()
-	h.SetAvailability(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
-	}
-	if !seen {
-		t.Fatal("service not called")
-	}
-	if got != nil {
-		t.Fatalf("preferred = %v, want nil (don't-touch)", got)
-	}
-}
-
-func TestSetAvailability_PreferredPresentBuildsFullMap(t *testing.T) {
-	var got map[string]bool
-	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, preferred map[string]bool) error {
-			got = preferred
-			return nil
-		},
-	})
-
-	body := map[string]any{
-		"participant_id": "p1",
-		"dates":          []string{"2026-05-01", "2026-05-02", "2026-05-03"},
-		"preferred":      []string{"2026-05-02"},
-	}
-	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
-	req.SetPathValue("id", "cal1")
-	rec := httptest.NewRecorder()
-	h.SetAvailability(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
-	}
-	if got == nil {
-		t.Fatal("preferred map was nil")
-	}
-	if got["2026-05-01"] || !got["2026-05-02"] || got["2026-05-03"] {
-		t.Fatalf("preferred map = %v, want only 2026-05-02 true", got)
-	}
-}
-
-func TestSetAvailability_PreferredEmptyClears(t *testing.T) {
-	var got map[string]bool
-	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, preferred map[string]bool) error {
-			got = preferred
-			return nil
-		},
-	})
-
-	body := map[string]any{
-		"participant_id": "p1",
-		"dates":          []string{"2026-05-01"},
-		"preferred":      []string{},
-	}
-	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
-	req.SetPathValue("id", "cal1")
-	rec := httptest.NewRecorder()
-	h.SetAvailability(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
-	}
-	if got == nil {
-		t.Fatal("expected non-nil empty map (explicit clear), got nil")
-	}
-	if got["2026-05-01"] {
-		t.Fatalf("preferred[2026-05-01] = true, want false")
-	}
-}
-
-func TestSetAvailability_PreferredUnknownDateRejected(t *testing.T) {
-	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
-			t.Fatal("service should not be called on validation error")
-			return nil
-		},
-	})
-
-	body := map[string]any{
-		"participant_id": "p1",
-		"dates":          []string{"2026-05-01"},
-		"preferred":      []string{"2026-05-02"},
-	}
-	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
-	req.SetPathValue("id", "cal1")
-	rec := httptest.NewRecorder()
-	h.SetAvailability(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
-	}
-}
-
-func TestSetAvailability_PreferredDuplicatesDeduped(t *testing.T) {
-	var got map[string]bool
-	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, preferred map[string]bool) error {
-			got = preferred
-			return nil
-		},
-	})
-
-	body := map[string]any{
-		"participant_id": "p1",
-		"dates":          []string{"2026-05-01"},
-		"preferred":      []string{"2026-05-01", "2026-05-01"},
-	}
-	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
-	req.SetPathValue("id", "cal1")
-	rec := httptest.NewRecorder()
-	h.SetAvailability(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
-	}
-	if !got["2026-05-01"] {
-		t.Fatalf("preferred[2026-05-01] = false, want true")
-	}
-}
-
-func TestSetAvailability_NoteOversize(t *testing.T) {
-	// 141 emoji code points. Each 🎉 is one code point but takes 4 bytes UTF-8.
-	// Tests that we count code points, not bytes — the DB check does the same.
-	body := map[string]any{
-		"participant_id": "p1",
-		"dates":          []string{"2026-05-01"},
-		"notes":          map[string]string{"2026-05-01": strings.Repeat("🎉", 141)},
-	}
-	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
-			t.Fatal("service should not be called on oversize note")
-			return nil
-		},
-	})
-	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
-	req.SetPathValue("id", "cal1")
-	rec := httptest.NewRecorder()
-	h.SetAvailability(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
-	}
-}
-
-func TestSetAvailability_NoteAtBoundaryAccepted(t *testing.T) {
-	called := false
-	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
-			called = true
-			return nil
-		},
-	})
-	body := map[string]any{
-		"participant_id": "p1",
-		"dates":          []string{"2026-05-01"},
-		"notes":          map[string]string{"2026-05-01": strings.Repeat("🎉", 140)},
-	}
-	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
-	req.SetPathValue("id", "cal1")
-	rec := httptest.NewRecorder()
-	h.SetAvailability(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
-	}
-	if !called {
-		t.Fatal("service not called")
-	}
-}
-
-func TestSetAvailability_NoteWhitespaceRejected(t *testing.T) {
-	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
-			t.Fatal("service should not be called on whitespace-only note")
-			return nil
-		},
-	})
-	body := map[string]any{
-		"participant_id": "p1",
-		"dates":          []string{"2026-05-01"},
-		"notes":          map[string]string{"2026-05-01": "   "},
-	}
-	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
-	req.SetPathValue("id", "cal1")
-	rec := httptest.NewRecorder()
-	h.SetAvailability(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
-	}
-}
-
-func TestSetAvailability_NoteNewlineRejected(t *testing.T) {
-	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
-			t.Fatal("service should not be called on newline note")
-			return nil
-		},
-	})
-	body := map[string]any{
-		"participant_id": "p1",
-		"dates":          []string{"2026-05-01"},
-		"notes":          map[string]string{"2026-05-01": "line1\nline2"},
-	}
-	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
-	req.SetPathValue("id", "cal1")
-	rec := httptest.NewRecorder()
-	h.SetAvailability(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
-	}
-}
-
 func TestAddParticipant_Finalised(t *testing.T) {
 	h := New(&mockService{
 		addParticipant: func(_ context.Context, _, _ string, _ *string) (model.Participant, error) {
-			return model.Participant{}, store.ErrCalendarFinalised
+			return model.Participant{}, model.ErrCalendarFinalised
 		},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/participants", jsonBody(t, map[string]string{"name": "Bob"}))
@@ -973,7 +638,7 @@ func TestFinaliseCalendar_Valid(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 	var got model.Calendar
-	decodeJSON(t, rec, &got)
+	decodeResponse(t, rec, &got)
 	if got.FinalisedDate == nil || *got.FinalisedDate != "2026-05-01" {
 		t.Fatalf("finalised_date = %v, want 2026-05-01", got.FinalisedDate)
 	}
@@ -1022,7 +687,7 @@ func TestFinaliseCalendar_BadDate(t *testing.T) {
 func TestFinaliseCalendar_NotFound(t *testing.T) {
 	h := New(&mockService{
 		getCalendarOnly: func(_ context.Context, _ string) (model.Calendar, error) {
-			return model.Calendar{}, store.ErrNotFound
+			return model.Calendar{}, model.ErrNotFound
 		},
 	})
 	req := withUser(httptest.NewRequest(http.MethodPost, "/calendars/missing/finalise", jsonBody(t, map[string]string{"date": "2026-05-01"})), testUser)
@@ -1098,7 +763,7 @@ func TestRenameCalendar_Valid(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 	var got model.Calendar
-	decodeJSON(t, rec, &got)
+	decodeResponse(t, rec, &got)
 	if got.Name != "New Name" {
 		t.Fatalf("name = %q, want New Name", got.Name)
 	}
@@ -1159,7 +824,7 @@ func TestRenameCalendar_NotOwner(t *testing.T) {
 func TestRenameCalendar_NotFound(t *testing.T) {
 	h := New(&mockService{
 		getCalendarOnly: func(_ context.Context, _ string) (model.Calendar, error) {
-			return model.Calendar{}, store.ErrNotFound
+			return model.Calendar{}, model.ErrNotFound
 		},
 	})
 	req := withUser(httptest.NewRequest(http.MethodPatch, "/calendars/missing", jsonBody(t, map[string]string{"name": "X"})), testUser)
@@ -1231,7 +896,7 @@ func TestRemoveParticipant_NotOwner(t *testing.T) {
 func TestRemoveParticipant_CalendarNotFound(t *testing.T) {
 	h := New(&mockService{
 		getCalendarOnly: func(_ context.Context, _ string) (model.Calendar, error) {
-			return model.Calendar{}, store.ErrNotFound
+			return model.Calendar{}, model.ErrNotFound
 		},
 	})
 	req := withUser(httptest.NewRequest(http.MethodDelete, "/calendars/missing/participants/p1", nil), testUser)
@@ -1251,7 +916,7 @@ func TestRemoveParticipant_ParticipantNotFound(t *testing.T) {
 			return model.Calendar{ID: id, OwnerID: "u1"}, nil
 		},
 		removeParticipant: func(_ context.Context, _, _ string) error {
-			return store.ErrNotFound
+			return model.ErrNotFound
 		},
 	})
 	req := withUser(httptest.NewRequest(http.MethodDelete, "/calendars/cal1/participants/missing", nil), testUser)
@@ -1292,11 +957,11 @@ func TestListUserCalendars_Unauthorized(t *testing.T) {
 
 func TestListUserCalendars_Empty(t *testing.T) {
 	h := New(&mockService{
-		listUserCalendars: func(_ context.Context, userID string) ([]store.CalendarListItem, bool, error) {
+		listUserCalendars: func(_ context.Context, userID string) ([]model.CalendarListItem, bool, error) {
 			if userID != "u1" {
 				t.Fatalf("userID = %q, want u1", userID)
 			}
-			return []store.CalendarListItem{}, false, nil
+			return []model.CalendarListItem{}, false, nil
 		},
 	})
 	req := withUser(httptest.NewRequest(http.MethodGet, "/users/me/calendars", nil), testUser)
@@ -1311,7 +976,7 @@ func TestListUserCalendars_Empty(t *testing.T) {
 		Calendars []myCalendarDTO `json:"calendars"`
 		HasMore   bool            `json:"has_more"`
 	}
-	decodeJSON(t, rec, &got)
+	decodeResponse(t, rec, &got)
 	if len(got.Calendars) != 0 {
 		t.Fatalf("calendars = %v, want empty", got.Calendars)
 	}
@@ -1323,7 +988,7 @@ func TestListUserCalendars_Empty(t *testing.T) {
 func TestListUserCalendars_RoleAndShape(t *testing.T) {
 	date := "2026-05-02"
 	finalisedAt := time.Date(2026, 4, 15, 11, 15, 0, 0, time.UTC)
-	items := []store.CalendarListItem{
+	items := []model.CalendarListItem{
 		{
 			Calendar: model.Calendar{
 				ID: "cal-own", Name: "Owned", Emoji: "🎉",
@@ -1345,7 +1010,7 @@ func TestListUserCalendars_RoleAndShape(t *testing.T) {
 		},
 	}
 	h := New(&mockService{
-		listUserCalendars: func(_ context.Context, _ string) ([]store.CalendarListItem, bool, error) {
+		listUserCalendars: func(_ context.Context, _ string) ([]model.CalendarListItem, bool, error) {
 			return items, true, nil
 		},
 	})
@@ -1361,7 +1026,7 @@ func TestListUserCalendars_RoleAndShape(t *testing.T) {
 		Calendars []myCalendarDTO `json:"calendars"`
 		HasMore   bool            `json:"has_more"`
 	}
-	decodeJSON(t, rec, &got)
+	decodeResponse(t, rec, &got)
 	if !got.HasMore {
 		t.Fatal("has_more = false, want true")
 	}
@@ -1384,7 +1049,7 @@ func TestListUserCalendars_RoleAndShape(t *testing.T) {
 
 func TestListUserCalendars_ServiceError(t *testing.T) {
 	h := New(&mockService{
-		listUserCalendars: func(_ context.Context, _ string) ([]store.CalendarListItem, bool, error) {
+		listUserCalendars: func(_ context.Context, _ string) ([]model.CalendarListItem, bool, error) {
 			return nil, false, fmt.Errorf("db down")
 		},
 	})
@@ -1431,7 +1096,7 @@ func TestCreateCalendar_NameTooLong(t *testing.T) {
 func TestCreateCalendar_CalendarLimitReached(t *testing.T) {
 	h := New(&mockService{
 		createCalendar: func(_ context.Context, _, _ string) (model.Calendar, error) {
-			return model.Calendar{}, store.ErrCalendarLimitReached
+			return model.Calendar{}, model.ErrCalendarLimitReached
 		},
 	})
 	req := withUser(httptest.NewRequest(http.MethodPost, "/calendars", jsonBody(t, map[string]string{"name": "Trip"})), testUser)
@@ -1475,7 +1140,7 @@ func TestDuplicateCalendar_NotOwner(t *testing.T) {
 func TestDuplicateCalendar_NotFound(t *testing.T) {
 	h := New(&mockService{
 		getCalendarOnly: func(_ context.Context, _ string) (model.Calendar, error) {
-			return model.Calendar{}, store.ErrNotFound
+			return model.Calendar{}, model.ErrNotFound
 		},
 	})
 	req := withUser(httptest.NewRequest(http.MethodPost, "/calendars/missing/duplicate", nil), testUser)
@@ -1522,7 +1187,7 @@ func TestDuplicateCalendar_HappyPath(t *testing.T) {
 		ID          string             `json:"id"`
 		Participant *model.Participant `json:"participant"`
 	}
-	decodeJSON(t, rec, &got)
+	decodeResponse(t, rec, &got)
 	if got.ID != "new12345" || got.Participant == nil {
 		t.Fatalf("unexpected body: %+v", got)
 	}
@@ -1576,7 +1241,7 @@ func TestDuplicateCalendar_LimitReached(t *testing.T) {
 			return model.Calendar{ID: id, OwnerID: "u1"}, nil
 		},
 		duplicateCalendar: func(_ context.Context, _, _, _, _ string, _ bool) (model.Calendar, model.Participant, error) {
-			return model.Calendar{}, model.Participant{}, store.ErrCalendarLimitReached
+			return model.Calendar{}, model.Participant{}, model.ErrCalendarLimitReached
 		},
 	})
 	req := withUser(httptest.NewRequest(http.MethodPost, "/calendars/cal1/duplicate", jsonBody(t, map[string]any{})), testUser)
@@ -1620,7 +1285,7 @@ func TestAddParticipant_NameTooLong(t *testing.T) {
 func TestAddParticipant_CalendarFull(t *testing.T) {
 	h := New(&mockService{
 		addParticipant: func(_ context.Context, _, _ string, _ *string) (model.Participant, error) {
-			return model.Participant{}, store.ErrCalendarFull
+			return model.Participant{}, model.ErrCalendarFull
 		},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/participants", jsonBody(t, map[string]string{"name": "Bob"}))
@@ -1632,38 +1297,6 @@ func TestAddParticipant_CalendarFull(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusConflict)
 	}
 	assertErrorCode(t, rec, "calendar_full")
-}
-
-func TestSetAvailability_TooManyDates(t *testing.T) {
-	h := New(&mockService{})
-	dates := make([]string, limits.MaxDatesPerSubmission+1)
-	for i := range dates {
-		dates[i] = "2026-05-01"
-	}
-	body := map[string]any{"participant_id": "p1", "dates": dates}
-	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
-	req.SetPathValue("id", "cal1")
-	rec := httptest.NewRecorder()
-	h.SetAvailability(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
-	}
-	assertErrorCode(t, rec, "too_many_dates")
-}
-
-func TestSetAvailability_DateOutOfRange(t *testing.T) {
-	h := New(&mockService{})
-	body := map[string]any{"participant_id": "p1", "dates": []string{"2099-05-01"}}
-	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability", jsonBody(t, body))
-	req.SetPathValue("id", "cal1")
-	rec := httptest.NewRecorder()
-	h.SetAvailability(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
-	}
-	assertErrorCode(t, rec, "date_out_of_range")
 }
 
 func TestFinaliseCalendar_DateOutOfRange(t *testing.T) {

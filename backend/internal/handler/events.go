@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/realtime"
 	"github.com/freewhen/backend/internal/service"
-	"github.com/freewhen/backend/internal/store"
 )
 
 // heartbeatInterval is how often the transport emits a keep-alive frame.
@@ -63,7 +63,7 @@ func (h *EventsHandler) Stream(w http.ResponseWriter, r *http.Request) {
 	// exist. We use the non-viewed fetch so visibility rules don't interfere.
 	cal, err := h.svc.GetCalendarOnly(r.Context(), id)
 	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
+		if errors.Is(err, model.ErrNotFound) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}

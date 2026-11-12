@@ -37,7 +37,7 @@ func TestAddInvites_Validation(t *testing.T) {
 	}
 	s := newSvc(t, ms)
 
-	res, err := s.AddInvites(context.Background(), "c1", []string{"Alice", "Alice", tooLong, "  ", "Bob"})
+	res, err := s.AddInvites(context.Background(), "c1", "owner1", []string{"Alice", "Alice", tooLong, "  ", "Bob"})
 	if err != nil {
 		t.Fatalf("add invites: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestGetMissingView(t *testing.T) {
 		},
 	}
 	s := newSvc(t, ms)
-	view, err := s.GetMissingView(context.Background(), "c1")
+	view, err := s.GetMissingView(context.Background(), "c1", "owner1")
 	if err != nil {
 		t.Fatalf("get missing view: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestManualMatchInvite_ParticipantOnDifferentCalendar(t *testing.T) {
 	}
 	s := newSvc(t, ms)
 	pid := "px"
-	_, err := s.ManualMatchInvite(context.Background(), "c1", "i1", &pid)
+	_, err := s.ManualMatchInvite(context.Background(), "c1", "owner1", "i1", &pid)
 	if err != ErrParticipantNotOnCalendar {
 		t.Fatalf("expected ErrParticipantNotOnCalendar, got %v", err)
 	}

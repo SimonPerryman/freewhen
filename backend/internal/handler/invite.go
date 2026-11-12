@@ -1,47 +1,29 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
+	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/service"
-	"github.com/freewhen/backend/internal/store"
 )
 
-// requireCalendarOwner gates the invite endpoints. Returns the authenticated
-// owner on success. On failure it writes the HTTP response and returns nil —
-// callers should simply return.
-func (h *Handler) requireCalendarOwner(w http.ResponseWriter, r *http.Request, calendarID string) bool {
-	user := UserFromContext(r)
-	if user == nil {
-		respondError(w, http.StatusUnauthorized, "unauthorized", "unauthorized")
-		return false
-	}
-	cal, err := h.service.GetCalendarOnly(r.Context(), calendarID)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			respondCalendarMissing(r, w, h.service, calendarID)
-			return false
-		}
-		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
-		return false
-	}
-	if cal.OwnerID != user.ID {
-		respondError(w, http.StatusForbidden, "forbidden", "only the owner can manage invites")
-		return false
-	}
-	return true
-}
+// The invite endpoints are owner-only. Ownership (and "invite belongs to this
+// calendar") is enforced by the service; handlers map the result.
 
 // ListMissing handles GET /calendars/{id}/missing. Owner-only.
 func (h *Handler) ListMissing(w http.ResponseWriter, r *http.Request) {
-	calendarID := r.PathValue("id")
-	if !h.requireCalendarOwner(w, r, calendarID) {
+	user := UserFromContext(r)
+	if user == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized", "unauthorized")
 		return
 	}
-	view, err := h.service.GetMissingView(r.Context(), calendarID)
+	calendarID := r.PathValue("id")
+	view, err := h.service.GetMissingView(r.Context(), calendarID, user.ID)
 	if err != nil {
+		if respondOwnerError(r, w, h.service, calendarID, err, "only the owner can manage invites") {
+			return
+		}
 		respondInternalError(r, w, err, "internal_error", "failed to load missing view")
 		return
 	}
@@ -50,27 +32,23 @@ func (h *Handler) ListMissing(w http.ResponseWriter, r *http.Request) {
 
 // AddInvites handles POST /calendars/{id}/invites.
 func (h *Handler) AddInvites(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-	calendarID := r.PathValue("id")
-	if !h.requireCalendarOwner(w, r, calendarID) {
+	user := UserFromContext(r)
+	if user == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized", "unauthorized")
 		return
 	}
+	calendarID := r.PathValue("id")
 
 	var req struct {
 		Names []string `json:"names"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
-		return
-	}
-	if len(req.Names) == 0 {
-		respondError(w, http.StatusBadRequest, "names_required", "names is required")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
-	res, err := h.service.AddInvites(r.Context(), calendarID, req.Names)
+	res, err := h.service.AddInvites(r.Context(), calendarID, user.ID, req.Names)
 	if err != nil {
-		h.respondInviteError(r, w, err)
+		h.respondInviteError(r, w, calendarID, err)
 		return
 	}
 	respondJSON(w, http.StatusCreated, res)
@@ -78,29 +56,24 @@ func (h *Handler) AddInvites(w http.ResponseWriter, r *http.Request) {
 
 // RenameInvite handles PUT /calendars/{id}/invites/{inviteId}.
 func (h *Handler) RenameInvite(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-	calendarID := r.PathValue("id")
-	inviteID := r.PathValue("inviteId")
-	if !h.requireCalendarOwner(w, r, calendarID) {
+	user := UserFromContext(r)
+	if user == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized", "unauthorized")
 		return
 	}
+	calendarID := r.PathValue("id")
+	inviteID := r.PathValue("inviteId")
 
 	var req struct {
 		Name string `json:"name"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
-	// Verify invite belongs to this calendar before mutation.
-	if ok := h.checkInviteOnCalendar(w, r, calendarID, inviteID); !ok {
-		return
-	}
-
-	inv, err := h.service.RenameInvite(r.Context(), inviteID, req.Name)
+	inv, err := h.service.RenameInvite(r.Context(), calendarID, user.ID, inviteID, req.Name)
 	if err != nil {
-		h.respondInviteError(r, w, err)
+		h.respondInviteError(r, w, calendarID, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, inv)
@@ -109,17 +82,19 @@ func (h *Handler) RenameInvite(w http.ResponseWriter, r *http.Request) {
 // DeleteInvite handles DELETE /calendars/{id}/invites/{inviteId}. Idempotent:
 // 404 is only returned if the invite was never created on this calendar.
 func (h *Handler) DeleteInvite(w http.ResponseWriter, r *http.Request) {
+	user := UserFromContext(r)
+	if user == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized", "unauthorized")
+		return
+	}
 	calendarID := r.PathValue("id")
 	inviteID := r.PathValue("inviteId")
-	if !h.requireCalendarOwner(w, r, calendarID) {
-		return
-	}
-	if ok := h.checkInviteOnCalendar(w, r, calendarID, inviteID); !ok {
-		return
-	}
-	if err := h.service.DeleteInvite(r.Context(), inviteID); err != nil {
-		if errors.Is(err, store.ErrInviteNotFound) {
-			w.WriteHeader(http.StatusNoContent)
+	if err := h.service.DeleteInvite(r.Context(), calendarID, user.ID, inviteID); err != nil {
+		if respondOwnerError(r, w, h.service, calendarID, err, "only the owner can manage invites") {
+			return
+		}
+		if errors.Is(err, model.ErrInviteNotFound) {
+			respondError(w, http.StatusNotFound, "not_found", "invite not found")
 			return
 		}
 		respondInternalError(r, w, err, "internal_error", "failed to delete invite")
@@ -132,55 +107,44 @@ func (h *Handler) DeleteInvite(w http.ResponseWriter, r *http.Request) {
 // Body: `{"participant_id": "..."} | {"participant_id": null}` — the second
 // form unlinks.
 func (h *Handler) ManualMatchInvite(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-	calendarID := r.PathValue("id")
-	inviteID := r.PathValue("inviteId")
-	if !h.requireCalendarOwner(w, r, calendarID) {
+	user := UserFromContext(r)
+	if user == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized", "unauthorized")
 		return
 	}
+	calendarID := r.PathValue("id")
+	inviteID := r.PathValue("inviteId")
 
 	var req struct {
 		ParticipantID *string `json:"participant_id"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
-	inv, err := h.service.ManualMatchInvite(r.Context(), calendarID, inviteID, req.ParticipantID)
+	inv, err := h.service.ManualMatchInvite(r.Context(), calendarID, user.ID, inviteID, req.ParticipantID)
 	if err != nil {
-		h.respondInviteError(r, w, err)
+		h.respondInviteError(r, w, calendarID, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, inv)
 }
 
-func (h *Handler) checkInviteOnCalendar(w http.ResponseWriter, r *http.Request, calendarID, inviteID string) bool {
-	inv, err := h.service.GetInvite(r.Context(), inviteID)
-	if err != nil {
-		if errors.Is(err, store.ErrInviteNotFound) {
-			respondError(w, http.StatusNotFound, "not_found", "invite not found")
-			return false
-		}
-		respondInternalError(r, w, err, "internal_error", "failed to load invite")
-		return false
+func (h *Handler) respondInviteError(r *http.Request, w http.ResponseWriter, calendarID string, err error) {
+	if respondOwnerError(r, w, h.service, calendarID, err, "only the owner can manage invites") {
+		return
 	}
-	if inv.CalendarID != calendarID {
-		respondError(w, http.StatusNotFound, "not_found", "invite not found")
-		return false
+	if respondValidationError(w, err) {
+		return
 	}
-	return true
-}
-
-func (h *Handler) respondInviteError(r *http.Request, w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, store.ErrInviteLimitReached):
+	case errors.Is(err, model.ErrInviteLimitReached):
 		respondError(w, http.StatusConflict, "invite_limit_reached", "invite list is full")
-	case errors.Is(err, store.ErrInviteNameTaken):
+	case errors.Is(err, model.ErrInviteNameTaken):
 		respondError(w, http.StatusConflict, "invite_name_taken", "an invite with this name already exists")
-	case errors.Is(err, store.ErrInviteNotFound):
+	case errors.Is(err, model.ErrInviteNotFound):
 		respondError(w, http.StatusNotFound, "not_found", "invite not found")
-	case errors.Is(err, store.ErrNotFound):
+	case errors.Is(err, model.ErrNotFound):
 		respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 	case errors.Is(err, service.ErrInviteNameRequired):
 		respondError(w, http.StatusBadRequest, "name_required", "name is required")

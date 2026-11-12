@@ -19,7 +19,7 @@ type mockStore struct {
 	getParticipant                 func(ctx context.Context, id string) (model.Participant, error)
 	setAvailability                func(ctx context.Context, participantID string, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) error
 	touchCalendar                  func(ctx context.Context, calendarID string) error
-	listCalendarsForUser           func(ctx context.Context, userID string, limit int) ([]store.CalendarListItem, error)
+	listCalendarsForUser           func(ctx context.Context, userID string, limit int) ([]model.CalendarListItem, error)
 	addParticipant                 func(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
 	countCalendarParticipants      func(ctx context.Context, calendarID string) (int, error)
 	countCalendarsForOwner         func(ctx context.Context, ownerID string) (int, error)
@@ -181,7 +181,7 @@ func (m *mockStore) TouchCalendar(ctx context.Context, calendarID string) error 
 	return m.touchCalendar(ctx, calendarID)
 }
 
-func (m *mockStore) ListCalendarsForUser(ctx context.Context, userID string, limit int) ([]store.CalendarListItem, error) {
+func (m *mockStore) ListCalendarsForUser(ctx context.Context, userID string, limit int) ([]model.CalendarListItem, error) {
 	if m.listCalendarsForUser == nil {
 		panic("unexpected call to ListCalendarsForUser")
 	}
@@ -261,15 +261,15 @@ func TestSetAvailability_ParticipantBelongsToCalendar(t *testing.T) {
 			if participantID != "p1" {
 				t.Fatalf("participantID = %q, want p1", participantID)
 			}
-			if len(dates) != 1 || dates[0] != "2026-05-01" {
-				t.Fatalf("dates = %v, want [2026-05-01]", dates)
+			if len(dates) != 1 || dates[0] != testDate {
+				t.Fatalf("dates = %v, want [%s]", dates, testDate)
 			}
 			return nil
 		},
 	}
 
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
-	err := s.SetAvailability(context.Background(), "cal1", "p1", ParticipantCaller{Token: "tok-p1"}, []string{"2026-05-01"}, nil, nil)
+	err := s.SetAvailability(context.Background(), "cal1", "p1", ParticipantCaller{Token: "tok-p1"}, AvailabilityUpdate{Dates: []string{testDate}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -286,7 +286,7 @@ func TestSetAvailability_ParticipantNotFound(t *testing.T) {
 	}
 
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
-	err := s.SetAvailability(context.Background(), "cal1", "missing", ParticipantCaller{}, []string{"2026-05-01"}, nil, nil)
+	err := s.SetAvailability(context.Background(), "cal1", "missing", ParticipantCaller{}, AvailabilityUpdate{Dates: []string{testDate}})
 	if err != store.ErrNotFound {
 		t.Fatalf("err = %v, want ErrNotFound", err)
 	}
@@ -300,7 +300,7 @@ func TestSetAvailability_ParticipantWrongCalendar(t *testing.T) {
 	}
 
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
-	err := s.SetAvailability(context.Background(), "cal1", "p1", ParticipantCaller{}, []string{"2026-05-01"}, nil, nil)
+	err := s.SetAvailability(context.Background(), "cal1", "p1", ParticipantCaller{}, AvailabilityUpdate{Dates: []string{testDate}})
 	if err != store.ErrNotFound {
 		t.Fatalf("err = %v, want ErrNotFound", err)
 	}
@@ -353,7 +353,7 @@ func TestSetAvailability_StoreError(t *testing.T) {
 	}
 
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
-	err := s.SetAvailability(context.Background(), "cal1", "p1", ParticipantCaller{}, []string{"2026-05-01"}, nil, nil)
+	err := s.SetAvailability(context.Background(), "cal1", "p1", ParticipantCaller{}, AvailabilityUpdate{Dates: []string{testDate}})
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -410,11 +410,27 @@ func TestDuplicateCalendar_OverrideNameHonoured(t *testing.T) {
 func TestDuplicateCalendar_LimitReached(t *testing.T) {
 	ms := &mockStore{
 		countCalendarsForOwner: func(_ context.Context, _ string) (int, error) { return 200, nil },
+		getCalendarOnly: func(_ context.Context, id string) (model.Calendar, error) {
+			return model.Calendar{ID: id, OwnerID: "u1", Name: "x"}, nil
+		},
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 	_, _, err := s.DuplicateCalendar(context.Background(), "cal1", "u1", "Simon", "", true)
 	if !errors.Is(err, store.ErrCalendarLimitReached) {
 		t.Fatalf("err = %v, want ErrCalendarLimitReached", err)
+	}
+}
+
+func TestDuplicateCalendar_NonOwnerForbidden(t *testing.T) {
+	ms := &mockStore{
+		getCalendarOnly: func(_ context.Context, id string) (model.Calendar, error) {
+			return model.Calendar{ID: id, OwnerID: "someone-else", Name: "x"}, nil
+		},
+	}
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
+	_, _, err := s.DuplicateCalendar(context.Background(), "cal1", "u1", "Simon", "", true)
+	if !errors.Is(err, ErrForbidden) {
+		t.Fatalf("err = %v, want ErrForbidden", err)
 	}
 }
 
@@ -442,8 +458,8 @@ func TestDuplicateCalendar_SourceNotFound(t *testing.T) {
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 	_, _, err := s.DuplicateCalendar(context.Background(), "missing", "u1", "Simon", "", true)
-	if !errors.Is(err, store.ErrNotFound) {
-		t.Fatalf("err = %v, want ErrNotFound", err)
+	if !errors.Is(err, model.ErrCalendarNotFound) || !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("err = %v, want ErrCalendarNotFound (wrapping ErrNotFound)", err)
 	}
 }
 
@@ -451,14 +467,14 @@ func TestDuplicateCalendar_SourceNotFound(t *testing.T) {
 
 func TestListUserCalendars_UnderCap(t *testing.T) {
 	ms := &mockStore{
-		listCalendarsForUser: func(_ context.Context, userID string, limit int) ([]store.CalendarListItem, error) {
+		listCalendarsForUser: func(_ context.Context, userID string, limit int) ([]model.CalendarListItem, error) {
 			if userID != "u1" {
 				t.Fatalf("userID = %q, want u1", userID)
 			}
 			if limit != MyCalendarsPageSize+1 {
 				t.Fatalf("limit = %d, want %d", limit, MyCalendarsPageSize+1)
 			}
-			items := make([]store.CalendarListItem, 3)
+			items := make([]model.CalendarListItem, 3)
 			return items, nil
 		},
 	}
@@ -478,8 +494,8 @@ func TestListUserCalendars_UnderCap(t *testing.T) {
 
 func TestListUserCalendars_AtCapNoOverflow(t *testing.T) {
 	ms := &mockStore{
-		listCalendarsForUser: func(_ context.Context, _ string, _ int) ([]store.CalendarListItem, error) {
-			return make([]store.CalendarListItem, MyCalendarsPageSize), nil
+		listCalendarsForUser: func(_ context.Context, _ string, _ int) ([]model.CalendarListItem, error) {
+			return make([]model.CalendarListItem, MyCalendarsPageSize), nil
 		},
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
@@ -498,8 +514,8 @@ func TestListUserCalendars_AtCapNoOverflow(t *testing.T) {
 
 func TestListUserCalendars_OverCapTrims(t *testing.T) {
 	ms := &mockStore{
-		listCalendarsForUser: func(_ context.Context, _ string, _ int) ([]store.CalendarListItem, error) {
-			return make([]store.CalendarListItem, MyCalendarsPageSize+1), nil
+		listCalendarsForUser: func(_ context.Context, _ string, _ int) ([]model.CalendarListItem, error) {
+			return make([]model.CalendarListItem, MyCalendarsPageSize+1), nil
 		},
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
@@ -559,7 +575,7 @@ func TestSetAvailability_TouchesCalendar(t *testing.T) {
 	}
 	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-	if err := s.SetAvailability(context.Background(), "cal1", "p1", ParticipantCaller{Token: "tok-p1"}, []string{"2026-05-01"}, nil, nil); err != nil {
+	if err := s.SetAvailability(context.Background(), "cal1", "p1", ParticipantCaller{Token: "tok-p1"}, AvailabilityUpdate{Dates: []string{testDate}}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !touched {
@@ -800,7 +816,7 @@ func TestPublisher_SetAvailability_PublishesOnSuccess(t *testing.T) {
 	rp := &recordingPublisher{}
 	s := New(ms, rp, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-	if err := s.SetAvailability(context.Background(), "cal1", "p1", ParticipantCaller{Token: "tok-p1"}, []string{"2026-05-01"}, nil, nil); err != nil {
+	if err := s.SetAvailability(context.Background(), "cal1", "p1", ParticipantCaller{Token: "tok-p1"}, AvailabilityUpdate{Dates: []string{testDate}}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(rp.events) != 1 ||
@@ -822,7 +838,7 @@ func TestPublisher_SetAvailability_NoPublishOnStoreError(t *testing.T) {
 	rp := &recordingPublisher{}
 	s := New(ms, rp, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
 
-	if err := s.SetAvailability(context.Background(), "cal1", "p1", ParticipantCaller{}, []string{"2026-05-01"}, nil, nil); err == nil {
+	if err := s.SetAvailability(context.Background(), "cal1", "p1", ParticipantCaller{}, AvailabilityUpdate{Dates: []string{testDate}}); err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if len(rp.events) != 0 {

@@ -1,24 +1,20 @@
 package store
 
-import "errors"
+import "github.com/freewhen/backend/internal/model"
 
+// Sentinel errors are defined in model so handlers don't import store. These
+// aliases are the same values, so errors.Is matches across both names.
 var (
-	ErrNotFound             = errors.New("not found")
-	ErrDuplicateName        = errors.New("duplicate participant name")
-	ErrCalendarFinalised    = errors.New("calendar is finalised")
-	ErrAlreadyLinked        = errors.New("participant already linked to a user")
-	ErrUserAlreadyJoined    = errors.New("user already has a participant in this calendar")
-	ErrCalendarFull         = errors.New("calendar is full")
-	ErrCalendarLimitReached = errors.New("owner has reached the calendar limit")
-	ErrInviteLimitReached   = errors.New("calendar invite list is full")
-	ErrInviteNameTaken      = errors.New("invite name already exists on this calendar")
-	ErrInviteNotFound       = errors.New("invite not found")
-	// ErrCalendarUnavailable is returned by mutating handlers when the
-	// caller refers to a calendar that has been soft-deleted out from under
-	// them (or to which the caller no longer has a live participant row).
-	// Distinguished from ErrNotFound so the HTTP layer can map it to 410.
-	ErrCalendarUnavailable = errors.New("calendar unavailable")
-	// ErrCannotLeaveOwnedCalendar is returned by Leave when the caller is
-	// the calendar's owner. Owners must Delete instead.
-	ErrCannotLeaveOwnedCalendar = errors.New("cannot leave owned calendar")
+	ErrNotFound                 = model.ErrNotFound
+	ErrDuplicateName            = model.ErrDuplicateName
+	ErrCalendarFinalised        = model.ErrCalendarFinalised
+	ErrAlreadyLinked            = model.ErrAlreadyLinked
+	ErrUserAlreadyJoined        = model.ErrUserAlreadyJoined
+	ErrCalendarFull             = model.ErrCalendarFull
+	ErrCalendarLimitReached     = model.ErrCalendarLimitReached
+	ErrInviteLimitReached       = model.ErrInviteLimitReached
+	ErrInviteNameTaken          = model.ErrInviteNameTaken
+	ErrInviteNotFound           = model.ErrInviteNotFound
+	ErrCalendarUnavailable      = model.ErrCalendarUnavailable
+	ErrCannotLeaveOwnedCalendar = model.ErrCannotLeaveOwnedCalendar
 )
