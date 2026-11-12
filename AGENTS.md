@@ -48,7 +48,7 @@ Group availability coordination tool. Go backend + Next.js frontend + Postgres.
 - API client and utilities in `src/lib/` (flat)
 - Log wrapper in `src/lib/log.ts` — use `log.info`/`log.warn`/`log.error` instead of `console.*`
 - Error boundary in `src/app/error.tsx`, not-found page in `src/app/not-found.tsx`
-- Lint with oxlint, format with oxfmt
+- Lint with oxlint, type-check with `pnpm run typecheck` (`tsc --noEmit`, covers tests and e2e), format with oxfmt
 - Feedback for reversible actions: use the Toast primitive (`useToast()` from `@/lib/toast`, `<ToastProvider>` mounted in `src/app/layout.tsx`) with an `Undo` action. Don't reach for `window.confirm` on mobile — it breaks the PWA aesthetic and is the wrong shape for an undoable operation.
 
 ## Database
@@ -117,7 +117,7 @@ Status: pending | in-progress | done
 
 - `make dev-backend` / `make dev-frontend` to run (backend :8080, frontend :3000)
 - `make dev-backend-watch` for auto-restart on `.go`/`.sql` changes (requires [air](https://github.com/air-verse/air): `go install github.com/air-verse/air@latest`). Config in `backend/.air.toml`; build artifacts go to `backend/tmp/` (gitignored).
-- `make lint` to lint both stacks (golangci-lint + oxlint)
+- `make lint` to lint both stacks (golangci-lint + oxlint + `tsc --noEmit` via `pnpm run typecheck`). Typecheck matters because vitest and `next build` don't type-check test files.
 - `make fmt` to format frontend (oxfmt)
 - `make test` to run all tests
 - `make test-backend` / `make test-frontend` to run tests per stack

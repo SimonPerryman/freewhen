@@ -208,6 +208,7 @@ function makeCalendarData(overrides: Partial<CalendarWithDetails> = {}): Calenda
       emoji: "✨",
       ownerId: "owner-1",
       createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
     },
     participants: [],
     availability: [],
@@ -266,6 +267,7 @@ describe("CalendarPageClient", () => {
           name: "Team Meetup",
           ownerId: "owner-1",
           createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-01T00:00:00Z",
         },
       }),
     );

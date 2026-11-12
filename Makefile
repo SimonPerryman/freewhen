@@ -25,7 +25,7 @@ lint-backend:
 	cd backend && golangci-lint run ./...
 
 lint-frontend:
-	cd frontend && pnpm exec oxlint
+	cd frontend && pnpm exec oxlint && pnpm run typecheck
 
 # Catch PII (email/phone/IP) leaking into log calls. See AGENTS.md "Logging".
 lint-pii:

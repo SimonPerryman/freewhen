@@ -1,9 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+import type { ComponentProps } from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import CalendarGrid, { computeHeatPercent } from "./CalendarGrid";
 import { COLOUR_PALETTE, textOnColour } from "@/lib/overlap";
 import type { Participant } from "@/lib/types";
+
+type CalendarGridProps = ComponentProps<typeof CalendarGrid>;
 
 function futureDateStr(daysAhead: number): string {
   const d = new Date();
@@ -37,10 +40,10 @@ function makeParticipants(n: number): Participant[] {
 }
 
 describe("CalendarGrid", () => {
-  let onToggle: ReturnType<typeof vi.fn>;
+  let onToggle: Mock<CalendarGridProps["onToggle"]>;
 
   beforeEach(() => {
-    onToggle = vi.fn();
+    onToggle = vi.fn<CalendarGridProps["onToggle"]>();
   });
 
   it("renders 35 day cell positions (5 weeks)", () => {
