@@ -422,9 +422,30 @@ func TestGetSuggestions_NoCookie(t *testing.T) {
 	req.SetPathValue("id", "cal1")
 	rec := httptest.NewRecorder()
 	h.GetSuggestions(rec, req)
-	if rec.Code != http.StatusNotFound {
+	// "Nothing to suggest" is the normal state: 200, not 404.
+	if rec.Code != http.StatusOK {
 		t.Fatalf("status: %d", rec.Code)
 	}
+	var got suggestionsBody
+	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Pending == nil || *got.Pending {
+		t.Fatalf("pending: want false, got %v", got.Pending)
+	}
+	if got.Free == nil || got.Busy == nil || len(got.Free) != 0 || len(got.Busy) != 0 {
+		t.Fatalf("want empty non-null arrays, got free=%v busy=%v", got.Free, got.Busy)
+	}
+	// Nothing to clear, so no Set-Cookie.
+	if c := rec.Result().Cookies(); len(c) != 0 {
+		t.Fatalf("unexpected Set-Cookie: %+v", c)
+	}
+}
+
+type suggestionsBody struct {
+	Pending *bool    `json:"pending"`
+	Free    []string `json:"free"`
+	Busy    []string `json:"busy"`
 }
 
 func TestGetSuggestions_HappyPath(t *testing.T) {
@@ -441,12 +462,15 @@ func TestGetSuggestions_HappyPath(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status: %d body=%s", rec.Code, rec.Body.String())
 	}
-	var got map[string][]string
+	var got suggestionsBody
 	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
 		t.Fatal(err)
 	}
-	if len(got["free"]) != 1 || got["free"][0] != "2026-05-01" {
-		t.Fatalf("free: %+v", got["free"])
+	if got.Pending == nil || !*got.Pending {
+		t.Fatalf("pending: want true, got %v", got.Pending)
+	}
+	if len(got.Free) != 1 || got.Free[0] != "2026-05-01" {
+		t.Fatalf("free: %+v", got.Free)
 	}
 	// Cookie cleared.
 	var cleared *http.Cookie

@@ -500,7 +500,7 @@ erDiagram
         <tr><td class="method">POST</td><td class="path">/auth/{provider}/calendar/consent-ack</td><td><span class="pill auth">auth</span></td><td>Record import consent</td></tr>
         <tr><td class="method">GET</td><td class="path">/auth/{provider}/calendar/connect</td><td><span class="pill auth">auth</span></td><td>OAuth for FreeBusy</td></tr>
         <tr><td class="method">GET</td><td class="path">/auth/{provider}/calendar/callback</td><td><span class="pill auth">auth</span></td><td>OAuth callback</td></tr>
-        <tr><td class="method">GET</td><td class="path">/calendars/{id}/import/suggestions</td><td><span class="pill auth">auth</span></td><td>FreeBusy → suggested availability</td></tr>
+        <tr><td class="method">GET</td><td class="path">/calendars/{id}/import/suggestions</td><td><span class="pill auth">auth</span></td><td>FreeBusy → suggested availability (200 <code>pending:false</code> when none)</td></tr>
         <tr><td class="method">POST</td><td class="path">/calendars/{id}/availability/import</td><td><span class="pill auth">auth</span></td><td>Apply suggestions</td></tr>
         <tr><td class="method">GET</td><td class="path">/unsubscribe</td><td><span class="pill public">public</span></td><td>One-click unsubscribe (HMAC token)</td></tr>
         <tr><td class="method">GET</td><td class="path">/admin/metrics</td><td><span class="pill owner">admin</span></td><td>Product metrics</td></tr>
@@ -538,7 +538,7 @@ erDiagram
     │   useCalendarData                 ← fetch (or hydrate from initialData) · ?unlock= · SSE refresh · error/gate state
     │   useToday                        ← server "today" during hydration, local date after
     │   useParticipantIdentity          ← who "you" are: stored id · claim · join · rename
-    │   useAvailabilitySave             ← optimistic dates/notes/votes · serialized PUT · undo
+    │   useAvailabilitySave             ← optimistic dates/notes/votes · serialized keepalive PUT · flush on pagehide · undo
     │   useCalendarRename / useCalendarOwnerActions
     │   useAvailabilityMaps             ← derived per-date maps (src/lib/availabilityMaps.ts)
     └── &lt;PassphraseGate&gt;              ← unlock UI if locked

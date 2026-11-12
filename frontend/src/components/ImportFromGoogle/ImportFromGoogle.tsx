@@ -54,7 +54,7 @@ export function useImportFromGoogle({
   const [submitting, setSubmitting] = useState(false);
   const toast = useToast();
 
-  // One-shot hydration: 404 means no pending import, which is the normal
+  // One-shot hydration: null means no pending import, which is the normal
   // path on most page loads.
   useEffect(() => {
     if (!user) return;

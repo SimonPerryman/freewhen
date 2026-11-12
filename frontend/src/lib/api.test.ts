@@ -11,6 +11,7 @@ import {
   verifyMagicLink,
   updateParticipantEmail,
   importAvailabilityDays,
+  fetchImportSuggestions,
   claimParticipant,
   getMe,
   ApiError,
@@ -225,6 +226,29 @@ describe("setAvailability", () => {
     });
   });
 
+  it("passes keepalive through when asked, with headers and credentials intact", async () => {
+    setParticipantToken("abc", "tok-abc");
+    mockFetch.mockResolvedValue(jsonResponse({ ok: true }));
+
+    await setAvailability("abc", { participantId: "p1", dates: [] }, { keepalive: true });
+
+    const init = mockFetch.mock.calls[0][1] as RequestInit & { headers: Record<string, string> };
+    expect(init.keepalive).toBe(true);
+    expect(init.credentials).toBe("include");
+    expect(init.headers["Content-Type"]).toBe("application/json");
+    expect(init.headers["X-Participant-Token"]).toBe("tok-abc");
+  });
+
+  it("drops keepalive for a body over the browser's keepalive budget", async () => {
+    mockFetch.mockResolvedValue(jsonResponse({ ok: true }));
+    const notes = { "2026-03-01": "x".repeat(60 * 1024) };
+
+    await setAvailability("abc", { participantId: "p1", dates: [], notes }, { keepalive: true });
+
+    const init = mockFetch.mock.calls[0][1] as RequestInit;
+    expect(init.keepalive).toBeUndefined();
+  });
+
   it("throws ApiError on 400", async () => {
     mockFetch.mockResolvedValue(jsonResponse({ error: "participant_id is required" }, 400));
 
@@ -232,6 +256,42 @@ describe("setAvailability", () => {
       status: 400,
       message: "participant_id is required",
     });
+  });
+});
+
+describe("fetchImportSuggestions", () => {
+  it("returns null when nothing is pending (200 pending:false)", async () => {
+    mockFetch.mockResolvedValue(jsonResponse({ pending: false, free: [], busy: [] }));
+    await expect(fetchImportSuggestions("abc")).resolves.toBeNull();
+  });
+
+  it("returns null on a 404 from an older backend", async () => {
+    mockFetch.mockResolvedValue(jsonResponse({ error: "no pending import" }, 404));
+    await expect(fetchImportSuggestions("abc")).resolves.toBeNull();
+  });
+
+  it("returns the suggestions when an import is pending", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse({ pending: true, free: ["2026-05-01"], busy: ["2026-05-02"] }),
+    );
+    await expect(fetchImportSuggestions("abc")).resolves.toEqual({
+      pending: true,
+      free: ["2026-05-01"],
+      busy: ["2026-05-02"],
+    });
+  });
+
+  it("still returns suggestions from an older backend without the pending field", async () => {
+    mockFetch.mockResolvedValue(jsonResponse({ free: ["2026-05-01"], busy: [] }));
+    await expect(fetchImportSuggestions("abc")).resolves.toEqual({
+      free: ["2026-05-01"],
+      busy: [],
+    });
+  });
+
+  it("rethrows other errors", async () => {
+    mockFetch.mockResolvedValue(jsonResponse({ error: "boom" }, 500));
+    await expect(fetchImportSuggestions("abc")).rejects.toMatchObject({ status: 500 });
   });
 });
 

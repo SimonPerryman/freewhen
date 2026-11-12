@@ -600,10 +600,14 @@ describe("CalendarPageClient", () => {
     await waitFor(() => {
       expect(mockSetAvailability).toHaveBeenCalledTimes(1);
     });
-    expect(mockSetAvailability).toHaveBeenCalledWith(CALENDAR_ID, {
-      participantId: participant.id,
-      dates: expect.arrayContaining(dates),
-    });
+    expect(mockSetAvailability).toHaveBeenCalledWith(
+      CALENDAR_ID,
+      {
+        participantId: participant.id,
+        dates: expect.arrayContaining(dates),
+      },
+      { keepalive: true },
+    );
 
     // Deselect one of them; selectedDates should now omit it
     mockSetAvailability.mockClear();
