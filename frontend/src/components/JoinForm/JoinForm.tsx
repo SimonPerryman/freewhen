@@ -47,29 +47,29 @@ export default function JoinForm({
       <label className={styles.label} htmlFor="participant-name">
         Your name
       </label>
-      <div className={styles.row}>
-        <input
-          id="participant-name"
-          className={styles.input}
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Enter your name"
-          autoComplete="off"
-          disabled={submitting}
-          maxLength={MAX_PARTICIPANT_NAME_LENGTH}
-          required
-          aria-required="true"
-          aria-invalid={!!error}
-          aria-describedby={error ? "participant-name-error" : undefined}
-        />
-        <Button type="submit" variant="primary" size="lg" disabled={submitting || !name.trim()}>
-          {submitting ? "Joining…" : "Join →"}
-        </Button>
-      </div>
+      <input
+        id="participant-name"
+        className={styles.input}
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Enter your name"
+        autoComplete="off"
+        disabled={submitting}
+        maxLength={MAX_PARTICIPANT_NAME_LENGTH}
+        required
+        aria-required="true"
+        aria-invalid={!!error}
+        aria-describedby={error ? "participant-name-error" : undefined}
+      />
       {showCounter ? (
         <p className={styles.counter} aria-live="polite">
           {name.length} / {MAX_PARTICIPANT_NAME_LENGTH}
+        </p>
+      ) : null}
+      {error ? (
+        <p id="participant-name-error" role="alert" className={styles.error}>
+          {error}
         </p>
       ) : null}
       {!hideEmail ? (
@@ -94,11 +94,16 @@ export default function JoinForm({
           </p>
         </div>
       ) : null}
-      {error ? (
-        <p id="participant-name-error" role="alert" className={styles.error}>
-          {error}
-        </p>
-      ) : null}
+      {/* Submit comes after every field so tab order and reading order match. */}
+      <Button
+        type="submit"
+        variant="primary"
+        size="lg"
+        className={styles.submit}
+        disabled={submitting || !name.trim()}
+      >
+        {submitting ? "Joining…" : "Join →"}
+      </Button>
     </form>
   );
 }

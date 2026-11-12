@@ -34,6 +34,29 @@ export function buildFreeByDate(
   return map;
 }
 
+// Participants who have responded, i.e. marked at least one date free.
+// Joining alone doesn't count — a calendar's owner is a participant from the
+// moment it's created, before they've marked anything.
+export function respondedParticipantIds(
+  freeByDate: ReadonlyMap<string, ReadonlySet<string>>,
+): Set<string> {
+  const ids = new Set<string>();
+  for (const set of freeByDate.values()) {
+    for (const id of set) ids.add(id);
+  }
+  return ids;
+}
+
+// How many of `participants` have at least one availability row. Rows from
+// participants no longer on the calendar are ignored.
+export function countResponded(
+  participants: readonly Pick<Participant, "id">[],
+  availability: readonly { participantId: string }[],
+): number {
+  const ids = new Set(availability.map((a) => a.participantId));
+  return participants.filter((p) => ids.has(p.id)).length;
+}
+
 // Aggregate vote counts per date across all participants.
 export function buildVoteCountsByDate(
   calendar: CalendarWithDetails | null,

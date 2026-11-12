@@ -71,7 +71,13 @@ function FinaliseButton({ date, onFinalise }: FinaliseButtonProps) {
         onClick={handleCommit}
         disabled={submitting}
       >
-        {submitting ? "Confirming…" : `Confirm ${formatDate(date)}?`}
+        {submitting ? (
+          "Confirming…"
+        ) : (
+          <>
+            Confirm <span className={styles.nowrap}>{formatDate(date)}?</span>
+          </>
+        )}
       </button>
       <button
         type="button"

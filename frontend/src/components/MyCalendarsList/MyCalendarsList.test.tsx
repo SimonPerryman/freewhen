@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import MyCalendarsList from "./MyCalendarsList";
 import { ToastProvider } from "@/lib/toast";
 import type { MyCalendarListItem } from "@/lib/types";
@@ -68,6 +70,25 @@ describe("MyCalendarsList", () => {
       />,
     );
     expect(screen.getByText(/May/)).toBeTruthy();
+  });
+
+  it("renders the cards as an unstyled list that keeps list semantics", () => {
+    renderWithToast(
+      <MyCalendarsList
+        status="ready"
+        calendars={[item({ id: "a" }), item({ id: "b", name: "Dinner" })]}
+        hasMore={false}
+      />,
+    );
+    // role="list" keeps the list announced in Safari, which drops implicit
+    // list semantics once list-style is none.
+    const list = screen.getByRole("list");
+    expect(within(list).getAllByRole("listitem")).toHaveLength(2);
+    // CSS Modules aren't applied in jsdom, so check the source: no bullets.
+    const css = readFileSync(path.join(__dirname, "MyCalendarsList.module.css"), "utf8");
+    const listRule = css.match(/^\.list \{[^}]*\}/m)?.[0] ?? "";
+    expect(listRule).toContain("list-style: none");
+    expect(listRule).toContain("padding: 0");
   });
 
   it("links each card to the calendar page", () => {

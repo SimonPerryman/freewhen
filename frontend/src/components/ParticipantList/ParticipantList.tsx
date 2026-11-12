@@ -8,6 +8,10 @@ import styles from "./ParticipantList.module.css";
 interface ParticipantListProps {
   participants: Participant[];
   currentParticipantId: string | null;
+  // Participants who have marked at least one date. Joining alone isn't
+  // responding — an owner who created the calendar but hasn't marked any
+  // dates shouldn't count. Omitted means nobody has responded yet.
+  respondedIds?: ReadonlySet<string>;
   canRemove?: boolean;
   canRenameOthers?: boolean;
   onRemove?: (participant: Participant) => void;
@@ -166,6 +170,7 @@ function ParticipantRow({
 export default function ParticipantList({
   participants,
   currentParticipantId,
+  respondedIds,
   canRemove = false,
   canRenameOthers = false,
   onRemove,
@@ -174,6 +179,10 @@ export default function ParticipantList({
   const [expanded, setExpanded] = useState(false);
 
   if (participants.length === 0) return null;
+
+  const respondedCount = respondedIds
+    ? participants.filter((p) => respondedIds.has(p.id)).length
+    : 0;
 
   return (
     <div className={styles.list}>
@@ -188,7 +197,9 @@ export default function ParticipantList({
             <span key={p.id} className={styles.dot} style={{ backgroundColor: p.colour }} />
           ))}
         </span>
-        <span className={styles.compactLabel}>{participants.length} responded</span>
+        <span className={styles.compactLabel}>
+          {respondedCount} of {participants.length} responded
+        </span>
         <span className={styles.count}>{participants.length}</span>
       </button>
 

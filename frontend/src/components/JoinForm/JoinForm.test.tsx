@@ -34,6 +34,25 @@ describe("JoinForm", () => {
     expect(onJoin).toHaveBeenCalledWith("Alice", "alice@example.com");
   });
 
+  it("puts every field before the submit button (DOM and tab order)", async () => {
+    const user = userEvent.setup();
+    render(<JoinForm onJoin={onJoin} error={null} defaultName="Alice" />);
+    const name = screen.getByLabelText(/your name/i);
+    const email = screen.getByLabelText(/email/i);
+    const submit = screen.getByRole("button", { name: /join/i });
+
+    const follows = (a: Element, b: Element) =>
+      !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(follows(name, email)).toBe(true);
+    expect(follows(email, submit)).toBe(true);
+
+    await user.click(name);
+    await user.tab();
+    expect(email).toHaveFocus();
+    await user.tab();
+    expect(submit).toHaveFocus();
+  });
+
   it("hides the email field when hideEmail is set", () => {
     render(<JoinForm onJoin={onJoin} error={null} hideEmail />);
     expect(screen.queryByLabelText(/email/i)).not.toBeInTheDocument();

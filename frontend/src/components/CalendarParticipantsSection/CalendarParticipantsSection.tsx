@@ -1,9 +1,11 @@
 "use client";
 
+import { useMemo } from "react";
 import InvitePrompt from "@/components/InvitePrompt/InvitePrompt";
 import ParticipantList from "@/components/ParticipantList/ParticipantList";
 import ShareButton from "@/components/ShareButton/ShareButton";
 import SummaryView from "@/components/SummaryView/SummaryView";
+import { respondedParticipantIds } from "@/lib/availabilityMaps";
 import type { Participant } from "@/lib/types";
 import styles from "./CalendarParticipantsSection.module.css";
 
@@ -46,10 +48,15 @@ export default function CalendarParticipantsSection({
   onRemoveParticipant,
   onRenameParticipant,
 }: Props) {
+  // freeByDate already layers the viewer's unsaved selection over everyone
+  // else's rows, so marking a first date counts straight away.
+  const respondedIds = useMemo(() => respondedParticipantIds(freeByDate), [freeByDate]);
+
   const list = (
     <ParticipantList
       participants={participants}
       currentParticipantId={currentParticipantId}
+      respondedIds={respondedIds}
       canRemove={isOwner}
       canRenameOthers={isOwner}
       onRemove={onRemoveParticipant}

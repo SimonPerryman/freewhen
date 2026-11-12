@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import SummaryView from "./SummaryView";
 import type { Participant } from "@/lib/types";
 
@@ -126,7 +126,10 @@ describe("SummaryView", () => {
     expect(onFinalise).not.toHaveBeenCalled();
 
     // Confirmation button appears with date label
-    const confirmBtn = screen.getByText(/Confirm Mon 16 Jun/);
+    const confirmBtn = screen.getByRole("button", { name: "Confirm Mon 16 Jun?" });
+    // The date is one unbreakable unit so it never wraps mid-phrase on a
+    // narrow screen.
+    expect(within(confirmBtn).getByText("Mon 16 Jun?").className).toContain("nowrap");
     fireEvent.click(confirmBtn);
 
     expect(onFinalise).toHaveBeenCalledWith(date);
