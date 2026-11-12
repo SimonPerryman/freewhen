@@ -9,8 +9,7 @@ import {
 } from "./realtimeStream";
 import analytics from "./analytics";
 import { getCalendarAccessToken } from "./calendarAccess";
-
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+import { API_BASE_URL } from "./config";
 
 export type StreamStatus = "connecting" | "open" | "polling" | "closed";
 
@@ -82,7 +81,7 @@ export function useCalendarEvents(
     const accessToken = getCalendarAccessToken(calendarId);
     if (accessToken) params.set("access", accessToken);
     const query = params.toString() ? `?${params.toString()}` : "";
-    const url = `${BASE_URL}/calendars/${calendarId}/events${query}`;
+    const url = `${API_BASE_URL}/calendars/${calendarId}/events${query}`;
 
     try {
       stream = factory(url);

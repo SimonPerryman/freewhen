@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import log from "@/lib/log";
+import styles from "./status-page.module.css";
 
 export default function Error({
   error,
@@ -15,58 +16,11 @@ export default function Error({
   }, [error]);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 24,
-        fontFamily: "var(--font-geist-sans), sans-serif",
-        backgroundColor: "var(--page-bg)",
-        color: "var(--text-primary)",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 480,
-          textAlign: "center",
-        }}
-      >
-        <h1
-          style={{
-            margin: "0 0 8px",
-            fontSize: 28,
-            fontWeight: 600,
-            letterSpacing: "-0.5px",
-          }}
-        >
-          Something went wrong
-        </h1>
-        <p
-          style={{
-            margin: "0 0 28px",
-            fontSize: 15,
-            color: "var(--text-secondary)",
-          }}
-        >
-          An unexpected error occurred. Please try again.
-        </p>
-        <button
-          onClick={reset}
-          style={{
-            padding: "12px 16px",
-            fontSize: 15,
-            fontWeight: 500,
-            fontFamily: "inherit",
-            color: "var(--accent-text)",
-            background: "var(--accent)",
-            border: "none",
-            borderRadius: 8,
-            cursor: "pointer",
-          }}
-        >
+    <div className={styles.page}>
+      <div className={styles.inner}>
+        <h1 className={styles.title}>Something went wrong</h1>
+        <p className={styles.message}>An unexpected error occurred. Please try again.</p>
+        <button type="button" onClick={reset} className={styles.action}>
           Try again
         </button>
       </div>

@@ -1,16 +1,15 @@
 "use client";
 
+import { API_BASE_URL } from "@/lib/config";
 import styles from "./ExportButtons.module.css";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 interface ExportButtonsProps {
   calendarId: string;
 }
 
 export default function ExportButtons({ calendarId }: ExportButtonsProps) {
-  const googleHref = `${API_BASE}/calendars/${calendarId}/export/google`;
-  const icsHref = `${API_BASE}/calendars/${calendarId}/export.ics`;
+  const googleHref = `${API_BASE_URL}/calendars/${calendarId}/export/google`;
+  const icsHref = `${API_BASE_URL}/calendars/${calendarId}/export.ics`;
 
   return (
     <div className={styles.buttons}>

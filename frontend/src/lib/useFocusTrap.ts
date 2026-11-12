@@ -24,6 +24,13 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>({
   initialFocus,
 }: Options = {}): RefObject<T | null> {
   const ref = useRef<T | null>(null);
+  // Latest-ref pattern: callers typically pass a fresh arrow each render. If
+  // onEscape were an effect dependency, every re-render would tear the trap
+  // down (restoring focus) and set it up again (re-focusing initialFocus).
+  const onEscapeRef = useRef(onEscape);
+  useEffect(() => {
+    onEscapeRef.current = onEscape;
+  }, [onEscape]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -37,9 +44,10 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>({
 
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
-        if (onEscape) {
+        const handler = onEscapeRef.current;
+        if (handler) {
           e.stopPropagation();
-          onEscape();
+          handler();
         }
         return;
       }
@@ -68,7 +76,7 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>({
       document.removeEventListener("keydown", onKey);
       previouslyFocused?.focus?.();
     };
-  }, [enabled, onEscape, initialFocus]);
+  }, [enabled, initialFocus]);
 
   return ref;
 }

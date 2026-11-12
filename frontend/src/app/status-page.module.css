@@ -1,0 +1,50 @@
+/* Shared layout for full-page status screens (error.tsx, not-found.tsx). */
+.page {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl) var(--space-lg);
+  font-family: var(--font-stack-body);
+  background-color: var(--page-bg);
+  color: var(--text-primary);
+}
+
+.inner {
+  width: 100%;
+  max-width: 480px;
+  text-align: center;
+}
+
+.title {
+  margin: 0 0 var(--space-sm);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+
+.message {
+  margin: 0 0 28px;
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+
+.action {
+  display: inline-block;
+  min-height: 44px;
+  padding: var(--space-md) var(--space-lg);
+  font-size: 15px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--accent-text);
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.action:hover {
+  background: var(--accent-hover);
+}
