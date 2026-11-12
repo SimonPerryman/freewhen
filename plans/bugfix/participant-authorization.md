@@ -1,6 +1,6 @@
 # Participant authorization (M1 / L2)
 
-Status: in-progress
+Status: done
 
 ## Goal
 
@@ -99,3 +99,4 @@ the returned participant has `email` scrubbed.
 - 2026-11-12 10:55 — Implemented migration 027, store methods, `service.authorizeParticipantWrite` (+ rewired AddParticipant / SetAvailability / ImportAvailability / RenameParticipant / UpdateParticipantEmail / ClaimParticipant), handler header plumbing, claim passphrase gate + email scrub, CORS allow/expose headers. Also found: claim had no ownership check (signed-in attacker could claim an anon row, then edit it) — now requires the participant token.
 - 2026-11-12 10:58 — Frontend: `participantToken.ts`, `request()` captures/sends `X-Participant-Token`, claim passes `calendarId`, rename/email drop `participant_id`. Vitest 266/266 green, oxlint clean.
 - 2026-11-12 11:00 — Tests: service unit (auth matrix, TOFU, race loser, claim, join token), handler unit (403 mapping, header in/out, claim gate + scrub), store + server integration (403 for set/import/rename/email/claim with another participant's id, TOFU). Integration harness replays participant tokens like a browser. Updated `docs/api.md`, `docs/onboarding.html`. Go toolchain unavailable on this machine and CI not starting — backend lint/unit/integration **not run**; PR opened as draft.
+- 2026-11-12 11:20 — Go toolchain became available: `go vet` (with and without `integration` tag) clean; `go test ./...` and `go test -p 1 -tags integration ./...` all pass, including the new auth tests. golangci-lint: only CRLF gofmt noise and pre-existing errcheck findings in integration-tag test helpers. PR marked ready.
