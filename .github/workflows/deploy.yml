@@ -11,6 +11,11 @@ concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
+# Least-privilege default for every job's GITHUB_TOKEN. Jobs that need more
+# (WIF auth via id-token) opt in per job below.
+permissions:
+  contents: read
+
 jobs:
   # Belt-and-braces on top of `concurrency` above: if a newer commit has
   # already landed on main while this run was queued, short-circuit to a
@@ -204,7 +209,7 @@ jobs:
       # Directory setting only applies to git-integration builds, not CLI
       # invocations — so these must run from `frontend/`.
       - name: Pull Vercel environment
-        run: pnpm dlx vercel@latest pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+        run: pnpm dlx vercel@65.8.0 pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
 
       - name: Cache Next.js build
         uses: actions/cache@v4
@@ -216,7 +221,7 @@ jobs:
             nextjs-vercel-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Build
-        run: pnpm dlx vercel@latest build --prod --token="${{ secrets.VERCEL_TOKEN }}"
+        run: pnpm dlx vercel@65.8.0 build --prod --token="${{ secrets.VERCEL_TOKEN }}"
 
       - name: Deploy
-        run: pnpm dlx vercel@latest deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}"
+        run: pnpm dlx vercel@65.8.0 deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}"
