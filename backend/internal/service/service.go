@@ -66,7 +66,7 @@ type Store interface {
 	CountCalendarParticipants(ctx context.Context, calendarID string) (int, error)
 	CountCalendarsForOwner(ctx context.Context, ownerID string) (int, error)
 	TouchCalendar(ctx context.Context, calendarID string) error
-	ListCalendarsForUser(ctx context.Context, userID string, limit int) ([]store.CalendarListItem, error)
+	ListCalendarsForUser(ctx context.Context, userID string, limit int) ([]model.CalendarListItem, error)
 	ListInvites(ctx context.Context, calendarID string) ([]model.Invite, error)
 	GetInvite(ctx context.Context, inviteID string) (model.Invite, error)
 	AddInvites(ctx context.Context, calendarID string, names []string) (store.AddInvitesResult, error)
@@ -126,10 +126,9 @@ func (s *Service) CreateCalendar(ctx context.Context, name, ownerID string) (mod
 	return s.store.CreateCalendar(ctx, name, pickRandomEmoji(), ownerID)
 }
 
-// DuplicateCalendar creates a new calendar derived from sourceID. The caller
-// must have already verified that newOwnerID is the source's owner — the
-// service does not repeat the ownership check because handlers already load
-// the source to produce 404 vs 403 distinctions.
+// DuplicateCalendar creates a new calendar derived from sourceID. Owner-only:
+// newOwnerID must own the source (ErrForbidden otherwise;
+// model.ErrCalendarNotFound if the source is missing).
 //
 // overrideName, if non-empty, replaces the default "<source> (copy)" name.
 // Names longer than the cap return ErrInvalidName. includeParticipants
@@ -146,17 +145,17 @@ func (s *Service) DuplicateCalendar(
 		}
 	}
 
+	source, err := s.requireOwner(ctx, sourceID, newOwnerID)
+	if err != nil {
+		return model.Calendar{}, model.Participant{}, err
+	}
+
 	count, err := s.store.CountCalendarsForOwner(ctx, newOwnerID)
 	if err != nil {
 		return model.Calendar{}, model.Participant{}, err
 	}
 	if count >= limits.MaxCalendarsPerUser {
 		return model.Calendar{}, model.Participant{}, store.ErrCalendarLimitReached
-	}
-
-	source, err := s.store.GetCalendarOnly(ctx, sourceID)
-	if err != nil {
-		return model.Calendar{}, model.Participant{}, err
 	}
 
 	finalName := strings.TrimSpace(overrideName)
@@ -296,8 +295,13 @@ func (s *Service) ClaimParticipant(ctx context.Context, calendarID, participantI
 }
 
 // SetAvailability replaces the participant's availability. Only the
-// participant themself may write it (the owner has no override).
-func (s *Service) SetAvailability(ctx context.Context, calendarID, participantID string, caller ParticipantCaller, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) error {
+// participant themself may write it (the owner has no override). Input is
+// validated before anything is loaded; rejections are *ValidationError.
+func (s *Service) SetAvailability(ctx context.Context, calendarID, participantID string, caller ParticipantCaller, update AvailabilityUpdate) error {
+	noteOverrides, preferredOverrides, err := buildAvailabilityOverrides(participantID, update, time.Now().UTC())
+	if err != nil {
+		return err
+	}
 	cal, err := s.store.GetCalendarOnly(ctx, calendarID)
 	if err != nil {
 		return err
@@ -305,7 +309,7 @@ func (s *Service) SetAvailability(ctx context.Context, calendarID, participantID
 	if _, err := s.authorizeParticipantWrite(ctx, cal, participantID, caller, false); err != nil {
 		return err
 	}
-	if err := s.store.SetAvailability(ctx, participantID, dates, noteOverrides, preferredOverrides); err != nil {
+	if err := s.store.SetAvailability(ctx, participantID, update.Dates, noteOverrides, preferredOverrides); err != nil {
 		return err
 	}
 	s.touch(ctx, calendarID)
@@ -317,6 +321,12 @@ func (s *Service) SetAvailability(ctx context.Context, calendarID, participantID
 // existing availability without deleting any hand-entered rows. Used by the
 // "Accept all suggestions" shortcut. Same authorization as SetAvailability.
 func (s *Service) ImportAvailability(ctx context.Context, calendarID, participantID string, caller ParticipantCaller, dates []string) error {
+	if participantID == "" {
+		return invalid("invalid_request", "participant_id is required")
+	}
+	if _, err := validateDates(dates, time.Now().UTC()); err != nil {
+		return err
+	}
 	cal, err := s.store.GetCalendarOnly(ctx, calendarID)
 	if err != nil {
 		return err
@@ -344,7 +354,11 @@ func (s *Service) GetCalendarOnly(ctx context.Context, id string) (model.Calenda
 	return s.store.GetCalendarOnly(ctx, id)
 }
 
-func (s *Service) FinaliseCalendar(ctx context.Context, calendarID, date string) (model.Calendar, error) {
+// FinaliseCalendar locks the calendar to date. Owner-only.
+func (s *Service) FinaliseCalendar(ctx context.Context, calendarID, userID, date string) (model.Calendar, error) {
+	if _, err := s.requireOwner(ctx, calendarID, userID); err != nil {
+		return model.Calendar{}, err
+	}
 	cal, err := s.store.SetFinalisedDate(ctx, calendarID, date)
 	if err != nil {
 		return model.Calendar{}, err
@@ -399,7 +413,11 @@ func formatDate(date string) string {
 	return t.Format("Monday 2 January 2006")
 }
 
-func (s *Service) UnfinaliseCalendar(ctx context.Context, calendarID string) (model.Calendar, error) {
+// UnfinaliseCalendar clears the finalised date. Owner-only.
+func (s *Service) UnfinaliseCalendar(ctx context.Context, calendarID, userID string) (model.Calendar, error) {
+	if _, err := s.requireOwner(ctx, calendarID, userID); err != nil {
+		return model.Calendar{}, err
+	}
 	cal, err := s.store.ClearFinalisedDate(ctx, calendarID)
 	if err != nil {
 		return model.Calendar{}, err
@@ -408,7 +426,11 @@ func (s *Service) UnfinaliseCalendar(ctx context.Context, calendarID string) (mo
 	return cal, nil
 }
 
-func (s *Service) RenameCalendar(ctx context.Context, calendarID, name string) (model.Calendar, error) {
+// RenameCalendar sets the calendar name. Owner-only.
+func (s *Service) RenameCalendar(ctx context.Context, calendarID, userID, name string) (model.Calendar, error) {
+	if _, err := s.requireOwner(ctx, calendarID, userID); err != nil {
+		return model.Calendar{}, err
+	}
 	cal, err := s.store.UpdateCalendarName(ctx, calendarID, name)
 	if err != nil {
 		return model.Calendar{}, err
@@ -418,19 +440,21 @@ func (s *Service) RenameCalendar(ctx context.Context, calendarID, name string) (
 }
 
 // RenameParticipant updates the name of a participant on a calendar.
-// Authorization: see authorizeParticipantWrite (owner allowed).
+// Authorization: see authorizeParticipantWrite (owner allowed). The name is
+// validated (trimmed, non-empty, length cap) before the calendar is loaded;
+// rejections are *ValidationError wrapping ErrInvalidName.
 func (s *Service) RenameParticipant(ctx context.Context, calendarID, targetParticipantID string, caller ParticipantCaller, name string) (model.Participant, error) {
+	name, err := validateParticipantName(name)
+	if err != nil {
+		return model.Participant{}, err
+	}
+
 	cal, err := s.store.GetCalendarOnly(ctx, calendarID)
 	if err != nil {
 		return model.Participant{}, err
 	}
 	if cal.FinalisedDate != nil {
 		return model.Participant{}, store.ErrCalendarFinalised
-	}
-
-	name = strings.TrimSpace(name)
-	if name == "" || len(name) > limits.MaxParticipantNameLength {
-		return model.Participant{}, ErrInvalidName
 	}
 
 	if _, err := s.authorizeParticipantWrite(ctx, cal, targetParticipantID, caller, true); err != nil {
@@ -446,7 +470,13 @@ func (s *Service) RenameParticipant(ctx context.Context, calendarID, targetParti
 	return p, nil
 }
 
-func (s *Service) RemoveParticipant(ctx context.Context, calendarID, participantID string) error {
+// RemoveParticipant soft-deletes a participant row. Owner-only. A missing
+// participant is plain model.ErrNotFound; a missing calendar is
+// model.ErrCalendarNotFound.
+func (s *Service) RemoveParticipant(ctx context.Context, calendarID, userID, participantID string) error {
+	if _, err := s.requireOwner(ctx, calendarID, userID); err != nil {
+		return err
+	}
 	if err := s.store.DeleteParticipant(ctx, calendarID, participantID); err != nil {
 		return err
 	}
@@ -467,9 +497,8 @@ func (s *Service) IsCalendarSoftDeleted(ctx context.Context, calendarID string) 
 // returns nil. Returns ErrForbidden if the caller is not the owner, or
 // ErrNotFound if the calendar never existed.
 func (s *Service) DeleteCalendar(ctx context.Context, calendarID, userID string) error {
-	cal, err := s.store.GetCalendarOnly(ctx, calendarID)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
+	if _, err := s.requireOwner(ctx, calendarID, userID); err != nil {
+		if errors.Is(err, model.ErrCalendarNotFound) {
 			// Distinguish 404 (never existed) from 410 (was deleted).
 			soft, sErr := s.store.IsCalendarSoftDeleted(ctx, calendarID)
 			if sErr == nil && soft {
@@ -478,9 +507,6 @@ func (s *Service) DeleteCalendar(ctx context.Context, calendarID, userID string)
 			}
 		}
 		return err
-	}
-	if cal.OwnerID != userID {
-		return ErrForbidden
 	}
 	if err := s.store.SoftDeleteCalendar(ctx, calendarID); err != nil {
 		return err
@@ -521,7 +547,7 @@ func (s *Service) LeaveCalendar(ctx context.Context, calendarID, userID string) 
 // ListUserCalendars returns the authenticated user's calendars, sorted
 // most-recently-active first. Caps the result at MyCalendarsPageSize; hasMore
 // reports whether more calendars exist beyond the cap.
-func (s *Service) ListUserCalendars(ctx context.Context, userID string) ([]store.CalendarListItem, bool, error) {
+func (s *Service) ListUserCalendars(ctx context.Context, userID string) ([]model.CalendarListItem, bool, error) {
 	items, err := s.store.ListCalendarsForUser(ctx, userID, MyCalendarsPageSize+1)
 	if err != nil {
 		return nil, false, err

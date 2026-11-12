@@ -12,7 +12,6 @@ import (
 	"github.com/freewhen/backend/internal/ics"
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/service"
-	"github.com/freewhen/backend/internal/store"
 )
 
 // ExportICS serves a .ics file for a finalised calendar. Available to anyone
@@ -93,7 +92,7 @@ func (h *Handler) ExportToProvider(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) loadExportableCalendar(w http.ResponseWriter, r *http.Request, id string) (model.CalendarWithDetails, bool) {
 	cal, err := h.service.GetCalendar(r.Context(), id)
 	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
+		if errors.Is(err, model.ErrNotFound) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return model.CalendarWithDetails{}, false
 		}

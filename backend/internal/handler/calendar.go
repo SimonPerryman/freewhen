@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -10,12 +9,9 @@ import (
 	"github.com/freewhen/backend/internal/limits"
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/service"
-	"github.com/freewhen/backend/internal/store"
 )
 
 func (h *Handler) CreateCalendar(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-
 	user := UserFromContext(r)
 	if user == nil {
 		respondError(w, http.StatusUnauthorized, "unauthorized", "unauthorized")
@@ -25,8 +21,7 @@ func (h *Handler) CreateCalendar(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name string `json:"name"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -37,7 +32,7 @@ func (h *Handler) CreateCalendar(w http.ResponseWriter, r *http.Request) {
 
 	cal, err := h.service.CreateCalendar(r.Context(), req.Name, user.ID)
 	if err != nil {
-		if errors.Is(err, store.ErrCalendarLimitReached) {
+		if errors.Is(err, model.ErrCalendarLimitReached) {
 			respondError(w, http.StatusConflict, "calendar_limit_reached", "you have reached the calendar limit")
 			return
 		}
@@ -69,8 +64,6 @@ func (h *Handler) CreateCalendar(w http.ResponseWriter, r *http.Request) {
 // participants. Availability, finalised state, and passphrase are
 // intentionally dropped.
 func (h *Handler) DuplicateCalendar(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-
 	user := UserFromContext(r)
 	if user == nil {
 		respondError(w, http.StatusUnauthorized, "unauthorized", "unauthorized")
@@ -84,11 +77,8 @@ func (h *Handler) DuplicateCalendar(w http.ResponseWriter, r *http.Request) {
 		Name                *string `json:"name"`
 		IncludeParticipants *bool   `json:"include_participants"`
 	}{}
-	if r.ContentLength != 0 {
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
-			return
-		}
+	if r.ContentLength != 0 && !decodeJSON(w, r, &req) {
+		return
 	}
 
 	overrideName := ""
@@ -105,30 +95,19 @@ func (h *Handler) DuplicateCalendar(w http.ResponseWriter, r *http.Request) {
 		includeParticipants = *req.IncludeParticipants
 	}
 
-	source, err := h.service.GetCalendarOnly(r.Context(), id)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			respondCalendarMissing(r, w, h.service, id)
-			return
-		}
-		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
-		return
-	}
-	if source.OwnerID != user.ID {
-		respondError(w, http.StatusForbidden, "forbidden", "only the owner can duplicate this calendar")
-		return
-	}
-
 	cal, participant, err := h.service.DuplicateCalendar(r.Context(), id, user.ID, user.Name, overrideName, includeParticipants)
 	if err != nil {
+		if respondOwnerError(r, w, h.service, id, err, "only the owner can duplicate this calendar") {
+			return
+		}
 		switch {
-		case errors.Is(err, store.ErrCalendarLimitReached):
+		case errors.Is(err, model.ErrCalendarLimitReached):
 			respondError(w, http.StatusConflict, "calendar_limit_reached", "you have reached the calendar limit")
-		case errors.Is(err, store.ErrCalendarFull):
+		case errors.Is(err, model.ErrCalendarFull):
 			respondError(w, http.StatusConflict, "calendar_full", "calendar is full")
 		case errors.Is(err, service.ErrInvalidName):
 			respondError(w, http.StatusBadRequest, "name_too_long", "calendar name is too long")
-		case errors.Is(err, store.ErrNotFound):
+		case errors.Is(err, model.ErrNotFound):
 			respondCalendarMissing(r, w, h.service, id)
 		default:
 			respondInternalError(r, w, err, "internal_error", "failed to duplicate calendar")
@@ -206,7 +185,7 @@ func (h *Handler) GetCalendar(w http.ResponseWriter, r *http.Request) {
 
 	cal, err := h.service.GetCalendarOnly(r.Context(), id)
 	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
+		if errors.Is(err, model.ErrNotFound) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
@@ -228,7 +207,7 @@ func (h *Handler) GetCalendar(w http.ResponseWriter, r *http.Request) {
 
 	details, err := h.service.GetCalendar(r.Context(), id)
 	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
+		if errors.Is(err, model.ErrNotFound) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}
@@ -255,8 +234,6 @@ func (h *Handler) GetCalendar(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) FinaliseCalendar(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-
 	user := UserFromContext(r)
 	if user == nil {
 		respondError(w, http.StatusUnauthorized, "unauthorized", "unauthorized")
@@ -268,8 +245,7 @@ func (h *Handler) FinaliseCalendar(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Date string `json:"date"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	parsedDate, err := time.Parse("2006-01-02", req.Date)
@@ -282,23 +258,12 @@ func (h *Handler) FinaliseCalendar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	existing, err := h.service.GetCalendarOnly(r.Context(), id)
+	cal, err := h.service.FinaliseCalendar(r.Context(), id, user.ID, req.Date)
 	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			respondCalendarMissing(r, w, h.service, id)
+		if respondOwnerError(r, w, h.service, id, err, "only the owner can finalise this calendar") {
 			return
 		}
-		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
-		return
-	}
-	if existing.OwnerID != user.ID {
-		respondError(w, http.StatusForbidden, "forbidden", "only the owner can finalise this calendar")
-		return
-	}
-
-	cal, err := h.service.FinaliseCalendar(r.Context(), id, req.Date)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
+		if errors.Is(err, model.ErrNotFound) {
 			respondCalendarMissing(r, w, h.service, id)
 			return
 		}
@@ -311,8 +276,6 @@ func (h *Handler) FinaliseCalendar(w http.ResponseWriter, r *http.Request) {
 
 // UpdateCalendar handles PATCH /calendars/{id}. Owner only.
 func (h *Handler) UpdateCalendar(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-
 	user := UserFromContext(r)
 	if user == nil {
 		respondError(w, http.StatusUnauthorized, "unauthorized", "unauthorized")
@@ -324,8 +287,7 @@ func (h *Handler) UpdateCalendar(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name *string `json:"name"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	if req.Name == nil {
@@ -341,23 +303,12 @@ func (h *Handler) UpdateCalendar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	existing, err := h.service.GetCalendarOnly(r.Context(), id)
+	cal, err := h.service.RenameCalendar(r.Context(), id, user.ID, *req.Name)
 	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			respondCalendarMissing(r, w, h.service, id)
+		if respondOwnerError(r, w, h.service, id, err, "only the owner can update this calendar") {
 			return
 		}
-		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
-		return
-	}
-	if existing.OwnerID != user.ID {
-		respondError(w, http.StatusForbidden, "forbidden", "only the owner can update this calendar")
-		return
-	}
-
-	cal, err := h.service.RenameCalendar(r.Context(), id, *req.Name)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
+		if errors.Is(err, model.ErrNotFound) {
 			respondCalendarMissing(r, w, h.service, id)
 			return
 		}
@@ -377,22 +328,11 @@ func (h *Handler) RemoveParticipant(w http.ResponseWriter, r *http.Request) {
 	calendarID := r.PathValue("id")
 	participantID := r.PathValue("participantId")
 
-	existing, err := h.service.GetCalendarOnly(r.Context(), calendarID)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			respondCalendarMissing(r, w, h.service, calendarID)
+	if err := h.service.RemoveParticipant(r.Context(), calendarID, user.ID, participantID); err != nil {
+		if respondOwnerError(r, w, h.service, calendarID, err, "only the owner can remove participants") {
 			return
 		}
-		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
-		return
-	}
-	if existing.OwnerID != user.ID {
-		respondError(w, http.StatusForbidden, "forbidden", "only the owner can remove participants")
-		return
-	}
-
-	if err := h.service.RemoveParticipant(r.Context(), calendarID, participantID); err != nil {
-		if errors.Is(err, store.ErrNotFound) {
+		if errors.Is(err, model.ErrNotFound) {
 			respondError(w, http.StatusNotFound, "not_found", "participant not found")
 			return
 		}
@@ -474,7 +414,7 @@ func (h *Handler) DeleteCalendar(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, service.ErrForbidden):
 			respondError(w, http.StatusForbidden, "forbidden", "only the owner can delete this calendar")
-		case errors.Is(err, store.ErrNotFound):
+		case errors.Is(err, model.ErrNotFound):
 			respondCalendarMissing(r, w, h.service, id)
 		default:
 			respondInternalError(r, w, err, "internal_error", "failed to delete calendar")
@@ -497,9 +437,9 @@ func (h *Handler) LeaveCalendar(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.service.LeaveCalendar(r.Context(), id, user.ID); err != nil {
 		switch {
-		case errors.Is(err, store.ErrCannotLeaveOwnedCalendar):
+		case errors.Is(err, model.ErrCannotLeaveOwnedCalendar):
 			respondError(w, http.StatusConflict, "cannot_leave_owned_calendar", "owners cannot leave their own calendar; delete it instead")
-		case errors.Is(err, store.ErrNotFound):
+		case errors.Is(err, model.ErrNotFound):
 			respondCalendarMissing(r, w, h.service, id)
 		default:
 			respondInternalError(r, w, err, "internal_error", "failed to leave calendar")
@@ -518,23 +458,12 @@ func (h *Handler) UnfinaliseCalendar(w http.ResponseWriter, r *http.Request) {
 
 	id := r.PathValue("id")
 
-	existing, err := h.service.GetCalendarOnly(r.Context(), id)
+	cal, err := h.service.UnfinaliseCalendar(r.Context(), id, user.ID)
 	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			respondCalendarMissing(r, w, h.service, id)
+		if respondOwnerError(r, w, h.service, id, err, "only the owner can unfinalise this calendar") {
 			return
 		}
-		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
-		return
-	}
-	if existing.OwnerID != user.ID {
-		respondError(w, http.StatusForbidden, "forbidden", "only the owner can unfinalise this calendar")
-		return
-	}
-
-	cal, err := h.service.UnfinaliseCalendar(r.Context(), id)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
+		if errors.Is(err, model.ErrNotFound) {
 			respondCalendarMissing(r, w, h.service, id)
 			return
 		}

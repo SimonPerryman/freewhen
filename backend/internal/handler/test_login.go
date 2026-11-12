@@ -2,13 +2,11 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
 
 	"github.com/freewhen/backend/internal/model"
-	"github.com/freewhen/backend/internal/store"
 )
 
 // TestLoginHandler mints a session for a given email without going through
@@ -40,8 +38,7 @@ type testLoginRequest struct {
 // cookie. Always 200 on success, regardless of whether the user existed.
 func (h *TestLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req testLoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid_json", "invalid request body")
+	if !decodeJSONMessage(w, r, &req, "invalid request body") {
 		return
 	}
 	req.Email = normalizeEmail(req.Email)
@@ -85,7 +82,7 @@ func (h *TestLoginHandler) findOrCreate(ctx context.Context, email, name string)
 	if err == nil {
 		return user, nil
 	}
-	if !errors.Is(err, store.ErrNotFound) {
+	if !errors.Is(err, model.ErrNotFound) {
 		return model.User{}, err
 	}
 	return h.store.CreateUser(ctx, email, name, "e2e", "")

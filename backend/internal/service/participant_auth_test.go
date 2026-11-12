@@ -90,7 +90,7 @@ func TestSetAvailability_Authorization(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			s := New(authFixture(), nil, AccessConfig{Secret: testSecret})
-			err := s.SetAvailability(context.Background(), "cal1", tc.target, tc.caller, []string{"2026-05-01"}, nil, nil)
+			err := s.SetAvailability(context.Background(), "cal1", tc.target, tc.caller, AvailabilityUpdate{Dates: []string{testDate}})
 			if !errors.Is(err, tc.want) {
 				t.Fatalf("err = %v, want %v", err, tc.want)
 			}
@@ -105,7 +105,7 @@ func TestSetAvailability_ForbiddenDoesNotWrite(t *testing.T) {
 		return nil
 	}
 	s := New(ms, nil, AccessConfig{Secret: testSecret})
-	if err := s.SetAvailability(context.Background(), "cal1", "ownerp", ParticipantCaller{}, nil, nil, nil); !errors.Is(err, ErrForbidden) {
+	if err := s.SetAvailability(context.Background(), "cal1", "ownerp", ParticipantCaller{}, AvailabilityUpdate{}); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("err = %v, want ErrForbidden", err)
 	}
 }
@@ -127,10 +127,10 @@ func TestNoTokenHash_RenameAndEmailForbidden(t *testing.T) {
 func TestImportAvailability_OtherParticipantForbidden(t *testing.T) {
 	s := New(authFixture(), nil, AccessConfig{Secret: testSecret})
 	// Signed-in u2 tries to import into u1's row.
-	if err := s.ImportAvailability(context.Background(), "cal1", "linked", ParticipantCaller{UserID: strp("u2")}, []string{"2026-05-01"}); !errors.Is(err, ErrForbidden) {
+	if err := s.ImportAvailability(context.Background(), "cal1", "linked", ParticipantCaller{UserID: strp("u2")}, []string{testDate}); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("err = %v, want ErrForbidden", err)
 	}
-	if err := s.ImportAvailability(context.Background(), "cal1", "linked", ParticipantCaller{UserID: strp("u1")}, []string{"2026-05-01"}); err != nil {
+	if err := s.ImportAvailability(context.Background(), "cal1", "linked", ParticipantCaller{UserID: strp("u1")}, []string{testDate}); err != nil {
 		t.Fatalf("self import: %v", err)
 	}
 }

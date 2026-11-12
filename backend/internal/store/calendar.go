@@ -297,18 +297,10 @@ func (s *Store) IsCalendarSoftDeleted(ctx context.Context, calendarID string) (b
 	return deletedAt.Valid, nil
 }
 
-// CalendarListItem is a calendar plus its participant count, returned by
-// ListCalendarsForUser. The caller derives per-user fields (role, etc.) from
-// the embedded Calendar.
-type CalendarListItem struct {
-	model.Calendar
-	ParticipantCount int
-}
-
 // ListCalendarsForUser returns calendars where the given user is a participant,
 // sorted most-recently-active first. Limit caps the result set. The caller is
 // responsible for passing limit = pageSize + 1 when detecting has_more.
-func (s *Store) ListCalendarsForUser(ctx context.Context, userID string, limit int) ([]CalendarListItem, error) {
+func (s *Store) ListCalendarsForUser(ctx context.Context, userID string, limit int) ([]model.CalendarListItem, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT c.id, c.name, c.emoji, c.owner_id, c.created_at, c.updated_at,
 		        c.finalised_date::text, c.finalised_at,
@@ -325,9 +317,9 @@ func (s *Store) ListCalendarsForUser(ctx context.Context, userID string, limit i
 	}
 	defer func() { _ = rows.Close() }()
 
-	items := []CalendarListItem{}
+	items := []model.CalendarListItem{}
 	for rows.Next() {
-		var item CalendarListItem
+		var item model.CalendarListItem
 		var emojiCol sql.NullString
 		var finalisedDate sql.NullString
 		var finalisedAt sql.NullTime

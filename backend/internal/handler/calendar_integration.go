@@ -13,8 +13,8 @@ import (
 	"github.com/freewhen/backend/internal/availability"
 	"github.com/freewhen/backend/internal/calprovider"
 	"github.com/freewhen/backend/internal/config"
+	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/ratelimit"
-	"github.com/freewhen/backend/internal/store"
 
 	"golang.org/x/oauth2"
 )
@@ -289,7 +289,7 @@ func (h *CalendarIntegrationHandler) GetSuggestions(w http.ResponseWriter, r *ht
 	// Validate the caller can read this calendar so we don't surface
 	// someone else's cookie content (cookies scope by name only).
 	if _, err := h.cal.GetCalendarOnly(r.Context(), calendarID); err != nil {
-		if errors.Is(err, store.ErrNotFound) {
+		if errors.Is(err, model.ErrNotFound) {
 			respondError(w, http.StatusNotFound, "not_found", "calendar not found")
 			return
 		}

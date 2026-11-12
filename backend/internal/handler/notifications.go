@@ -7,15 +7,13 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/notifications"
-	"github.com/freewhen/backend/internal/store"
 )
 
-// CalendarOwnerLookup is the read slice the nudge handler needs to enforce
-// owner-only access. Implemented by *service.Service.
-type CalendarOwnerLookup interface {
-	GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error)
+// CalendarOwnerAuthorizer is the slice of the service the nudge handler needs
+// to enforce owner-only access. Implemented by *service.Service.
+type CalendarOwnerAuthorizer interface {
+	AuthorizeCalendarOwner(ctx context.Context, calendarID, userID string) error
 	IsCalendarSoftDeleted(ctx context.Context, calendarID string) (bool, error)
 }
 
@@ -23,19 +21,19 @@ type CalendarOwnerLookup interface {
 // the main Handler so a nil notifications.Service (i.e. NOTIFICATIONS_HMAC_SECRET
 // unset) can short-circuit registration in server.go.
 type NotificationsHandler struct {
-	svc           *notifications.Service
-	calendarStore CalendarOwnerLookup
-	logger        *slog.Logger
+	svc    *notifications.Service
+	owners CalendarOwnerAuthorizer
+	logger *slog.Logger
 }
 
 // NewNotifications wires the notifications handler. svc may be nil to
 // disable the routes; the server.go wiring will skip registration in that
 // case so route-coverage doesn't see them.
-func NewNotifications(svc *notifications.Service, lookup CalendarOwnerLookup, logger *slog.Logger) *NotificationsHandler {
+func NewNotifications(svc *notifications.Service, owners CalendarOwnerAuthorizer, logger *slog.Logger) *NotificationsHandler {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &NotificationsHandler{svc: svc, calendarStore: lookup, logger: logger}
+	return &NotificationsHandler{svc: svc, owners: owners, logger: logger}
 }
 
 // Unsubscribe handles GET /unsubscribe?t=<token>. Public — the token is
@@ -73,17 +71,11 @@ func (h *NotificationsHandler) Nudge(w http.ResponseWriter, r *http.Request) {
 	}
 	calendarID := r.PathValue("id")
 
-	cal, err := h.calendarStore.GetCalendarOnly(r.Context(), calendarID)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			respondCalendarMissing(r, w, h.calendarStore, calendarID)
+	if err := h.owners.AuthorizeCalendarOwner(r.Context(), calendarID, user.ID); err != nil {
+		if respondOwnerError(r, w, h.owners, calendarID, err, "only the owner can send a reminder") {
 			return
 		}
 		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
-		return
-	}
-	if cal.OwnerID != user.ID {
-		respondError(w, http.StatusForbidden, "forbidden", "only the owner can send a reminder")
 		return
 	}
 

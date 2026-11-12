@@ -1,29 +1,25 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"net"
 	"net/http"
 	"strings"
 
+	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/service"
-	"github.com/freewhen/backend/internal/store"
 )
 
 // Unlock handles POST /calendars/{id}/unlock. Verifies the submitted
 // passphrase, enforces a per-(calendar, IP) rate limit, and returns an
 // access token on success.
 func (h *Handler) Unlock(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-
 	id := r.PathValue("id")
 
 	var req struct {
 		Passphrase string `json:"passphrase"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	if strings.TrimSpace(req.Passphrase) == "" {
@@ -34,7 +30,7 @@ func (h *Handler) Unlock(w http.ResponseWriter, r *http.Request) {
 	token, err := h.service.UnlockCalendar(r.Context(), id, req.Passphrase, remoteIP(r, h.trustedProxyDepth))
 	if err != nil {
 		switch {
-		case errors.Is(err, store.ErrNotFound):
+		case errors.Is(err, model.ErrNotFound):
 			respondCalendarMissing(r, w, h.service, id)
 		case errors.Is(err, service.ErrNotPassphraseProtected):
 			respondError(w, http.StatusBadRequest, "no_passphrase", "calendar is not passphrase protected")
@@ -63,22 +59,11 @@ func (h *Handler) SetPassphrase(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := r.PathValue("id")
-	cal, err := h.service.GetCalendarOnly(r.Context(), id)
+	p, err := h.service.RotateCalendarPassphrase(r.Context(), id, user.ID)
 	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			respondCalendarMissing(r, w, h.service, id)
+		if respondOwnerError(r, w, h.service, id, err, "only the owner can manage the passphrase") {
 			return
 		}
-		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
-		return
-	}
-	if cal.OwnerID != user.ID {
-		respondError(w, http.StatusForbidden, "forbidden", "only the owner can manage the passphrase")
-		return
-	}
-
-	p, err := h.service.RotateCalendarPassphrase(r.Context(), id)
-	if err != nil {
 		respondInternalError(r, w, err, "internal_error", "failed to set passphrase")
 		return
 	}
@@ -97,21 +82,10 @@ func (h *Handler) ClearPassphrase(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := r.PathValue("id")
-	cal, err := h.service.GetCalendarOnly(r.Context(), id)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			respondCalendarMissing(r, w, h.service, id)
+	if err := h.service.ClearCalendarPassphrase(r.Context(), id, user.ID); err != nil {
+		if respondOwnerError(r, w, h.service, id, err, "only the owner can manage the passphrase") {
 			return
 		}
-		respondInternalError(r, w, err, "internal_error", "failed to load calendar")
-		return
-	}
-	if cal.OwnerID != user.ID {
-		respondError(w, http.StatusForbidden, "forbidden", "only the owner can manage the passphrase")
-		return
-	}
-
-	if err := h.service.ClearCalendarPassphrase(r.Context(), id); err != nil {
 		respondInternalError(r, w, err, "internal_error", "failed to clear passphrase")
 		return
 	}
@@ -131,7 +105,7 @@ func (h *Handler) requireCalendarAccess(w http.ResponseWriter, r *http.Request, 
 	}
 	cal, err := h.service.GetCalendarOnly(r.Context(), calendarID)
 	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
+		if errors.Is(err, model.ErrNotFound) {
 			respondCalendarMissing(r, w, h.service, calendarID)
 			return false, err
 		}

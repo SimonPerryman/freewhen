@@ -15,7 +15,6 @@ import (
 
 	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/realtime"
-	"github.com/freewhen/backend/internal/store"
 )
 
 // mockHub implements Subscriber for the events handler tests.
@@ -70,7 +69,7 @@ func calendarFoundService() *mockService {
 func TestEvents_Stream_404WhenCalendarMissing(t *testing.T) {
 	svc := &mockService{
 		getCalendarOnly: func(_ context.Context, _ string) (model.Calendar, error) {
-			return model.Calendar{}, store.ErrNotFound
+			return model.Calendar{}, model.ErrNotFound
 		},
 	}
 	h := NewEvents(newMockHub(), svc, discardLogger())

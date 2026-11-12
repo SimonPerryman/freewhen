@@ -1,21 +1,17 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
-	"strings"
-	"time"
-	"unicode/utf8"
 
-	"github.com/freewhen/backend/internal/limits"
+	"github.com/freewhen/backend/internal/model"
 	"github.com/freewhen/backend/internal/service"
-	"github.com/freewhen/backend/internal/store"
 )
 
+// SetAvailability handles PUT /calendars/{id}/availability. Input rules
+// (date format/range/count, note and preferred-date constraints) live in
+// service.SetAvailability and come back as *service.ValidationError.
 func (h *Handler) SetAvailability(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-
 	calendarID := r.PathValue("id")
 
 	if ok, _ := h.requireCalendarAccess(w, r, calendarID); !ok {
@@ -28,94 +24,13 @@ func (h *Handler) SetAvailability(w http.ResponseWriter, r *http.Request) {
 		Notes         *map[string]string `json:"notes"`
 		Preferred     *[]string          `json:"preferred"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
-	if req.ParticipantID == "" {
-		respondError(w, http.StatusBadRequest, "invalid_request", "participant_id is required")
-		return
-	}
-
-	if len(req.Dates) > limits.MaxDatesPerSubmission {
-		respondError(w, http.StatusBadRequest, "too_many_dates", "too many dates in a single submission")
-		return
-	}
-
-	dateSet := make(map[string]struct{}, len(req.Dates))
-	now := time.Now().UTC()
-	for _, d := range req.Dates {
-		parsed, err := time.Parse("2006-01-02", d)
-		if err != nil {
-			respondError(w, http.StatusBadRequest, "invalid_date", "invalid date format: "+d)
-			return
-		}
-		if !limits.DateWithinRange(parsed, now) {
-			respondError(w, http.StatusBadRequest, "date_out_of_range", "date out of range: "+d)
-			return
-		}
-		dateSet[d] = struct{}{}
-	}
-
-	var noteOverrides map[string]string
-	if req.Notes != nil {
-		noteOverrides = make(map[string]string, len(*req.Notes))
-		for date, raw := range *req.Notes {
-			if _, ok := dateSet[date]; !ok {
-				respondError(w, http.StatusBadRequest, "note_unknown_date", "note key not in dates: "+date)
-				return
-			}
-			if strings.ContainsAny(raw, "\r\n") {
-				respondError(w, http.StatusBadRequest, "note_newline", "notes must not contain line breaks")
-				return
-			}
-			if raw == "" {
-				noteOverrides[date] = ""
-				continue
-			}
-			trimmed := strings.TrimSpace(raw)
-			if trimmed == "" {
-				respondError(w, http.StatusBadRequest, "note_whitespace", "notes must not be whitespace-only")
-				return
-			}
-			if utf8.RuneCountInString(trimmed) > limits.MaxNoteLength {
-				respondError(w, http.StatusBadRequest, "note_too_long", "note exceeds maximum length")
-				return
-			}
-			noteOverrides[date] = trimmed
-		}
-	}
-
-	var preferredOverrides map[string]bool
-	if req.Preferred != nil {
-		preferredOverrides = make(map[string]bool, len(req.Dates))
-		for _, d := range req.Dates {
-			preferredOverrides[d] = false
-		}
-		for _, d := range *req.Preferred {
-			if _, ok := dateSet[d]; !ok {
-				respondError(w, http.StatusBadRequest, "preferred_unknown_date", "preferred date not in dates: "+d)
-				return
-			}
-			preferredOverrides[d] = true
-		}
-	}
-
-	if err := h.service.SetAvailability(r.Context(), calendarID, req.ParticipantID, participantCaller(r), req.Dates, noteOverrides, preferredOverrides); err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			respondCalendarMissing(r, w, h.service, calendarID)
-			return
-		}
-		if errors.Is(err, service.ErrForbidden) {
-			respondError(w, http.StatusForbidden, "forbidden", "not allowed to edit this participant")
-			return
-		}
-		if errors.Is(err, store.ErrCalendarFinalised) {
-			respondError(w, http.StatusConflict, "already_finalised", "calendar is finalised")
-			return
-		}
-		respondInternalError(r, w, err, "internal_error", "failed to set availability")
+	update := service.AvailabilityUpdate{Dates: req.Dates, Notes: req.Notes, Preferred: req.Preferred}
+	if err := h.service.SetAvailability(r.Context(), calendarID, req.ParticipantID, participantCaller(r), update); err != nil {
+		h.respondAvailabilityError(r, w, calendarID, err, "failed to set availability")
 		return
 	}
 
@@ -127,8 +42,6 @@ func (h *Handler) SetAvailability(w http.ResponseWriter, r *http.Request) {
 // Used by the "Accept all suggestions" shortcut after a Google Calendar
 // import — individual cell taps continue to go through SetAvailability.
 func (h *Handler) ImportAvailability(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-
 	user := UserFromContext(r)
 	if user == nil {
 		respondError(w, http.StatusUnauthorized, "unauthorized", "unauthorized")
@@ -144,48 +57,30 @@ func (h *Handler) ImportAvailability(w http.ResponseWriter, r *http.Request) {
 		ParticipantID string   `json:"participant_id"`
 		Days          []string `json:"days"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
+	if !decodeJSON(w, r, &req) {
 		return
-	}
-	if req.ParticipantID == "" {
-		respondError(w, http.StatusBadRequest, "invalid_request", "participant_id is required")
-		return
-	}
-	if len(req.Days) > limits.MaxDatesPerSubmission {
-		respondError(w, http.StatusBadRequest, "too_many_dates", "too many dates in a single submission")
-		return
-	}
-
-	now := time.Now().UTC()
-	for _, d := range req.Days {
-		parsed, err := time.Parse("2006-01-02", d)
-		if err != nil {
-			respondError(w, http.StatusBadRequest, "invalid_date", "invalid date format: "+d)
-			return
-		}
-		if !limits.DateWithinRange(parsed, now) {
-			respondError(w, http.StatusBadRequest, "date_out_of_range", "date out of range: "+d)
-			return
-		}
 	}
 
 	if err := h.service.ImportAvailability(r.Context(), calendarID, req.ParticipantID, participantCaller(r), req.Days); err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			respondCalendarMissing(r, w, h.service, calendarID)
-			return
-		}
-		if errors.Is(err, service.ErrForbidden) {
-			respondError(w, http.StatusForbidden, "forbidden", "not allowed to edit this participant")
-			return
-		}
-		if errors.Is(err, store.ErrCalendarFinalised) {
-			respondError(w, http.StatusConflict, "already_finalised", "calendar is finalised")
-			return
-		}
-		respondInternalError(r, w, err, "internal_error", "failed to import availability")
+		h.respondAvailabilityError(r, w, calendarID, err, "failed to import availability")
 		return
 	}
 
 	respondJSON(w, http.StatusOK, map[string]any{"ok": true, "imported": len(req.Days)})
+}
+
+func (h *Handler) respondAvailabilityError(r *http.Request, w http.ResponseWriter, calendarID string, err error, internalMsg string) {
+	if respondValidationError(w, err) {
+		return
+	}
+	switch {
+	case errors.Is(err, model.ErrNotFound):
+		respondCalendarMissing(r, w, h.service, calendarID)
+	case errors.Is(err, service.ErrForbidden):
+		respondError(w, http.StatusForbidden, "forbidden", "not allowed to edit this participant")
+	case errors.Is(err, model.ErrCalendarFinalised):
+		respondError(w, http.StatusConflict, "already_finalised", "calendar is finalised")
+	default:
+		respondInternalError(r, w, err, "internal_error", internalMsg)
+	}
 }

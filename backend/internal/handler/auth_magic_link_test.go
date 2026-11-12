@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/freewhen/backend/internal/model"
-	"github.com/freewhen/backend/internal/store"
 )
 
 // fakeAuthStore is a minimal in-memory AuthStore for handler tests.
@@ -72,7 +71,7 @@ func (f *fakeAuthStore) CreateUser(_ context.Context, email, name, provider, pro
 func (f *fakeAuthStore) GetUser(_ context.Context, id string) (model.User, error) {
 	u, ok := f.usersByID[id]
 	if !ok {
-		return model.User{}, store.ErrNotFound
+		return model.User{}, model.ErrNotFound
 	}
 	return u, nil
 }
@@ -80,7 +79,7 @@ func (f *fakeAuthStore) GetUser(_ context.Context, id string) (model.User, error
 func (f *fakeAuthStore) FindUserByEmail(_ context.Context, email string) (model.User, error) {
 	u, ok := f.usersByEmail[email]
 	if !ok {
-		return model.User{}, store.ErrNotFound
+		return model.User{}, model.ErrNotFound
 	}
 	return u, nil
 }
@@ -88,7 +87,7 @@ func (f *fakeAuthStore) FindUserByEmail(_ context.Context, email string) (model.
 func (f *fakeAuthStore) FindUserByProviderID(_ context.Context, provider, providerID string) (model.User, error) {
 	u, ok := f.usersByPID[provider+":"+providerID]
 	if !ok {
-		return model.User{}, store.ErrNotFound
+		return model.User{}, model.ErrNotFound
 	}
 	return u, nil
 }
@@ -96,7 +95,7 @@ func (f *fakeAuthStore) FindUserByProviderID(_ context.Context, provider, provid
 func (f *fakeAuthStore) UpdateUserName(_ context.Context, userID, name string) (model.User, error) {
 	u, ok := f.usersByID[userID]
 	if !ok {
-		return model.User{}, store.ErrNotFound
+		return model.User{}, model.ErrNotFound
 	}
 	u.Name = name
 	f.usersByID[userID] = u
@@ -199,7 +198,7 @@ func (f *fakeAuthStore) VerifyMagicLinkToken(_ context.Context, plainToken strin
 	}
 	rec, ok := f.magicLinks[plainToken]
 	if !ok || rec.used {
-		return "", "", store.ErrNotFound
+		return "", "", model.ErrNotFound
 	}
 	rec.used = true
 	f.magicLinks[plainToken] = rec
