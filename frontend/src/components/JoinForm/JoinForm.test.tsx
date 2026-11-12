@@ -1,13 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+import type { ComponentProps } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import JoinForm from "./JoinForm";
 
+type JoinFormProps = ComponentProps<typeof JoinForm>;
+
 describe("JoinForm", () => {
-  let onJoin: ReturnType<typeof vi.fn>;
+  let onJoin: Mock<JoinFormProps["onJoin"]>;
 
   beforeEach(() => {
-    onJoin = vi.fn().mockResolvedValue(undefined);
+    onJoin = vi.fn<JoinFormProps["onJoin"]>().mockResolvedValue(undefined);
   });
 
   it("submits trimmed name and calls onJoin", async () => {

@@ -8,8 +8,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
 }));
 
-const deleteCalendarMock = vi.fn(async () => undefined);
-const leaveCalendarMock = vi.fn(async () => undefined);
+const deleteCalendarMock = vi.fn<(id: string) => Promise<void>>(async () => undefined);
+const leaveCalendarMock = vi.fn<(id: string) => Promise<void>>(async () => undefined);
 vi.mock("@/lib/api", () => ({
   deleteCalendar: (id: string) => deleteCalendarMock(id),
   leaveCalendar: (id: string) => leaveCalendarMock(id),

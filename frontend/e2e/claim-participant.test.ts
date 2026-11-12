@@ -2,6 +2,11 @@ import { test, expect } from "./fixtures";
 
 const BACKEND_URL = process.env.E2E_BACKEND_URL ?? "http://localhost:8090";
 
+// user_id is omitempty on the wire — absent (not null) until claimed.
+type CalendarBody = {
+  participants: Array<{ id: string; name: string; user_id?: string }>;
+};
+
 test("anonymous joiner becomes a logged-in user; their participant row is claimed", async ({
   page,
   api,
@@ -20,9 +25,7 @@ test("anonymous joiner becomes a logged-in user; their participant row is claime
 
   // Verify pre-claim: user_id is null.
   let res = await api.get(`/calendars/${calendar.id}`);
-  let body = (await res.json()) as {
-    participants: Array<{ id: string; name: string; user_id: string | null }>;
-  };
+  let body = (await res.json()) as CalendarBody;
   const before = body.participants.find((p) => p.name === joinerName);
   expect(before).toBeDefined();
   // user_id is omitempty — absent when null.
@@ -57,9 +60,7 @@ test("anonymous joiner becomes a logged-in user; their participant row is claime
 
   // 3. Verify post-claim: same participant id, user_id now populated.
   res = await api.get(`/calendars/${calendar.id}`);
-  body = (await res.json()) as {
-    participants: Array<{ id: string; name: string; user_id: string | null }>;
-  };
+  body = (await res.json()) as CalendarBody;
   const after = body.participants.find((p) => p.id === before!.id);
   expect(after, "participant should still exist post-claim").toBeDefined();
   expect(after!.name).toBe(joinerName);
