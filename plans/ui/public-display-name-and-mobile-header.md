@@ -6,7 +6,7 @@ Status: done
 
 Two coupled problems in the header:
 
-1. On mobile the header shows `FreeWhen | My calendars | sperryman15+resend… | Sign out`. With a long email the "My calendars" link wraps to two lines.
+1. On mobile the header shows `FreeWhen | My calendars | alex.morgan+resend… | Sign out`. With a long email the "My calendars" link wraps to two lines.
 2. The email leaks as identity everywhere — it's PII per our logging rules, yet we're rendering it prominently in chrome. Users have no way to present themselves as "Simon" instead of a raw email.
 
 Fix both by:

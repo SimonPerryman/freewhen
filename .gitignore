@@ -1,6 +1,14 @@
 # Environment
-.env
-.env.local
+.env*
+!.env.example
+!**/.env.example
+
+# Terraform artefacts (plans can contain secrets in plaintext)
+plan.txt
+tfplan
+*.tfvars
+!infra/terraform.tfvars
+.terraform/
 
 # Go
 backend/tmp/

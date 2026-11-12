@@ -14,6 +14,11 @@ concurrency:
   group: ci-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: true
 
+# Least-privilege default for every job's GITHUB_TOKEN. Jobs that need more
+# (paths-filter on PRs, WIF auth, PR comments) opt in per job below.
+permissions:
+  contents: read
+
 jobs:
   changes:
     runs-on: ubuntu-24.04-arm
@@ -180,7 +185,11 @@ jobs:
 
   tf-plan:
     needs: [changes]
-    if: needs.changes.outputs.infra == 'true'
+    # Skip fork PRs: they get no secrets or OIDC token, so the plan would fail,
+    # and we never want untrusted code running with WIF credentials.
+    if: |
+      needs.changes.outputs.infra == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
