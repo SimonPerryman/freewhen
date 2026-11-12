@@ -1,0 +1,107 @@
+import { renderHook } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import {
+  buildFreeByDate,
+  buildNoteAuthorsByDate,
+  buildNotesByDateAndAuthor,
+  buildPreferredByDate,
+  buildVoteCountsByDate,
+  calendarMetaLabels,
+  useAvailabilityMaps,
+} from "./availabilityMaps";
+import type { CalendarWithDetails, Participant } from "./types";
+
+const me: Participant = { id: "me", calendarId: "c1", name: "Me", colour: "#f00" };
+
+const calendar: CalendarWithDetails = {
+  calendar: { id: "c1", name: "Trip", ownerId: "o1", createdAt: "", updatedAt: "" },
+  participants: [me, { id: "o", calendarId: "c1", name: "O", colour: "#0f0" }],
+  availability: [
+    // Server copy of my row — ignored in favour of local state.
+    { participantId: "me", calendarId: "c1", date: "2099-01-01", note: "stale", preferred: true },
+    { participantId: "o", calendarId: "c1", date: "2099-01-01", note: "hi", preferred: true },
+    { participantId: "o", calendarId: "c1", date: "2099-01-02" },
+  ],
+};
+
+const selected = new Set(["2099-01-02", "2099-01-03"]);
+const votes = new Set(["2099-01-03", "2099-01-09"]); // 01-09 not selected → ignored
+const notes = new Map([["2099-01-03", "mine"]]);
+
+describe("availabilityMaps", () => {
+  it("returns empty maps without a calendar", () => {
+    expect(buildFreeByDate(null, me, selected).size).toBe(0);
+    expect(buildVoteCountsByDate(null, me, votes, selected).size).toBe(0);
+  });
+
+  it("freeByDate layers local selection over everyone else's rows", () => {
+    const m = buildFreeByDate(calendar, me, selected);
+    expect([...(m.get("2099-01-01") ?? [])]).toEqual(["o"]);
+    expect([...(m.get("2099-01-02") ?? [])].sort()).toEqual(["me", "o"]);
+    expect([...(m.get("2099-01-03") ?? [])]).toEqual(["me"]);
+  });
+
+  it("without a current participant every server row counts", () => {
+    const m = buildFreeByDate(calendar, null, selected);
+    expect([...(m.get("2099-01-01") ?? [])].sort()).toEqual(["me", "o"]);
+    expect(m.has("2099-01-03")).toBe(false);
+  });
+
+  it("votes count only on selected dates", () => {
+    const counts = buildVoteCountsByDate(calendar, me, votes, selected);
+    expect(Object.fromEntries(counts)).toEqual({ "2099-01-01": 1, "2099-01-03": 1 });
+    const who = buildPreferredByDate(calendar, me, votes, selected);
+    expect([...(who.get("2099-01-03") ?? [])]).toEqual(["me"]);
+    expect(who.has("2099-01-09")).toBe(false);
+  });
+
+  it("note maps use local notes for me", () => {
+    const authors = buildNoteAuthorsByDate(calendar, me, notes);
+    expect([...(authors.get("2099-01-01") ?? [])]).toEqual(["o"]);
+    expect([...(authors.get("2099-01-03") ?? [])]).toEqual(["me"]);
+    const text = buildNotesByDateAndAuthor(calendar, me, notes);
+    expect(text.get("2099-01-03")?.get("me")).toBe("mine");
+    expect(text.get("2099-01-01")?.get("me")).toBeUndefined();
+  });
+
+  it("useAvailabilityMaps memoises on its inputs", () => {
+    const own = {
+      participant: me,
+      selectedDates: selected,
+      votesByDate: votes,
+      notesByDate: notes,
+    };
+    const { result, rerender } = renderHook(({ o }) => useAvailabilityMaps(calendar, o), {
+      initialProps: { o: own },
+    });
+    const first = result.current;
+    rerender({ o: { ...own } });
+    expect(result.current.freeByDate).toBe(first.freeByDate);
+    rerender({ o: { ...own, notesByDate: new Map() } });
+    expect(result.current.freeByDate).toBe(first.freeByDate);
+    expect(result.current.noteAuthorsByDate).not.toBe(first.noteAuthorsByDate);
+  });
+
+  describe("calendarMetaLabels", () => {
+    const base = { ...calendar, availability: [] };
+    it("labels empty calendars", () => {
+      expect(calendarMetaLabels(base, new Set(), "2099-01-01")).toEqual({
+        peopleLabel: "2 people",
+        dateLabel: "no dates yet",
+      });
+    });
+    it("counts weekends when every date is a Sat/Sun", () => {
+      // 2099-01-03 is a Saturday, 2099-01-04 a Sunday.
+      const labels = calendarMetaLabels(base, new Set(["2099-01-03", "2099-01-04"]), "2099-01-01");
+      expect(labels.dateLabel).toBe("1 weekend");
+    });
+    it("counts days otherwise and ignores past dates", () => {
+      const labels = calendarMetaLabels(
+        { ...base, participants: [me] },
+        new Set(["2098-12-31", "2099-01-02", "2099-01-05"]),
+        "2099-01-01",
+      );
+      expect(labels).toEqual({ peopleLabel: "1 person", dateLabel: "2 days" });
+    });
+  });
+});
