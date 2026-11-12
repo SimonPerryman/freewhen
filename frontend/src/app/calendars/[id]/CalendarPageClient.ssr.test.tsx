@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { hydrateRoot, type Root } from "react-dom/client";
-import type { CalendarWithDetails } from "@/lib/types";
+import { ApiError } from "@/lib/api";
+import type { CalendarWithDetails, User } from "@/lib/types";
 
 // Server-rendered first paint: CalendarPageClient receives the calendar the
 // server fetched anonymously (see plans/ui/calendar-page-server-render.md).
@@ -16,13 +17,16 @@ vi.mock("@/lib/analytics", () => ({
 }));
 
 const getCalendarMock = vi.fn();
+const getMeMock = vi.fn();
+const claimParticipantMock = vi.fn();
 
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
   return {
     ...actual,
     getCalendar: (...args: unknown[]) => getCalendarMock(...args),
-    getMe: vi.fn().mockRejectedValue(new Error("not authenticated")),
+    getMe: (...args: unknown[]) => getMeMock(...args),
+    claimParticipant: (...args: unknown[]) => claimParticipantMock(...args),
   };
 });
 
@@ -67,6 +71,9 @@ function page(props: { initialData?: CalendarWithDetails | null; initialToday?: 
 
 beforeEach(() => {
   getCalendarMock.mockReset();
+  getMeMock.mockReset();
+  getMeMock.mockRejectedValue(new ApiError(401, "unauthorized"));
+  claimParticipantMock.mockReset();
   streamCalls.length = 0;
   localStorage.clear();
 });
@@ -104,6 +111,56 @@ describe("CalendarPageClient with server data", () => {
     expect(subscribed.length).toBeGreaterThan(0);
     // Every non-empty subscription already carries our participant id.
     expect(subscribed.every(([, pid]) => pid === "p-1")).toBe(true);
+  });
+
+  // A full page load (e.g. back from the magic link) has the server data
+  // before /auth/me answers. Identity must wait for auth rather than resolve
+  // as signed-out, or the silent claim / reconnect never happens.
+  describe("when /auth/me answers after the calendar is ready", () => {
+    const user: User = { id: "user-2", email: "carol@example.test", name: "Carol", isAdmin: false };
+
+    function deferredMe() {
+      let resolve!: (u: User) => void;
+      getMeMock.mockReturnValue(new Promise<User>((r) => (resolve = r)));
+      return (u: User) => act(async () => resolve(u));
+    }
+
+    it("silently claims this browser's anonymous participant", async () => {
+      localStorage.setItem(
+        "freewhen:cal-1",
+        JSON.stringify({ participantId: "p-1", name: "Alice" }),
+      );
+      claimParticipantMock.mockResolvedValue({
+        ...serverCalendar.participants[0],
+        userId: "user-2",
+      });
+      const signIn = deferredMe();
+      render(page({ initialData: serverCalendar, initialToday: localToday() }));
+
+      expect(claimParticipantMock).not.toHaveBeenCalled();
+      await signIn(user);
+
+      await waitFor(() => expect(claimParticipantMock).toHaveBeenCalledWith("cal-1", "p-1"));
+      expect(await screen.findByText(/Alice \(you\)/)).toBeInTheDocument();
+    });
+
+    it("reconnects to the participant linked to the signed-in user", async () => {
+      const linked: CalendarWithDetails = {
+        ...serverCalendar,
+        participants: [
+          serverCalendar.participants[0],
+          { ...serverCalendar.participants[1], userId: "user-2" },
+        ],
+      };
+      const signIn = deferredMe();
+      render(page({ initialData: linked, initialToday: localToday() }));
+
+      await signIn(user);
+
+      expect(await screen.findByText(/Carol \(you\)/)).toBeInTheDocument();
+      expect(screen.queryByLabelText(/your name/i)).not.toBeInTheDocument();
+      expect(claimParticipantMock).not.toHaveBeenCalled();
+    });
   });
 
   it("falls back to the client fetch when the server passed no data (passphrase / error)", async () => {

@@ -35,7 +35,15 @@ export interface UseParticipantIdentityResult {
   joinError: string | null;
   // Resolve "who am I" after a full load. Returns the resolved participant
   // (so the caller can seed that participant's availability) or null.
-  resolveFromLoad: (data: CalendarWithDetails) => Promise<Participant | null>;
+  // `signedInUser` is the settled auth state (see CalendarPageClient, which
+  // awaits checkAuth()); omitted, the hook's `user` option is used. The
+  // distinction matters because a full page load usually finishes before
+  // /auth/me does — resolving against a not-yet-hydrated `user` would skip
+  // the auto-reconnect and the silent claim.
+  resolveFromLoad: (
+    data: CalendarWithDetails,
+    signedInUser?: User | null,
+  ) => Promise<Participant | null>;
   // Pick up server-side changes to our own participant after a live refresh.
   // Returns our participant id, or null when we haven't joined.
   syncFromRefresh: (data: CalendarWithDetails) => string | null;
@@ -50,7 +58,7 @@ export interface UseParticipantIdentityResult {
  */
 export function useParticipantIdentity({
   calendarId,
-  user,
+  user: hookUser,
   calendar,
   setCalendar,
   markLocalMutation,
@@ -66,7 +74,8 @@ export function useParticipantIdentity({
   }, [currentParticipant]);
 
   const resolveFromLoad = useCallback(
-    async (data: CalendarWithDetails): Promise<Participant | null> => {
+    async (data: CalendarWithDetails, signedInUser?: User | null): Promise<Participant | null> => {
+      const user = signedInUser === undefined ? hookUser : signedInUser;
       const stored = readStoredParticipant(calendarId);
 
       // Resolve participant: user_id match first, then localStorage
@@ -134,7 +143,7 @@ export function useParticipantIdentity({
       });
       return resolved;
     },
-    [calendarId, user],
+    [calendarId, hookUser],
   );
 
   const syncFromRefresh = useCallback((data: CalendarWithDetails): string | null => {

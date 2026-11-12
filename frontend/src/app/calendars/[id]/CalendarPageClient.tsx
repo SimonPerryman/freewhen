@@ -62,7 +62,7 @@ function CalendarPageContent({
   calendarId: string;
   initialData?: CalendarWithDetails | null;
 }) {
-  const { user } = useAuth();
+  const { user, checkAuth } = useAuth();
   const today = useToday();
   const router = useRouter();
   const [duplicateOpen, setDuplicateOpen] = useState(false);
@@ -76,7 +76,14 @@ function CalendarPageContent({
     user,
     initialData,
     onLoaded: async (fresh: CalendarWithDetails) => {
-      const resolved = await identity.resolveFromLoad(fresh);
+      // Resolve identity against settled auth, not the `user` of the render
+      // that started the load: on a full page load (e.g. returning from the
+      // magic link) the calendar is usually ready before /auth/me answers,
+      // and resolving early would skip the reconnect-by-user and the silent
+      // claim of this browser's anonymous participant. checkAuth() joins the
+      // AuthProvider's in-flight request, so this costs no extra fetch.
+      const signedInUser = await checkAuth();
+      const resolved = await identity.resolveFromLoad(fresh, signedInUser);
       if (resolved) availability.seed(fresh, resolved.id);
     },
     onRefreshed: (fresh: CalendarWithDetails) => {
