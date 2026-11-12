@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getGoogleLoginUrl, sendMagicLink, ApiError } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider/AuthProvider";
+import { safeReturnPath } from "@/lib/safeReturnPath";
 import styles from "./page.module.css";
 
 export default function LoginPage() {
@@ -18,7 +19,9 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, checkAuth } = useAuth();
-  const returnUrl = searchParams.get("return_url") ?? "/";
+  // Never follow the raw query value — `/login?return_url=//evil.com` would
+  // otherwise bounce an already-signed-in user off-site.
+  const returnUrl = safeReturnPath(searchParams.get("return_url"));
 
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
