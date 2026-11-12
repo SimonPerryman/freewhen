@@ -786,7 +786,7 @@ Registry := calprovider.NewRegistry(google)
   <h3 class="kicker">Testing</h3>
   <ul class="tight">
     <li><strong>Backend unit</strong> — <code>go test ./...</code> · fast · no DB.</li>
-    <li><strong>Backend integration</strong> — <code>make test-integration</code> · embedded Postgres downloaded to <code>~/.embedded-postgres-go/</code> · <code>integration</code> build tag.</li>
+    <li><strong>Backend integration</strong> — <code>make test-integration</code> · embedded Postgres downloaded to <code>~/.embedded-postgres-go/</code> · <code>integration</code> build tag · one cluster per test binary, stopped by <code>testdb.Main</code> in each package's <code>TestMain</code>; orphans from killed runs are reaped on the next start (<code>internal/embeddedpg</code>).</li>
     <li><strong>Frontend unit</strong> — vitest + happy-dom · <code>@</code> alias to <code>src/</code>.</li>
     <li><strong>E2E</strong> — Playwright spins up embedded Postgres + Go (<code>E2E_TEST_MODE=true</code>) + Next.js dev server.</li>
     <li><strong>Frontend typecheck</strong> — <code>pnpm run typecheck</code> (<code>tsc --noEmit</code>) runs in <code>make lint</code> · catches type errors in tests that vitest and <code>next build</code> skip.</li>

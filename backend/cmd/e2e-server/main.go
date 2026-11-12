@@ -11,9 +11,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -21,10 +19,10 @@ import (
 	"syscall"
 	"time"
 
-	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/freewhen/backend/internal/config"
+	"github.com/freewhen/backend/internal/embeddedpg"
 	"github.com/freewhen/backend/internal/server"
 	"github.com/freewhen/backend/internal/store"
 )
@@ -39,34 +37,20 @@ func main() {
 }
 
 func run() error {
-	pgPort, err := freePort()
+	// Stop() stops Postgres and deletes its temp dir on a normal or
+	// SIGINT/SIGTERM exit. If the process is killed outright (taskkill /F,
+	// Playwright tearing down `go run`), the Windows job object takes the
+	// postmaster down with us and the next start reaps the leftover dir.
+	pg, err := embeddedpg.Start(embeddedpg.PrefixE2E, "freewhen_e2e")
 	if err != nil {
-		return fmt.Errorf("pick postgres port: %w", err)
+		return err
 	}
-
-	runtimeDir, err := os.MkdirTemp("", "freewhen-e2e-pg-*")
-	if err != nil {
-		return fmt.Errorf("mkdir runtime: %w", err)
-	}
-	defer func() { _ = os.RemoveAll(runtimeDir) }()
-
-	pgCfg := embeddedpostgres.DefaultConfig().
-		Port(uint32(pgPort)).
-		Database("freewhen_e2e").
-		Username("postgres").
-		Password("postgres").
-		RuntimePath(runtimeDir).
-		DataPath(runtimeDir + "/data").
-		Logger(io.Discard).
-		StartTimeout(60 * time.Second)
-
-	pg := embeddedpostgres.NewDatabase(pgCfg)
-	if err := pg.Start(); err != nil {
-		return fmt.Errorf("start embedded postgres: %w", err)
-	}
-	defer func() { _ = pg.Stop() }()
-
-	dsn := fmt.Sprintf("postgres://postgres:postgres@localhost:%d/freewhen_e2e?sslmode=disable", pgPort)
+	defer func() {
+		if err := pg.Stop(); err != nil {
+			slog.Error("stop embedded postgres", "error", err)
+		}
+	}()
+	dsn, pgPort := pg.DSN, pg.Port
 
 	// Force a deterministic config regardless of the developer's shell. PORT
 	// and CORS_ORIGIN are the only knobs the launcher exposes.
@@ -166,15 +150,6 @@ func setDefault(key, value string) {
 	if os.Getenv(key) == "" {
 		_ = os.Setenv(key, value)
 	}
-}
-
-func freePort() (int, error) {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
-	}
-	defer func() { _ = l.Close() }()
-	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
 func waitDB(db *sql.DB, timeout time.Duration) error {
