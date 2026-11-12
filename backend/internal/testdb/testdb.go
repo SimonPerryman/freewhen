@@ -3,112 +3,97 @@
 // Package testdb provides a shared Postgres instance for integration tests.
 //
 // If TEST_DATABASE_URL is set, Start returns it directly. Otherwise an
-// embedded Postgres binary is downloaded (cached under ~/.embedded-postgres-go/)
-// and started in-process on a free port, once per test binary.
+// embedded Postgres (binary cached under ~/.embedded-postgres-go/) is started
+// lazily on a free port, once per test binary, and torn down by Main.
+//
+// Every package that calls Start must route its TestMain through Main:
+//
+//	func TestMain(m *testing.M) { testdb.Main(m) }
 package testdb
 
 import (
-	"database/sql"
 	"fmt"
-	"io"
-	"net"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"testing"
-	"time"
 
-	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
-	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/freewhen/backend/internal/embeddedpg"
 )
 
 const dbName = "freewhen_test"
 
 var (
-	once      sync.Once
-	sharedDSN string
-	startErr  error
+	mu       sync.Mutex
+	inMain   bool
+	started  bool
+	instance *embeddedpg.Instance
+	dsn      string
+	startErr error
 )
+
+// Main runs the package's tests and then stops the shared instance and
+// deletes its temp dir. It also cleans up on SIGINT/SIGTERM. Call it from
+// TestMain; it does not return.
+func Main(m *testing.M) {
+	mu.Lock()
+	inMain = true
+	mu.Unlock()
+
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sig
+		shutdown()
+		os.Exit(130)
+	}()
+
+	code := m.Run()
+	shutdown()
+	os.Exit(code)
+}
 
 // Start returns a DSN for a Postgres instance ready to run migrations against.
 // The instance is shared across all tests in the binary; callers rely on
 // per-test table truncation for isolation.
 func Start(t *testing.T) string {
 	t.Helper()
-	once.Do(initShared)
+	mu.Lock()
+	defer mu.Unlock()
+	if !inMain {
+		t.Fatal("testdb: call testdb.Main(m) from this package's TestMain so the embedded Postgres is stopped on exit")
+	}
+	if !started {
+		started = true
+		dsn, startErr = start()
+	}
 	if startErr != nil {
 		t.Fatalf("testdb: %v", startErr)
 	}
-	return sharedDSN
+	return dsn
 }
 
-func initShared() {
-	if dsn := os.Getenv("TEST_DATABASE_URL"); dsn != "" {
-		sharedDSN = dsn
-		return
+func start() (string, error) {
+	if v := os.Getenv("TEST_DATABASE_URL"); v != "" {
+		return v, nil
 	}
-
-	port, err := freePort()
+	inst, err := embeddedpg.Start(embeddedpg.PrefixTest, dbName)
 	if err != nil {
-		startErr = fmt.Errorf("pick port: %w", err)
-		return
+		return "", err
 	}
-
-	runtimeDir, err := os.MkdirTemp("", "freewhen-epg-*")
-	if err != nil {
-		startErr = fmt.Errorf("mkdir runtime: %w", err)
-		return
-	}
-
-	cfg := embeddedpostgres.DefaultConfig().
-		Port(uint32(port)).
-		Database(dbName).
-		Username("postgres").
-		Password("postgres").
-		RuntimePath(runtimeDir).
-		DataPath(runtimeDir + "/data").
-		Logger(io.Discard).
-		StartTimeout(60 * time.Second)
-
-	pg := embeddedpostgres.NewDatabase(cfg)
-	if err := pg.Start(); err != nil {
-		startErr = fmt.Errorf("start embedded postgres: %w", err)
-		return
-	}
-
-	sharedDSN = fmt.Sprintf("postgres://postgres:postgres@localhost:%d/%s?sslmode=disable", port, dbName)
-
-	if err := waitReady(sharedDSN); err != nil {
-		_ = pg.Stop()
-		startErr = fmt.Errorf("wait ready: %w", err)
-		return
-	}
+	instance = inst
+	return inst.DSN, nil
 }
 
-func freePort() (int, error) {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
+func shutdown() {
+	mu.Lock()
+	defer mu.Unlock()
+	if instance == nil {
+		return
 	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port, nil
-}
-
-func waitReady(dsn string) error {
-	db, err := sql.Open("pgx", dsn)
-	if err != nil {
-		return err
+	if err := instance.Stop(); err != nil {
+		fmt.Fprintf(os.Stderr, "testdb: %v\n", err)
 	}
-	defer db.Close()
-
-	deadline := time.Now().Add(30 * time.Second)
-	var lastErr error
-	for time.Now().Before(deadline) {
-		if err := db.Ping(); err == nil {
-			return nil
-		} else {
-			lastErr = err
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	return fmt.Errorf("postgres not ready: %w", lastErr)
+	instance = nil
 }

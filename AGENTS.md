@@ -122,6 +122,7 @@ Status: pending | in-progress | done
 - `make test` to run all tests
 - `make test-backend` / `make test-frontend` to run tests per stack
 - `make test-integration` to run Go integration tests (runs against an embedded Postgres downloaded to `~/.embedded-postgres-go/` on first use — no local setup required; override with `TEST_DATABASE_URL=...` to point at an existing database)
+- Integration packages that call `testdb.Start` must have `func TestMain(m *testing.M) { testdb.Main(m) }` (Start fails without it) — Main stops the embedded Postgres and deletes its `$TMPDIR/freewhen-epg-*` dir on exit. Instances orphaned by a killed test binary or e2e server are reaped automatically the next time either starts (see `internal/embeddedpg`); on Windows a Job Object also kills the postmaster with its owner.
 - Frontend uses vitest with happy-dom; `@` alias maps to `src/`
 - Single test file: `cd frontend && pnpm exec vitest run path/to/file`
 - Single Go test: `cd backend && go test ./internal/store/ -run TestName`
