@@ -80,3 +80,48 @@ test("owner can finalise an everyone-free date; non-owners cannot", async ({
   const body = (await after.json()) as { calendar: { finalised_date: string | null } };
   expect(body.calendar.finalised_date).toBe(targetDate);
 });
+
+test("passphrase gate: wrong passphrase is rejected, right one unlocks, and .ics export works with access", async ({
+  page,
+  api,
+  calendar,
+}) => {
+  const targetDate = tomorrowISO();
+  const setRes = await api.put(`/calendars/${calendar.id}/availability`, {
+    data: { participant_id: calendar.ownerParticipantId, dates: [targetDate] },
+  });
+  expect(setRes.ok()).toBeTruthy();
+  const finRes = await api.post(`/calendars/${calendar.id}/finalise`, {
+    data: { date: targetDate },
+  });
+  expect(finRes.ok(), `finalise: ${finRes.status()}`).toBeTruthy();
+  const passRes = await api.post(`/calendars/${calendar.id}/passphrase`, { data: {} });
+  expect(passRes.ok(), `set passphrase: ${passRes.status()}`).toBeTruthy();
+  const { passphrase } = (await passRes.json()) as { passphrase: string };
+
+  // The browser context is signed out (only `api` is the owner), so it has
+  // no access and hits the gate.
+  const ctx = page.context();
+  await page.goto(`/calendars/${calendar.id}`);
+  const field = page.getByLabel("Passphrase");
+  await expect(field).toBeVisible();
+
+  // Export is refused without access.
+  const noAccess = await ctx.request.get(`${BACKEND_URL}/calendars/${calendar.id}/export.ics`);
+  expect(noAccess.status()).toBe(401);
+
+  await field.fill("definitely-not-it");
+  await page.getByRole("button", { name: /Unlock/ }).click();
+  await expect(page.getByText(/doesn't match/)).toBeVisible();
+
+  await field.fill(passphrase);
+  await page.getByRole("button", { name: /Unlock/ }).click();
+  await expect(page.getByRole("heading", { level: 1, name: calendar.name })).toBeVisible();
+
+  // The finalised banner's .ics link carries the access token and downloads.
+  const ics = page.getByRole("link", { name: "Download .ics" });
+  await expect(ics).toHaveAttribute("href", /[?&]access=/);
+  const icsRes = await ctx.request.get((await ics.getAttribute("href"))!);
+  expect(icsRes.ok(), `ics: ${icsRes.status()}`).toBeTruthy();
+  expect(await icsRes.text()).toContain("BEGIN:VCALENDAR");
+});
