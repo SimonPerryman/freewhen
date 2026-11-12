@@ -5,7 +5,9 @@ package store
 import (
 	"context"
 	"testing"
+	"time"
 
+	"github.com/freewhen/backend/internal/limits"
 	"github.com/freewhen/backend/internal/model"
 )
 
@@ -491,5 +493,70 @@ func TestSetAvailabilityPreferredParticipantIsolation(t *testing.T) {
 	row := findAvailability(result.Availability, alice.ID, "2026-05-01")
 	if row == nil || !row.Preferred {
 		t.Errorf("alice's vote was cleared by bob's write; row=%+v", row)
+	}
+}
+
+// The batched (unnest) insert must handle a full-size submission and keep
+// per-date note/preferred values aligned with their dates.
+func TestSetAvailability_FullSizeBatch(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	cal, err := s.CreateCalendar(ctx, "Batch", "", createTestUser(t, s, "Owner").ID)
+	if err != nil {
+		t.Fatalf("create calendar: %v", err)
+	}
+	p, err := s.AddParticipant(ctx, cal.ID, "Alice", nil, nil)
+	if err != nil {
+		t.Fatalf("add participant: %v", err)
+	}
+
+	start := time.Now().UTC()
+	dates := make([]string, limits.MaxDatesPerSubmission)
+	notes := map[string]string{}
+	preferred := map[string]bool{}
+	for i := range dates {
+		d := start.AddDate(0, 0, i).Format("2006-01-02")
+		dates[i] = d
+		if i%7 == 0 {
+			notes[d] = "note " + d
+		}
+		preferred[d] = i%5 == 0
+	}
+	if err := s.SetAvailability(ctx, p.ID, dates, notes, preferred); err != nil {
+		t.Fatalf("set availability: %v", err)
+	}
+
+	result, err := s.GetCalendar(ctx, cal.ID)
+	if err != nil {
+		t.Fatalf("get calendar: %v", err)
+	}
+	if len(result.Availability) != len(dates) {
+		t.Fatalf("rows = %d, want %d", len(result.Availability), len(dates))
+	}
+	for _, a := range result.Availability {
+		wantNote, hasNote := notes[a.Date]
+		if hasNote != (a.Note != nil) || (hasNote && *a.Note != wantNote) {
+			t.Fatalf("%s: note = %v, want %q (present=%v)", a.Date, a.Note, wantNote, hasNote)
+		}
+		if a.Preferred != preferred[a.Date] {
+			t.Fatalf("%s: preferred = %v, want %v", a.Date, a.Preferred, preferred[a.Date])
+		}
+	}
+
+	// Merge path: re-importing existing dates plus new ones is a no-op for
+	// the existing rows (notes survive) and adds the rest.
+	extra := start.AddDate(0, 0, -1).Format("2006-01-02")
+	if err := s.MergeAvailabilityDates(ctx, p.ID, []string{dates[0], extra, extra}); err != nil {
+		t.Fatalf("merge: %v", err)
+	}
+	result, err = s.GetCalendar(ctx, cal.ID)
+	if err != nil {
+		t.Fatalf("get calendar: %v", err)
+	}
+	if len(result.Availability) != len(dates)+1 {
+		t.Fatalf("rows after merge = %d, want %d", len(result.Availability), len(dates)+1)
+	}
+	if row := findAvailability(result.Availability, p.ID, dates[0]); row == nil || row.Note == nil {
+		t.Fatalf("merge clobbered existing note: %+v", row)
 	}
 }

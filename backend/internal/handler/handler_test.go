@@ -45,6 +45,12 @@ type mockService struct {
 	// lastCaller records the ParticipantCaller passed to the most recent
 	// participant-scoped write.
 	lastCaller *service.ParticipantCaller
+
+	// lastRenameEmail records the email passed to RenameParticipant.
+	lastRenameEmail *string
+	// updateEmailErr / updateEmailCalls drive and record UpdateParticipantEmail.
+	updateEmailErr   error
+	updateEmailCalls int
 }
 
 func (m *mockService) CreateCalendar(ctx context.Context, name, ownerID string) (model.Calendar, error) {
@@ -94,8 +100,13 @@ func (m *mockService) AddParticipant(ctx context.Context, calendarID, name strin
 	return p, m.addParticipantToken, err
 }
 
-func (m *mockService) UpdateParticipantEmail(_ context.Context, _, _ string, _ service.ParticipantCaller, _ *string) (model.Participant, error) {
-	panic("unexpected call to UpdateParticipantEmail")
+func (m *mockService) UpdateParticipantEmail(_ context.Context, _, pid string, caller service.ParticipantCaller, email *string) (model.Participant, error) {
+	m.lastCaller = &caller
+	m.updateEmailCalls++
+	if m.updateEmailErr != nil {
+		return model.Participant{}, m.updateEmailErr
+	}
+	return model.Participant{ID: pid, Email: email}, nil
 }
 
 func (m *mockService) ClaimParticipant(ctx context.Context, calendarID, participantID string, caller service.ParticipantCaller) (model.Participant, error) {
@@ -145,8 +156,9 @@ func (m *mockService) RemoveParticipant(ctx context.Context, calendarID, userID,
 	return m.removeParticipant(ctx, calendarID, participantID)
 }
 
-func (m *mockService) RenameParticipant(ctx context.Context, calendarID, targetParticipantID string, caller service.ParticipantCaller, name string) (model.Participant, error) {
+func (m *mockService) RenameParticipant(ctx context.Context, calendarID, targetParticipantID string, caller service.ParticipantCaller, name string, email *string) (model.Participant, error) {
 	m.lastCaller = &caller
+	m.lastRenameEmail = email
 	if m.renameParticipant == nil {
 		return model.Participant{}, nil
 	}

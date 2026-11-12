@@ -63,7 +63,9 @@ type Store interface {
 	SetCalendarPassphrase(ctx context.Context, calendarID string, passphrase *string) (model.Calendar, error)
 	DeleteParticipant(ctx context.Context, calendarID, participantID string) error
 	UpdateParticipantName(ctx context.Context, calendarID, participantID, name string) (model.Participant, error)
+	UpdateParticipantNameAndEmail(ctx context.Context, calendarID, participantID, name string, email *string) (model.Participant, error)
 	CountCalendarParticipants(ctx context.Context, calendarID string) (int, error)
+	CountDuplicableParticipants(ctx context.Context, calendarID, newOwnerID string) (int, error)
 	CountCalendarsForOwner(ctx context.Context, ownerID string) (int, error)
 	TouchCalendar(ctx context.Context, calendarID string) error
 	ListCalendarsForUser(ctx context.Context, userID string, limit int) ([]model.CalendarListItem, error)
@@ -168,15 +170,14 @@ func (s *Service) DuplicateCalendar(
 	}
 
 	if includeParticipants {
-		srcCount, err := s.store.CountCalendarParticipants(ctx, sourceID)
+		// Only signed-in participants other than the new owner are copied
+		// (anonymous rows are not — see store.DuplicateCalendar); the new
+		// owner's own row is the +1.
+		copied, err := s.store.CountDuplicableParticipants(ctx, sourceID, newOwnerID)
 		if err != nil {
 			return model.Calendar{}, model.Participant{}, err
 		}
-		// Owner auto-join on the new calendar adds 1; exclude the source owner
-		// row from the copy (it folds into the auto-join), so total upper
-		// bound is srcCount when the source owner participates, srcCount+1
-		// otherwise. Use srcCount+1 as the defensive ceiling.
-		if srcCount+1 > limits.MaxParticipantsPerCalendar {
+		if copied+1 > limits.MaxParticipantsPerCalendar {
 			return model.Calendar{}, model.Participant{}, store.ErrCalendarFull
 		}
 	}
@@ -210,7 +211,7 @@ func (s *Service) AddParticipant(ctx context.Context, calendarID, name string, u
 	if len(name) > limits.MaxParticipantNameLength {
 		return model.Participant{}, "", ErrInvalidName
 	}
-	if email != nil && *email != "" && !strings.Contains(*email, "@") {
+	if !validParticipantEmail(email) {
 		return model.Participant{}, "", ErrInvalidEmail
 	}
 	count, err := s.store.CountCalendarParticipants(ctx, calendarID)
@@ -246,7 +247,7 @@ func (s *Service) UpdateParticipantEmail(ctx context.Context, calendarID, target
 		return model.Participant{}, err
 	}
 
-	if email != nil && *email != "" && !strings.Contains(*email, "@") {
+	if !validParticipantEmail(email) {
 		return model.Participant{}, ErrInvalidEmail
 	}
 
@@ -443,7 +444,13 @@ func (s *Service) RenameCalendar(ctx context.Context, calendarID, userID, name s
 // Authorization: see authorizeParticipantWrite (owner allowed). The name is
 // validated (trimmed, non-empty, length cap) before the calendar is loaded;
 // rejections are *ValidationError wrapping ErrInvalidName.
-func (s *Service) RenameParticipant(ctx context.Context, calendarID, targetParticipantID string, caller ParticipantCaller, name string) (model.Participant, error) {
+//
+// email, when non-nil, is written in the same UPDATE as the name (nil
+// leaves it untouched; "" clears it), so a rename+email request can never
+// half-apply. Signed-in callers resolve email via their account, so their
+// email is ignored here (matching the historical behaviour); use
+// UpdateParticipantEmail for email-only edits.
+func (s *Service) RenameParticipant(ctx context.Context, calendarID, targetParticipantID string, caller ParticipantCaller, name string, email *string) (model.Participant, error) {
 	name, err := validateParticipantName(name)
 	if err != nil {
 		return model.Participant{}, err
@@ -461,7 +468,17 @@ func (s *Service) RenameParticipant(ctx context.Context, calendarID, targetParti
 		return model.Participant{}, err
 	}
 
-	p, err := s.store.UpdateParticipantName(ctx, calendarID, targetParticipantID, name)
+	applyEmail := email != nil && caller.UserID == nil
+	if applyEmail && !validParticipantEmail(email) {
+		return model.Participant{}, ErrInvalidEmail
+	}
+
+	var p model.Participant
+	if applyEmail {
+		p, err = s.store.UpdateParticipantNameAndEmail(ctx, calendarID, targetParticipantID, name, email)
+	} else {
+		p, err = s.store.UpdateParticipantName(ctx, calendarID, targetParticipantID, name)
+	}
 	if err != nil {
 		return model.Participant{}, err
 	}

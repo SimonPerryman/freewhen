@@ -13,6 +13,7 @@ import (
 
 	"github.com/freewhen/backend/internal/idprovider"
 	"github.com/freewhen/backend/internal/model"
+	"github.com/freewhen/backend/internal/service"
 
 	"golang.org/x/oauth2"
 )
@@ -72,7 +73,7 @@ func (g *fakeGoogle) userInfoURL() string {
 	return g.server.URL + "/oauth2/v3/userinfo"
 }
 
-func newGoogleTestAuthHandler(t *testing.T, st AuthStore, fg *fakeGoogle) *AuthHandler {
+func newGoogleTestAuthHandler(t *testing.T, st *fakeAuthStore, fg *fakeGoogle) *AuthHandler {
 	t.Helper()
 	googleProvider := idprovider.NewGoogle(
 		"test-client", "test-secret", "https://app.test/auth/google/callback",
@@ -81,6 +82,7 @@ func newGoogleTestAuthHandler(t *testing.T, st AuthStore, fg *fakeGoogle) *AuthH
 	)
 	return &AuthHandler{
 		store:        st,
+		accounts:     service.NewAccounts(st),
 		idProviders:  idprovider.NewRegistry(googleProvider),
 		frontendURL:  "https://app.test",
 		secureCookie: false,

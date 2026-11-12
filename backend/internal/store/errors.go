@@ -17,4 +17,5 @@ var (
 	ErrInviteNotFound           = model.ErrInviteNotFound
 	ErrCalendarUnavailable      = model.ErrCalendarUnavailable
 	ErrCannotLeaveOwnedCalendar = model.ErrCannotLeaveOwnedCalendar
+	ErrUserExists               = model.ErrUserExists
 )

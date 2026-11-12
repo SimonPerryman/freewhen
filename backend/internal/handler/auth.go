@@ -16,14 +16,13 @@ import (
 	"github.com/freewhen/backend/internal/idprovider"
 	"github.com/freewhen/backend/internal/limits"
 	"github.com/freewhen/backend/internal/model"
+	"github.com/freewhen/backend/internal/service"
 )
 
-// AuthStore defines the data operations the auth handler needs.
+// AuthStore defines the session / magic-link / profile operations the auth
+// handler needs. Account find-or-create goes through AccountService.
 type AuthStore interface {
-	CreateUser(ctx context.Context, email, name, provider, providerID string) (model.User, error)
 	GetUser(ctx context.Context, id string) (model.User, error)
-	FindUserByEmail(ctx context.Context, email string) (model.User, error)
-	FindUserByProviderID(ctx context.Context, provider, providerID string) (model.User, error)
 	UpdateUserName(ctx context.Context, userID, name string) (model.User, error)
 	CreateSession(ctx context.Context, userID string) (string, error)
 	GetSession(ctx context.Context, token string) (*model.Session, error)
@@ -34,6 +33,13 @@ type AuthStore interface {
 	VerifyMagicLinkToken(ctx context.Context, plainToken string) (email, returnURL string, err error)
 }
 
+// AccountService resolves a sign-in to a user (find, link by email, or
+// create). Implemented by *service.Accounts.
+type AccountService interface {
+	FindOrCreateOAuthUser(ctx context.Context, providerName string, identity idprovider.Identity) (model.User, error)
+	FindOrCreateByEmail(ctx context.Context, email, name, provider, providerID string) (model.User, error)
+}
+
 // EmailSender sends transactional emails.
 type EmailSender interface {
 	SendMagicLink(to, link string) error
@@ -41,6 +47,7 @@ type EmailSender interface {
 
 type AuthHandler struct {
 	store             AuthStore
+	accounts          AccountService
 	email             EmailSender
 	idProviders       *idprovider.Registry
 	frontendURL       string
@@ -57,12 +64,13 @@ type AuthHandler struct {
 // laptop + work laptop + tablet doesn't get bumped on a fresh login.
 const maxConcurrentSessionsPerUser = 10
 
-func NewAuth(s AuthStore, emailSender EmailSender, idProviders *idprovider.Registry, cfg *config.Config, logger *slog.Logger) *AuthHandler {
+func NewAuth(s AuthStore, accounts AccountService, emailSender EmailSender, idProviders *idprovider.Registry, cfg *config.Config, logger *slog.Logger) *AuthHandler {
 	if idProviders == nil {
 		idProviders = idprovider.NewRegistry()
 	}
 	return &AuthHandler{
 		store:             s,
+		accounts:          accounts,
 		email:             emailSender,
 		idProviders:       idProviders,
 		frontendURL:       cfg.FrontendURL,
@@ -196,8 +204,8 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	identity.Email = normalizeEmail(identity.Email)
 
 	// Create or find user
-	user, err := h.findOrCreateUser(r.Context(), provider.Name(), identity)
-	if errors.Is(err, errEmailNotVerified) {
+	user, err := h.accounts.FindOrCreateOAuthUser(r.Context(), provider.Name(), identity)
+	if errors.Is(err, service.ErrEmailNotVerified) {
 		respondError(w, http.StatusForbidden, "email_not_verified",
 			"your "+provider.Name()+" account email is not verified; verify it with the provider or sign in with an email link")
 		return
@@ -359,7 +367,7 @@ type magicLinkRequest struct {
 // SendMagicLink generates a magic link token and emails it to the user.
 //
 // F6 invariant: this handler never branches on whether `req.Email` belongs to
-// a known user. `findOrCreateEmailUser` runs at callback time, not here. That
+// a known user. Account find-or-create runs at callback time, not here. That
 // keeps the response time uniform between known and unknown emails so an
 // attacker can't enumerate accounts via timing. If you ever add a "skip if
 // user doesn't exist" optimization, you reopen the timing channel and must
@@ -448,7 +456,7 @@ func (h *AuthHandler) MagicLinkVerify(w http.ResponseWriter, r *http.Request) {
 	}
 	email = normalizeEmail(email)
 
-	user, err := h.findOrCreateEmailUser(r.Context(), email)
+	user, err := h.accounts.FindOrCreateByEmail(r.Context(), email, "", "email", "")
 	if err != nil {
 		respondInternalError(r, w, err, "internal_error", "authentication failed")
 		return
@@ -470,54 +478,6 @@ func (h *AuthHandler) MagicLinkVerify(w http.ResponseWriter, r *http.Request) {
 		returnURL = "/"
 	}
 	respondJSON(w, http.StatusOK, magicLinkVerifyResponse{ReturnURL: returnURL})
-}
-
-func (h *AuthHandler) findOrCreateEmailUser(ctx context.Context, emailAddr string) (model.User, error) {
-	user, err := h.store.FindUserByEmail(ctx, emailAddr)
-	if err == nil {
-		return user, nil
-	}
-	if !errors.Is(err, model.ErrNotFound) {
-		return model.User{}, fmt.Errorf("find user by email: %w", err)
-	}
-
-	return h.store.CreateUser(ctx, emailAddr, "", "email", "")
-}
-
-// errEmailNotVerified is returned by findOrCreateUser when the identity has no
-// existing provider link and its email isn't verified by the provider.
-var errEmailNotVerified = errors.New("identity email not verified")
-
-func (h *AuthHandler) findOrCreateUser(ctx context.Context, providerName string, id idprovider.Identity) (model.User, error) {
-	// Try to find by provider ID first
-	user, err := h.store.FindUserByProviderID(ctx, providerName, id.Sub)
-	if err == nil {
-		return user, nil
-	}
-	if !errors.Is(err, model.ErrNotFound) {
-		return model.User{}, fmt.Errorf("find user by provider ID: %w", err)
-	}
-
-	// Everything past here keys on the email address — linking to an
-	// existing (e.g. magic-link) account or creating a new one with that
-	// email. Only trust the address if the provider vouches for it;
-	// otherwise an attacker-controlled provider account with someone else's
-	// unverified email could take over their FreeWhen account.
-	if !id.EmailVerified || id.Email == "" {
-		return model.User{}, errEmailNotVerified
-	}
-
-	// Try to find by email (user may have signed up via magic link previously)
-	user, err = h.store.FindUserByEmail(ctx, id.Email)
-	if err == nil {
-		return user, nil
-	}
-	if !errors.Is(err, model.ErrNotFound) {
-		return model.User{}, fmt.Errorf("find user by email: %w", err)
-	}
-
-	// Create new user
-	return h.store.CreateUser(ctx, id.Email, id.Name, providerName, id.Sub)
 }
 
 func (h *AuthHandler) setSessionCookie(w http.ResponseWriter, token string) {

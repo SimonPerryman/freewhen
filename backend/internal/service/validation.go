@@ -110,6 +110,13 @@ func buildAvailabilityOverrides(participantID string, u AvailabilityUpdate, now 
 	return notes, preferred, nil
 }
 
+// validParticipantEmail reports whether an optional participant email is
+// acceptable. nil and "" mean "clear" and are always valid; anything else
+// must at least contain an @.
+func validParticipantEmail(email *string) bool {
+	return email == nil || *email == "" || strings.Contains(*email, "@")
+}
+
 // validateParticipantName trims and checks a participant display name.
 // Both errors wrap ErrInvalidName.
 func validateParticipantName(name string) (string, error) {

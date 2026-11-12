@@ -67,6 +67,24 @@ func (s *Store) CountCalendarParticipants(ctx context.Context, calendarID string
 	return s.participantCount(ctx, calendarID)
 }
 
+// CountDuplicableParticipants counts the live participants DuplicateCalendar
+// would copy from calendarID for newOwnerID: user-linked rows other than the
+// new owner's own (anonymous rows are never copied — see DuplicateCalendar).
+// Keep the predicate in sync with DuplicateCalendar's copy query.
+func (s *Store) CountDuplicableParticipants(ctx context.Context, calendarID, newOwnerID string) (int, error) {
+	var count int
+	err := s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM participants
+		 WHERE calendar_id = $1 AND deleted_at IS NULL
+		   AND user_id IS NOT NULL AND user_id <> $2`,
+		calendarID, newOwnerID,
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count duplicable participants: %w", err)
+	}
+	return count, nil
+}
+
 // CountCalendarsForOwner returns the number of live calendars owned by the
 // given user. Used by the service layer to enforce the per-owner calendar
 // cap — soft-deleted calendars don't count, so deleting frees up quota.

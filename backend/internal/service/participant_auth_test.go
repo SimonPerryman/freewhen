@@ -113,7 +113,7 @@ func TestSetAvailability_ForbiddenDoesNotWrite(t *testing.T) {
 func TestNoTokenHash_RenameAndEmailForbidden(t *testing.T) {
 	s := New(authFixture(), nil, AccessConfig{Secret: testSecret})
 	ctx := context.Background()
-	if _, err := s.RenameParticipant(ctx, "cal1", "notoken", ParticipantCaller{}, "Hijack"); !errors.Is(err, ErrForbidden) {
+	if _, err := s.RenameParticipant(ctx, "cal1", "notoken", ParticipantCaller{}, "Hijack", nil); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("rename: err = %v, want ErrForbidden", err)
 	}
 	if _, err := s.UpdateParticipantEmail(ctx, "cal1", "notoken", ParticipantCaller{}, strp("x@y.com")); !errors.Is(err, ErrForbidden) {

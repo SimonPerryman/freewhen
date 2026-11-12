@@ -229,7 +229,7 @@ func TestRenameParticipant_NameRules(t *testing.T) {
 				return model.Calendar{ID: id, OwnerID: "owner1", FinalisedDate: &date}, nil
 			}
 			s := newSvc(t, ms)
-			_, err := s.RenameParticipant(context.Background(), "cal1", "anon", ParticipantCaller{Token: "tok-anon"}, tc.input)
+			_, err := s.RenameParticipant(context.Background(), "cal1", "anon", ParticipantCaller{Token: "tok-anon"}, tc.input, nil)
 			if got := validationCode(t, err); got != tc.code {
 				t.Fatalf("code = %q, want %q", got, tc.code)
 			}
@@ -249,7 +249,7 @@ func TestRenameParticipant_TrimsName(t *testing.T) {
 	}
 	s := newSvc(t, ms)
 	limitName := strings.Repeat("x", limits.MaxParticipantNameLength)
-	if _, err := s.RenameParticipant(context.Background(), "cal1", "anon", ParticipantCaller{Token: "tok-anon"}, "  "+limitName+"  "); err != nil {
+	if _, err := s.RenameParticipant(context.Background(), "cal1", "anon", ParticipantCaller{Token: "tok-anon"}, "  "+limitName+"  ", nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if stored != limitName {

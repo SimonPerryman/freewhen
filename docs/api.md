@@ -44,6 +44,16 @@ layer as follows:
 A rejected write returns **403** `{"code": "forbidden"}`. The `participant_id`
 body field on `PATCH /participants/{participantId}` is ignored.
 
+A `PATCH /participants/{participantId}` carrying both `name` and `email` is a
+single write: if either is rejected (e.g. `invalid_email`, `duplicate_name`)
+nothing changes. Availability writes are rejected with `409 already_finalised`
+even when the finalise commits while the write is in flight.
+
+`POST /calendars/{id}/duplicate` returns `409 calendar_full` only if the
+participants that would actually be copied (signed-in members other than you)
+plus you would exceed the participant cap. Anonymous participants aren't copied,
+so they don't count.
+
 CORS allows the `X-Participant-Token` request header and exposes it (and
 `X-Request-ID`) on responses.
 
