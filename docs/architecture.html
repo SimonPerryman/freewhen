@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FreeWhen Architecture</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap">
+<style>
+  :root {
+    --bg: #fdfdfb;
+    --ink: #1e1e1e;
+    --muted: #868e96;
+    --hot: #e03131;
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Architects Daughter", "Comic Sans MS", cursive;
+    display: flex; flex-direction: column;
+  }
+  header { padding: 16px 24px 0; }
+  h1 { margin: 0; font-size: 28px; font-weight: 400; }
+  .sub { color: var(--muted); font-size: 16px; margin-top: 4px; max-width: 110ch; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 8px; font-size: 15px; }
+  .legend i { display: inline-block; width: 22px; height: 14px; border: 2px solid var(--ink); border-radius: 3px; vertical-align: -2px; margin-right: 6px; }
+  .steps { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
+  .steps button, .zoom {
+    font: inherit; font-size: 16px; color: var(--ink); background: #fff;
+    border: 2px solid var(--ink); border-radius: 8px 12px 9px 11px; padding: 3px 12px; cursor: pointer;
+  }
+  .steps button[aria-pressed="true"] { background: #fff3bf; border-color: #f08c00; }
+  .zoom { margin-left: auto; border-style: dashed; }
+  .stage { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; padding: 8px 24px 16px; }
+  .scroll { min-height: 0; overflow: auto; }
+  svg { display: block; width: 100%; height: 100%; }
+  body.full .scroll svg { width: auto; height: auto; min-width: 1500px; }
+  svg text { font-family: "Architects Daughter", "Comic Sans MS", cursive; fill: var(--ink); }
+  .panel { overflow-y: auto; font-size: 17px; border-left: 2px dashed #dee2e6; padding-left: 16px; }
+  .about { margin: 4px 0 12px; }
+  .about b { font-weight: 400; color: var(--hot); }
+  code { font-size: 15px; }
+  ol.walk { list-style: none; padding: 0; margin: 0; }
+  ol.walk li { display: flex; gap: 10px; padding: 6px 4px; border-radius: 8px; cursor: default; }
+  ol.walk li:hover, ol.walk li.on { background: #fff3bf; }
+  ol.walk .n { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--hot); color: #fff;
+               display: grid; place-items: center; font-size: 15px; margin-top: 1px; }
+  .badge { transition: transform .15s; transform-box: fill-box; transform-origin: center; }
+  .badge.on { transform: scale(1.45); }
+  footer { color: var(--muted); font-size: 14px; margin-top: 16px; }
+  @media (max-width: 1000px) {
+    body { display: block; }
+    .stage { display: block; padding: 8px 16px; }
+    .scroll svg { width: auto; height: auto; min-width: 1100px; }
+    .panel { border-left: 0; padding-left: 0; margin-top: 12px; }
+    .zoom { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>FreeWhen: system architecture</h1>
+  <div class="sub">Left: the Next.js app in your browser. Middle: the Go API, one binary on Cloud Run, layered handler → service → store. Right: the outside services it leans on. Pick a flow to walk one action through it, step by numbered step. The field guide (onboarding.html) has the tables and detail.</div>
+  <div class="legend">
+    <span><i style="background:#ffffff;border-color:#1e1e1e"></i>frontend</span>
+    <span><i style="background:#b2f2bb;border-color:#2f9e44"></i>Go API</span>
+    <span><i style="background:#a5d8ff;border-color:#1971c2"></i>data</span>
+    <span><i style="background:#ffd8a8;border-color:#e8590c"></i>outside service</span>
+    <span><i style="background:#fff;border-color:#e03131;border-width:3px"></i>part of this flow</span>
+  </div>
+  <div class="steps" id="steps"><button class="zoom" id="zoom">Full size</button></div>
+</header>
+
+<div class="stage">
+  <div class="scroll">
+    <svg id="diagram" viewBox="-20 -70 1540 1080" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+  <div class="panel">
+    <div class="about" id="about"></div>
+    <ol class="walk" id="walk"></ol>
+    <footer>Hand-drawn look via rough.js. Layout lives in the <code>boxes</code> and <code>arrows</code> lists in this file's script; each flow lists the boxes and arrows it lights up and its numbered <code>steps</code>. When a component moves or a new one lands, update it here too.</footer>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/roughjs@4.6.6/bundled/rough.js"></script>
+<script>
+const C = {
+  ink: "#1e1e1e", grey: "#868e96", hot: "#e03131",
+  front: ["#ffffff", "#1e1e1e"], api: ["#b2f2bb", "#2f9e44"], data: ["#a5d8ff", "#1971c2"],
+  outside: ["#ffd8a8", "#e8590c"], apiFrame: ["#ebfbee", "#2f9e44"], webFrame: ["#f8f9fa", "#868e96"],
+};
+
+// id: [x, y, w, h, label, style, dashed]. Frames have no label; their title is in `frameTitles`.
+const boxes = {
+  apiFrame:  [290, -10, 860, 830, "", "apiFrame"],
+  webFrame:  [-12, -10, 254, 580, "", "webFrame"],
+  pages:     [0, 30, 230, 150, "Next.js pages\nfrontend/src/app\n/ · /login · /calendars\n/calendars/[id]: the grid,\nsummary, who's missing", "front"],
+  client:    [0, 240, 230, 130, "api.ts\nfetch, with your cookie\nsnake_case ↔ camelCase\nunlock token as a header", "front"],
+  live:      [0, 430, 230, 120, "useCalendarEvents\na live line to the server;\nrefetch when told\nsomething changed", "front"],
+  server:    [310, 30, 300, 150, "server/\nrouting + middleware\nCORS · request ID · logs\nwho's asking? public, optional,\nsigned in, or owner", "api"],
+  handlers:  [310, 240, 300, 150, "handler/\none file per resource\nJSON in and out\nrate limits on magic links\nand calendar imports", "api"],
+  service:   [310, 450, 300, 170, "service/\nthe product's rules\ncreate · join · mark days\nfinalise · passphrase · invites\npublishes change events", "api"],
+  store:     [310, 680, 300, 120, "store/\nSQL via pgx · soft deletes\nmigrations run on boot", "api"],
+  flags:     [670, 30, 220, 130, "flags/\nPostHog or no-op\nflags are temporary:\ndelete once rolled out", "api"],
+  access:    [670, 240, 220, 150, "access/ · passphrase/\nsigned unlock tokens\ncarry an epoch: a new\npassphrase kills every\nold token at once", "api"],
+  providers: [910, 240, 220, 150, "Providers\nidprovider/ · calprovider/\nGoogle sign-in · free/busy\nadd-to-calendar links", "api"],
+  hub:       [670, 430, 220, 120, "realtime.Hub\nin-memory pub/sub\nfine on one instance", "api"],
+  notif:     [910, 450, 220, 170, "notifications/ · email/\n“it's on!” emails\nnudges, 6 h apart\none-click unsubscribe\nsent in the background", "api"],
+  posthog:   [1200, 30, 300, 130, "PostHog (EU)\nanalytics · session replay\nfeature flags", "outside"],
+  google:    [1200, 240, 300, 150, "Google\nOAuth sign-in\nCalendar free/busy\n(read once, token discarded)", "outside"],
+  resend:    [1200, 450, 300, 130, "Resend\nsends the emails: magic links,\n“it's on!” and nudges", "outside"],
+  neon:      [1200, 660, 300, 160, "Postgres · Neon\nusers · sessions (hashed)\ncalendars · participants\navailability · invites\nmagic-link tokens (hashed)", "data"],
+  deploy:    [310, 880, 580, 100, "How it ships\nGitHub Actions → Cloud Run, keyless (WIF) · Vercel builds from main\nTerraform in infra/ owns the GCP and GitHub config", "front", true],
+};
+
+const frameTitles = {
+  apiFrame: [302, 14, "Go API · Cloud Run · one binary (backend/internal)", "#2f9e44"],
+  webFrame: [0, 14, "Frontend · Vercel", "#868e96"],
+};
+
+// id: [from, side, offset, to, side, offset, label, opts]  side: l r t b
+// opts.via: [x, y] bends the arrow through a quadratic control point.
+const arrows = {
+  calls:      ["pages", "b", .5, "client", "t", .5, "calls"],
+  refetch:    ["live", "t", .5, "client", "b", .5, "refetch"],
+  https:      ["client", "r", .4, "server", "l", .8, "HTTPS · cookie"],
+  sse:        ["live", "r", .5, "handlers", "l", .8, "SSE /events"],
+  route:      ["server", "b", .5, "handlers", "t", .5, "route"],
+  unlock:     ["handlers", "r", .3, "access", "l", .3, "unlock?"],
+  subscribe:  ["handlers", "r", .8, "hub", "t", .2, "subscribe"],
+  toProvider: ["handlers", "r", .1, "providers", "t", .3, "sign-in · import", { via: [760, 170] }],
+  callSvc:    ["handlers", "b", .5, "service", "t", .5, "call"],
+  authDirect: ["handlers", "l", .95, "store", "l", .5, "sessions, users", { via: [270, 560] }],
+  publish:    ["service", "r", .3, "hub", "l", .6, "publish"],
+  emailOut:   ["service", "r", .8, "notif", "l", .7, "email"],
+  readWrite:  ["service", "b", .5, "store", "t", .5, "read · write"],
+  pgx:        ["store", "r", .5, "neon", "l", .5, "pgx"],
+  google:     ["providers", "r", .5, "google", "l", .5, "OAuth", { both: true }],
+  send:       ["notif", "r", .4, "resend", "l", .5, "send"],
+  readFlags:  ["flags", "r", .5, "posthog", "l", .5, "read flags", { dashed: true }],
+  analytics:  ["pages", "t", .8, "posthog", "t", .5, "usage events", { dashed: true, via: [700, -150] }],
+};
+
+const headings = [
+  [0, -30, "IN YOUR BROWSER"], [1200, -30, "OUTSIDE SERVICES"], [310, 855, "DEPLOY"],
+];
+
+// Each flow lights up a path; everything else fades back. `steps` are [box or arrow id, what happens there],
+// numbered on the diagram in order.
+const flows = [
+  { name: "Everything", about: "One Next.js app, one Go binary, one Postgres. Inside the API, every request goes <b>handler → service → store</b>, and the seams to the outside world (Google, email, analytics) each sit behind their own small package. Pick a flow above to walk through it step by step." },
+  { name: "1 · Create a calendar", boxes: ["pages", "client", "server", "handlers", "service", "store", "neon"],
+    arrows: ["calls", "https", "route", "callSvc", "readWrite", "pgx"],
+    about: "Starting a new calendar from the home page.",
+    steps: [
+      ["pages", "You type a name on the home page. Creating a calendar needs an account."],
+      ["https", "<code>api.ts</code> sends <code>POST /calendars</code> to the API, with your session cookie."],
+      ["server", "The router's middleware checks you're signed in, logs the request and stamps it with a request ID."],
+      ["handlers", "<code>calendar.go</code> reads the JSON and hands it to the service."],
+      ["service", "The service checks you're under your calendar limit and creates it."],
+      ["pgx", "The store writes it to Postgres on Neon."],
+      ["pages", "You get a link to share. Anyone with it can open the calendar."],
+    ] },
+  { name: "2 · Join & mark days", boxes: ["pages", "client", "server", "handlers", "access", "service", "store", "neon", "hub"],
+    arrows: ["calls", "https", "route", "unlock", "callSvc", "readWrite", "pgx", "publish"],
+    about: "A friend opens your link and marks the days they're free.",
+    steps: [
+      ["pages", "A friend opens your link. They don't need an account."],
+      ["unlock", "If the calendar has a passphrase, every request is checked for a valid unlock token first (flow 5)."],
+      ["handlers", "They join with just a name: <code>POST /participants</code>. If they're signed in, it's linked to their account."],
+      ["service", "Tapping days sends <code>PUT /availability</code>. The service replaces their dates, notes and \"preferred\" marks."],
+      ["pgx", "Saved to Postgres."],
+      ["publish", "The service announces \"availability changed\" on the hub, which flow 3 picks up."],
+    ] },
+  { name: "3 · Live updates", boxes: ["live", "client", "pages", "handlers", "hub", "service"],
+    arrows: ["sse", "subscribe", "publish", "refetch", "calls"],
+    about: "How your screen updates when someone else marks their days.",
+    steps: [
+      ["sse", "When the calendar page opens, it keeps a live connection to the API (<b>Server-Sent Events</b>, <code>GET /events</code>)."],
+      ["subscribe", "The events handler subscribes that connection to this calendar on the hub."],
+      ["publish", "Someone else changes something, and the service publishes an event."],
+      ["hub", "The hub passes it to every open connection for that calendar. It lives in memory, which works because there's only one API instance; more instances would need Redis."],
+      ["live", "The page gets a nudge, not the new data..."],
+      ["refetch", "...so it refetches the whole calendar and redraws the grid. Simple, and never out of sync."],
+    ] },
+  { name: "4 · Sign in", boxes: ["pages", "client", "server", "handlers", "providers", "google", "notif", "resend", "store", "neon"],
+    arrows: ["calls", "https", "route", "toProvider", "google", "send", "authDirect", "pgx"],
+    about: "Two ways in: Google, or a link by email.",
+    steps: [
+      ["pages", "<code>/login</code> offers Google, or a magic link by email."],
+      ["toProvider", "Google: <code>idprovider/</code> sends you to Google and back. Adding Microsoft or Apple later would be one new file there."],
+      ["resend", "Magic link: the API emails you a one-time link through Resend, rate-limited per email address and per IP."],
+      ["authDirect", "Either way, the auth handler creates your user if you're new, and a session. Only a hash of the session token is stored, never the token itself."],
+      ["client", "Your browser keeps the session cookie. It lasts 30 days from your last visit, and 90 days at most."],
+    ] },
+  { name: "5 · Passphrase lock", boxes: ["pages", "client", "handlers", "access", "service", "store", "neon"],
+    arrows: ["calls", "https", "unlock", "callSvc", "readWrite", "pgx"],
+    about: "Keeping a calendar private to people who know the words.",
+    steps: [
+      ["service", "The owner turns on a passphrase. <code>passphrase/</code> makes one from words that are easy to share."],
+      ["pages", "A visitor sees the passphrase gate and types it in."],
+      ["access", "<code>POST /unlock</code> checks it and returns a <b>signed token</b> tied to the calendar and its current epoch."],
+      ["client", "The token is kept in the browser (localStorage) and sent with each request as the <code>X-Calendar-Access</code> header."],
+      ["access", "Changing the passphrase bumps the epoch, so every old token stops working at once, with no list of sessions to clean up."],
+    ] },
+  { name: "6 · Import from Google", boxes: ["pages", "client", "handlers", "providers", "google"],
+    arrows: ["calls", "https", "toProvider", "google"],
+    about: "Filling in your free days from your Google Calendar.",
+    steps: [
+      ["pages", "You agree to a privacy note first, and that consent is recorded."],
+      ["toProvider", "The API sends you to Google, asking only for free/busy access through <code>calprovider/</code>."],
+      ["google", "Google sends you back. The API reads your busy times once and throws the access token away; it's never stored."],
+      ["handlers", "It works out your free days and puts them in a short-lived, single-use cookie."],
+      ["pages", "The page asks for those suggestions, and you choose which to apply."],
+    ] },
+  { name: "7 · Finalise & email", boxes: ["pages", "client", "handlers", "service", "store", "neon", "hub", "notif", "resend", "providers"],
+    arrows: ["calls", "https", "callSvc", "readWrite", "pgx", "publish", "emailOut", "send"],
+    about: "Locking in the date and telling everyone.",
+    steps: [
+      ["notif", "Before deciding, the owner can nudge people who haven't replied, at most once every 6 hours."],
+      ["pages", "The owner picks the date and finalises the calendar."],
+      ["service", "The service saves the date..."],
+      ["publish", "...tells every open page, so it shows the finalised banner..."],
+      ["emailOut", "...and emails every participant in the background, so the owner isn't kept waiting."],
+      ["resend", "Resend delivers the \"it's on!\" email, with a one-click unsubscribe link."],
+      ["providers", "Guests can add the date to their calendar: an .ics file, or a Google Calendar link."],
+    ] },
+];
+
+const svg = document.getElementById("diagram");
+const rc = rough.svg(svg);
+const NS = "http://www.w3.org/2000/svg";
+
+function addText(parent, x, y, str, { size = 16, anchor = "middle", color = C.ink } = {}) {
+  const t = document.createElementNS(NS, "text");
+  t.setAttribute("x", x); t.setAttribute("y", y);
+  t.setAttribute("text-anchor", anchor);
+  t.setAttribute("font-size", size);
+  t.style.fill = color;
+  t.textContent = str;
+  parent.appendChild(t);
+  return t;
+}
+
+function group(faded) {
+  const g = document.createElementNS(NS, "g");
+  if (faded) g.setAttribute("opacity", "0.15");
+  svg.appendChild(g);
+  return g;
+}
+
+function point(id, side, f) {
+  const [x, y, w, h] = boxes[id];
+  return { l: [x, y + h * f], r: [x + w, y + h * f], t: [x + w * f, y], b: [x + w * f, y + h] }[side];
+}
+
+function arrowHead(g, [x1, y1], [x2, y2], color, seed) {
+  const a = Math.atan2(y2 - y1, x2 - x1), len = 14;
+  for (const d of [-0.45, 0.45]) {
+    g.appendChild(rc.line(x2, y2, x2 - len * Math.cos(a + d), y2 - len * Math.sin(a + d),
+      { stroke: color, strokeWidth: 1.8, roughness: 0.8, seed }));
+  }
+}
+
+// Each part is "hot" (in this flow), "faded" (not in it), or plain (no flow picked).
+function stateOf(list, id) {
+  if (!list) return "plain";
+  return list.includes(id) ? "hot" : "faded";
+}
+
+// Where each arrow's label landed, so a step number can sit beside it rather than on it.
+const labelBoxes = {};
+
+// Where a step's number sits: a box's top-left corner, just left of an arrow's label, or an
+// unlabelled arrow's middle.
+function anchorOf(id) {
+  if (boxes[id]) { const [x, y] = boxes[id]; return [x + 4, y + 4]; }
+  const bb = labelBoxes[id];
+  if (bb) return [bb.x - 22, bb.y + bb.height / 2];
+  const [a, as, af, b, bs, bf] = arrows[id];
+  const p1 = point(a, as, af), p2 = point(b, bs, bf);
+  return [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2];
+}
+
+function render(flow) {
+  svg.replaceChildren();
+  let seed = 1;
+
+  for (const [id, [x, y, w, h, label, style, dashed]] of Object.entries(boxes)) {
+    const isFrame = id in frameTitles;
+    const state = isFrame ? "plain" : stateOf(flow.boxes, id);
+    const g = group(state === "faded");
+    const [fill, stroke] = C[style];
+    g.appendChild(rc.rectangle(x, y, w, h, {
+      fill, fillStyle: isFrame ? "solid" : "hachure", hachureGap: 6, fillWeight: 1.2,
+      stroke: state === "hot" ? C.hot : stroke, strokeWidth: state === "hot" ? 3.5 : 2,
+      roughness: 1.3, strokeLineDash: dashed ? [8, 6] : undefined, seed: seed++,
+    }));
+    if (isFrame) {
+      const [tx, ty, title, color] = frameTitles[id];
+      addText(g, tx, ty, title, { anchor: "start", size: 17, color });
+      continue;
+    }
+    const lines = label.split("\n"), lh = 20;
+    const top = y + h / 2 - (lines.length - 1) * lh / 2 + 6;
+    lines.forEach((line, i) => addText(g, x + w / 2, top + i * lh, line, { size: i === 0 ? 19 : 15 }));
+  }
+
+  headings.forEach(([x, y, s]) => addText(svg, x, y, s, { anchor: "start", size: 15, color: C.grey }));
+
+  for (const [id, [a, as, af, b, bs, bf, label, opts = {}]] of Object.entries(arrows)) {
+    const state = stateOf(flow.arrows, id);
+    const g = group(state === "faded");
+    const p1 = point(a, as, af), p2 = point(b, bs, bf);
+    const color = state === "hot" ? C.hot : opts.dashed ? C.grey : C.ink;
+    const style = {
+      stroke: color, strokeWidth: state === "hot" ? 2.6 : 1.8, roughness: 1,
+      strokeLineDash: opts.dashed ? [8, 6] : undefined, seed: seed++,
+    };
+    let mid, from1 = p1, from2 = p2;
+    if (opts.via) {
+      const [cx, cy] = opts.via;
+      g.appendChild(rc.path(`M${p1[0]},${p1[1]} Q${cx},${cy} ${p2[0]},${p2[1]}`, style));
+      mid = [(p1[0] + 2 * cx + p2[0]) / 4, (p1[1] + 2 * cy + p2[1]) / 4];
+      from1 = from2 = [cx, cy];
+    } else {
+      g.appendChild(rc.line(...p1, ...p2, style));
+      mid = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2];
+    }
+    arrowHead(g, from1, p2, color, seed++);
+    if (opts.both) arrowHead(g, from2, p1, color, seed++);
+    if (label) {
+      const t = addText(g, mid[0], mid[1] + 5, label, { size: 14 });
+      const bb = labelBoxes[id] = t.getBBox();
+      const bg = document.createElementNS(NS, "rect");
+      bg.setAttribute("x", bb.x - 4); bg.setAttribute("y", bb.y - 1);
+      bg.setAttribute("width", bb.width + 8); bg.setAttribute("height", bb.height + 2);
+      bg.setAttribute("fill", "#fdfdfb");
+      g.insertBefore(bg, t);
+    }
+  }
+
+  // Step numbers go on top of everything. A second step on the same spot sits beside the first.
+  const used = {};
+  (flow.steps || []).forEach(([id], i) => {
+    const repeat = used[id] = (used[id] ?? -1) + 1;
+    const [x, y] = anchorOf(id);
+    const g = document.createElementNS(NS, "g");
+    g.setAttribute("class", "badge");
+    g.dataset.step = i;
+    const c = document.createElementNS(NS, "circle");
+    c.setAttribute("cx", x + repeat * 40); c.setAttribute("cy", y);
+    c.setAttribute("r", 17); c.setAttribute("fill", C.hot);
+    c.setAttribute("stroke", "#fff"); c.setAttribute("stroke-width", 3);
+    g.appendChild(c);
+    addText(g, x + repeat * 40, y + 7, String(i + 1), { size: 20, color: "#fff" });
+    svg.appendChild(g);
+  });
+}
+
+function highlight(i, on) {
+  svg.querySelector(`.badge[data-step="${i}"]`)?.classList.toggle("on", on);
+  walkEl.children[i]?.classList.toggle("on", on);
+}
+
+// Flow picker. The current flow is kept in the URL (#flow=3) so a view can be linked.
+const stepsEl = document.getElementById("steps"), aboutEl = document.getElementById("about");
+const walkEl = document.getElementById("walk"), zoomEl = document.getElementById("zoom");
+function select(n) {
+  const flow = flows[n];
+  render(flow);
+  aboutEl.innerHTML = flow.about;
+  walkEl.replaceChildren(...(flow.steps || []).map(([, text], i) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="n">${i + 1}</span><span>${text}</span>`;
+    li.onmouseenter = () => highlight(i, true);
+    li.onmouseleave = () => highlight(i, false);
+    return li;
+  }));
+  svg.querySelectorAll(".badge").forEach(b => {
+    b.onmouseenter = () => highlight(+b.dataset.step, true);
+    b.onmouseleave = () => highlight(+b.dataset.step, false);
+  });
+  stepsEl.querySelectorAll("button[data-flow]").forEach(b => b.setAttribute("aria-pressed", +b.dataset.flow === n));
+  try { history.replaceState(null, "", n ? `#flow=${n}` : location.pathname); } catch {} // can fail on file:// URLs
+}
+flows.forEach(({ name }, n) => {
+  const b = document.createElement("button");
+  b.textContent = name;
+  b.dataset.flow = n;
+  b.onclick = () => select(n);
+  stepsEl.insertBefore(b, zoomEl);
+});
+zoomEl.onclick = () => {
+  const full = document.body.classList.toggle("full");
+  zoomEl.textContent = full ? "Fit to screen" : "Full size";
+};
+const fromHash = Number((location.hash.match(/flow=(\d)/) || [])[1]);
+document.fonts.ready.then(() => select(flows[fromHash] ? fromHash : 0));
+</script>
+</body>
+</html>

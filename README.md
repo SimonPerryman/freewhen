@@ -58,6 +58,7 @@ Run `make lint` and `make test` before every commit. For changes that touch back
 
 - `AGENTS.md` — conventions and principles (mobile-first, 12-factor config, no PII in logs)
 - `docs/onboarding.html` — field-guide overview of the project (open in a browser)
+- `docs/architecture.html` — interactive architecture diagram with step-by-step flows (open in a browser)
 - `docs/api.md` — API endpoint reference
 - `docs/infra-notes.md` — hosting, deploy, first-time setup
 - `docs/v2-priorities.md`, `docs/v3-priorities.md` — roadmap
