@@ -492,8 +492,8 @@ erDiagram
         <tr><td class="method">DELETE</td><td class="path">/calendars/{id}/invites/{iid}</td><td><span class="pill owner">owner</span></td><td>Remove</td></tr>
         <tr><td class="method">POST</td><td class="path">/calendars/{id}/invites/{iid}/match</td><td><span class="pill owner">owner</span></td><td>Link to participant</td></tr>
         <tr><td class="method">POST</td><td class="path">/calendars/{id}/nudge</td><td><span class="pill owner">owner</span></td><td>Email reminder (cooldown)</td></tr>
-        <tr><td class="method">GET</td><td class="path">/calendars/{id}/export.ics</td><td><span class="pill public">public</span></td><td>ICS download (finalised)</td></tr>
-        <tr><td class="method">GET</td><td class="path">/calendars/{id}/export/{provider}</td><td><span class="pill public">public</span></td><td>Add-to-calendar URL (e.g. Google)</td></tr>
+        <tr><td class="method">GET</td><td class="path">/calendars/{id}/export.ics</td><td><span class="pill opt">opt</span></td><td>ICS download (finalised; passphrase gate, token via <code>?access=</code>)</td></tr>
+        <tr><td class="method">GET</td><td class="path">/calendars/{id}/export/{provider}</td><td><span class="pill opt">opt</span></td><td>Add-to-calendar URL (e.g. Google; same gate)</td></tr>
         <tr><td class="method">POST</td><td class="path">/auth/{provider}/calendar/consent-ack</td><td><span class="pill auth">auth</span></td><td>Record import consent</td></tr>
         <tr><td class="method">GET</td><td class="path">/auth/{provider}/calendar/connect</td><td><span class="pill auth">auth</span></td><td>OAuth for FreeBusy</td></tr>
         <tr><td class="method">GET</td><td class="path">/auth/{provider}/calendar/callback</td><td><span class="pill auth">auth</span></td><td>OAuth callback</td></tr>

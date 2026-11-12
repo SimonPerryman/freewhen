@@ -196,6 +196,34 @@ func requireJSONContentType(next http.Handler) http.Handler {
 	})
 }
 
+// maxRequestBodyBytes is the global cap on request bodies. Matches the 1 MiB
+// per-handler limits already in place; no endpoint legitimately needs more.
+const maxRequestBodyBytes int64 = 1 << 20
+
+// limitBody caps every request body at maxRequestBodyBytes so a handler that
+// forgets its own http.MaxBytesReader can't be made to buffer an unbounded
+// body. Requests that declare an oversize Content-Length are rejected up
+// front with 413; bodies of unknown length (chunked) are wrapped so reads
+// fail once the limit is crossed. Per-handler limits may still be tighter.
+func limitBody(next http.Handler) http.Handler {
+	return limitBodyN(next, maxRequestBodyBytes)
+}
+
+func limitBodyN(next http.Handler, limit int64) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.ContentLength > limit {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusRequestEntityTooLarge)
+			_, _ = w.Write([]byte(`{"error":"request_too_large","message":"request body too large"}`))
+			return
+		}
+		if r.Body != nil && r.Body != http.NoBody {
+			r.Body = http.MaxBytesReader(w, r.Body, limit)
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func generateRequestID() string {
 	b := make([]byte, 8)
 	_, _ = rand.Read(b)

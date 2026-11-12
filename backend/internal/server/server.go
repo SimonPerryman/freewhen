@@ -229,10 +229,11 @@ func (s *Server) routes() {
 	s.handleAuth("POST /calendars/{id}/invites/{inviteId}/match", s.handler.ManualMatchInvite)
 
 	// Calendar integrations — export (Phase 1) + Google Calendar import (Phase 2).
-	// Export endpoints are intentionally public — finalised calendars should be
-	// addable to anyone's calendar, including anonymous joiners.
-	s.handlePublic("GET /calendars/{id}/export.ics", s.handler.ExportICS)
-	s.handlePublic("GET /calendars/{id}/export/{provider}", s.handler.ExportToProvider)
+	// Export endpoints are open to anyone who can read the calendar, including
+	// anonymous joiners. Optional auth so the owner bypasses the passphrase
+	// gate; everyone else passes an access token via header or `?access=`.
+	s.handleOptional("GET /calendars/{id}/export.ics", s.handler.ExportICS)
+	s.handleOptional("GET /calendars/{id}/export/{provider}", s.handler.ExportToProvider)
 
 	// Incremental OAuth round-trip for calendar import. Provider-agnostic
 	// — the `{provider}` path param routes to the right adapter. All three
@@ -260,5 +261,5 @@ func (s *Server) routes() {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.secureHeaders(s.cors(s.requestLog(requireJSONContentType(s.mux)))).ServeHTTP(w, r)
+	s.secureHeaders(s.cors(s.requestLog(limitBody(requireJSONContentType(s.mux))))).ServeHTTP(w, r)
 }

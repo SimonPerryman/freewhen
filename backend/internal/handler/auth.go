@@ -198,6 +198,11 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 
 	// Create or find user
 	user, err := h.findOrCreateUser(r.Context(), provider.Name(), identity)
+	if errors.Is(err, errEmailNotVerified) {
+		respondError(w, http.StatusForbidden, "email_not_verified",
+			"your "+provider.Name()+" account email is not verified; verify it with the provider or sign in with an email link")
+		return
+	}
 	if err != nil {
 		respondInternalError(r, w, err, "internal_error", "authentication failed")
 		return
@@ -483,6 +488,10 @@ func (h *AuthHandler) findOrCreateEmailUser(ctx context.Context, emailAddr strin
 	return h.store.CreateUser(ctx, emailAddr, "", "email", "")
 }
 
+// errEmailNotVerified is returned by findOrCreateUser when the identity has no
+// existing provider link and its email isn't verified by the provider.
+var errEmailNotVerified = errors.New("identity email not verified")
+
 func (h *AuthHandler) findOrCreateUser(ctx context.Context, providerName string, id idprovider.Identity) (model.User, error) {
 	// Try to find by provider ID first
 	user, err := h.store.FindUserByProviderID(ctx, providerName, id.Sub)
@@ -491,6 +500,15 @@ func (h *AuthHandler) findOrCreateUser(ctx context.Context, providerName string,
 	}
 	if !errors.Is(err, store.ErrNotFound) {
 		return model.User{}, fmt.Errorf("find user by provider ID: %w", err)
+	}
+
+	// Everything past here keys on the email address — linking to an
+	// existing (e.g. magic-link) account or creating a new one with that
+	// email. Only trust the address if the provider vouches for it;
+	// otherwise an attacker-controlled provider account with someone else's
+	// unverified email could take over their FreeWhen account.
+	if !id.EmailVerified || id.Email == "" {
+		return model.User{}, errEmailNotVerified
 	}
 
 	// Try to find by email (user may have signed up via magic link previously)

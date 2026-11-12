@@ -6,6 +6,8 @@ All endpoints return JSON with `Content-Type: application/json`. Every response 
 
 Error responses use the shape: `{"error": "message"}`
 
+Request bodies are capped at 1 MiB on every route. A request whose `Content-Length` exceeds the cap gets `413 {"error":"request_too_large"}` before reaching the handler; bodies of unknown length fail to read past the cap.
+
 > The backend uses snake_case for JSON keys. The frontend API client converts to/from camelCase.
 
 ## Authentication
@@ -35,6 +37,8 @@ Session-based auth with HTTP-only cookies. Creator must sign in to create a cale
 | PUT | `/calendars/{id}/invites/{inviteId}` | Owner | Rename an invite |
 | DELETE | `/calendars/{id}/invites/{inviteId}` | Owner | Remove an invite |
 | POST | `/calendars/{id}/invites/{inviteId}/match` | Owner | Manually link/unlink an invite to a participant |
+| GET | `/calendars/{id}/export.ics` | Optional + gate | Download the finalised event as .ics |
+| GET | `/calendars/{id}/export/{provider}` | Optional + gate | 302 to the provider's "add event" page (e.g. `google`) |
 
 ## Admin
 
@@ -272,6 +276,18 @@ Redirects to Google OAuth consent screen. Pass `?return_url=/path` to return the
 ### GET /auth/google/callback
 
 Handles the OAuth callback. Creates or finds the user, creates a session, sets an HTTP-only cookie, and redirects to the return URL encoded in the OAuth state.
+
+Users are matched first by provider account ID. Matching an existing account by email, or creating a new account, requires the provider to report the email as verified (`email_verified`); otherwise the callback returns **403 `email_not_verified`** and no session is created.
+
+---
+
+### GET /calendars/{id}/export.ics and GET /calendars/{id}/export/{provider}
+
+Export a finalised calendar's event (title, date, attendees and their notes for that day). `.ics` returns `text/calendar`; `{provider}` returns a 302 to that provider's add-event URL.
+
+Passphrase-protected calendars apply the same gate as `GET /calendars/{id}`: the owner's session, or a valid access token from `POST /calendars/{id}/unlock`. The token can be sent as the `X-Calendar-Access` header or, for plain link navigations that can't set headers, as an `?access=<token>` query param.
+
+**Errors:** 401 `passphrase_required` (gated, no valid token) | 404 `not_found` (calendar or provider not found) | 404 `not_finalised`
 
 ---
 

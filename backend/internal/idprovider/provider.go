@@ -41,10 +41,16 @@ type Provider interface {
 
 // Identity is the provider-agnostic shape the sign-in handler consumes. Sub is
 // opaque per-provider; the (provider name, sub) pair keys the users row.
+//
+// EmailVerified reports whether the provider asserts the user controls Email.
+// The handler only links to an existing account by email, or creates a new
+// account with that email, when this is true — an unverified address is not
+// proof of ownership and would otherwise allow account takeover.
 type Identity struct {
-	Sub   string
-	Email string
-	Name  string
+	Sub           string
+	Email         string
+	EmailVerified bool
+	Name          string
 }
 
 // Registry holds the providers configured for this server. Lookup is by Name.
