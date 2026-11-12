@@ -20,8 +20,13 @@
   transform: scale(0.98);
 }
 
+/* Explicit disabled colours rather than an opacity fade: faded accent still
+   reads as a live fill, especially in dark mode. Beats the variant classes
+   on specificity (class + pseudo-class). */
 .button:disabled {
-  opacity: 0.6;
+  color: var(--disabled-text);
+  background: var(--disabled-bg);
+  border-color: var(--disabled-border);
   cursor: not-allowed;
 }
 
@@ -77,6 +82,12 @@
 .ghost:hover:not(:disabled) {
   color: var(--text-primary);
   background: var(--accent-subtle);
+}
+
+/* A ghost button has no box to recess — just mute the label. */
+.ghost:disabled {
+  background: transparent;
+  border-color: transparent;
 }
 
 .danger {

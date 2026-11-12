@@ -85,6 +85,7 @@ export default function DuplicateCalendarSheet({
     <Sheet
       title="Duplicate this calendar"
       onClose={onClose}
+      closeLabel="Close duplicate calendar"
       dismissible={!submitting}
       initialFocus={inputRef}
     >

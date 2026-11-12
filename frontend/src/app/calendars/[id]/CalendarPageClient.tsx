@@ -30,12 +30,20 @@ import styles from "./page.module.css";
 // Overlays that only appear after an interaction (or, for the gate, only on
 // passphrase-protected calendars) — split out of the first-load chunk.
 const PassphraseGate = dynamic(() => import("@/components/PassphraseGate/PassphraseGate"));
-const DayDetailSheet = dynamic(() => import("@/components/DayDetailSheet/DayDetailSheet"));
+// `loading` gives each interaction-triggered overlay its own Suspense
+// boundary. Without one, the first open suspends up to the route's
+// loading.tsx: the page is hidden while the chunk loads, the opener loses
+// focus, and the sheet's focus trap can't restore focus to it on close.
+const DayDetailSheet = dynamic(() => import("@/components/DayDetailSheet/DayDetailSheet"), {
+  loading: () => null,
+});
 const DuplicateCalendarSheet = dynamic(
   () => import("@/components/DuplicateCalendarSheet/DuplicateCalendarSheet"),
+  { loading: () => null },
 );
 const CalendarOwnerDialogs = dynamic(
   () => import("@/components/CalendarOwnerDialogs/CalendarOwnerDialogs"),
+  { loading: () => null },
 );
 
 interface Props {
