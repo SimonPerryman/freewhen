@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useRef } from "react";
+import { StrictMode, useRef } from "react";
 import type { CalendarWithDetails } from "./types";
 
 const setAvailability = vi.fn();
@@ -120,6 +120,101 @@ describe("useAvailabilitySave", () => {
     expect(body.preferred).not.toContain("2099-12-31");
     for (const d of body.preferred) expect([F1, F2]).toContain(d);
     expect(result.current.votesByDate.has("2099-12-31")).toBe(true);
+  });
+
+  it("vote toggle sends the new vote set, not the previous one", async () => {
+    const { result } = setup();
+    act(() => result.current.seed(cal(), "me"));
+    act(() => result.current.handleToggleVote(F2, true));
+    await waitFor(() => expect(setAvailability).toHaveBeenCalledTimes(1));
+    expect([...setAvailability.mock.calls[0][1].preferred].sort()).toEqual([F1, F2]);
+    expect([...result.current.votesByDate].sort()).toEqual([F1, F2]);
+  });
+
+  it("vote toggle in the same batch as a refresh saves the new vote set", async () => {
+    const { result } = setup();
+    act(() => {
+      result.current.seed(cal(), "me");
+      result.current.handleToggleVote(F2, true);
+    });
+    await waitFor(() => expect(setAvailability).toHaveBeenCalledTimes(1));
+    expect([...setAvailability.mock.calls[0][1].preferred].sort()).toEqual([F1, F2]);
+    expect([...result.current.votesByDate].sort()).toEqual([F1, F2]);
+  });
+
+  it("rapid double vote toggles end in the right final state", async () => {
+    let release: () => void = () => {};
+    setAvailability.mockImplementationOnce(
+      () =>
+        new Promise<void>((r) => {
+          release = r;
+        }),
+    );
+    const { result } = setup();
+    act(() => result.current.seed(cal(), "me"));
+    act(() => {
+      result.current.handleToggleVote(F2, true);
+      result.current.handleToggleVote(F1, false);
+    });
+    expect(setAvailability).toHaveBeenCalledTimes(1);
+    expect(setAvailability.mock.calls[0][1].preferred).toEqual([F1, F2].sort());
+    await act(async () => release());
+    await waitFor(() => expect(setAvailability).toHaveBeenCalledTimes(2));
+    expect(setAvailability.mock.calls[1][1].preferred).toEqual([F2]);
+    expect([...result.current.votesByDate]).toEqual([F2]);
+  });
+
+  it("vote toggles save the right set under StrictMode", async () => {
+    const markLocalMutation = vi.fn();
+    const { result } = renderHook(
+      () => {
+        const participantIdRef = useRef<string | null>("me");
+        return useAvailabilitySave({
+          calendarId: "c1",
+          participantIdRef,
+          finalisedDate: null,
+          markLocalMutation,
+        });
+      },
+      { wrapper: StrictMode },
+    );
+    act(() => result.current.seed(cal(), "me"));
+    act(() => {
+      result.current.handleToggleVote(F2, true);
+      result.current.handleToggleVote(F1, false);
+      result.current.handleToggleVote(F1, true);
+    });
+    await waitFor(() => expect(setAvailability).toHaveBeenCalled());
+    const last = setAvailability.mock.calls[setAvailability.mock.calls.length - 1][1];
+    expect([...last.preferred].sort()).toEqual([F1, F2]);
+    expect([...result.current.votesByDate].sort()).toEqual([F1, F2]);
+  });
+
+  it("note edit in the same batch as a refresh keeps the seeded notes", () => {
+    const { result } = setup();
+    act(() => {
+      result.current.seed(cal(), "me");
+      result.current.handleSaveNote(F2, "morning");
+    });
+    expect(result.current.notesByDate.get(F1)).toBe("after 6");
+    expect(result.current.notesByDate.get(F2)).toBe("morning");
+  });
+
+  it("deselecting a voted date after a vote toggle drops the vote from later saves", async () => {
+    const { result } = setup();
+    act(() => result.current.seed(cal(), "me"));
+    act(() => {
+      result.current.handleToggleVote(F2, true);
+      result.current.handleToggle(F2);
+      result.current.handleToggle(F2);
+    });
+    await waitFor(() => expect(setAvailability).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(
+        setAvailability.mock.calls[setAvailability.mock.calls.length - 1][1].dates.sort(),
+      ).toEqual([F1, F2]),
+    );
+    expect(result.current.votesByDate.has(F2)).toBe(false);
   });
 
   it("deselecting drops the note and vote locally", async () => {

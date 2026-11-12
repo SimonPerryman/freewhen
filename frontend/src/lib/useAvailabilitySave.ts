@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
 import { setAvailability } from "./api";
 import analytics from "./analytics";
@@ -83,37 +83,75 @@ export function useAvailabilitySave({
   // once the write goes out. When false, the save omits `preferred` entirely so
   // the server preserves existing votes.
   const pendingPreferredRef = useRef(false);
-  const votesByDateRef = useRef<Set<string>>(votesByDate);
-  useEffect(() => {
-    votesByDateRef.current = votesByDate;
-  }, [votesByDate]);
-  // Mirrors selectedDates so handlers can compute the next set outside of a
-  // setState updater — the updater must stay pure (StrictMode invokes it twice).
+
+  // These refs mirror selectedDates / notesByDate / votesByDate and are the
+  // source of truth for handlers: each handler computes the next value from
+  // the ref synchronously, writes ref + state with that exact value (via the
+  // commit* helpers), then saves. Never put side effects (ref writes, saves,
+  // analytics) inside a setState updater — React may run it later during
+  // render, so a save sent right after would read the previous value, and
+  // StrictMode runs it twice.
   const selectedDatesRef = useRef<Set<string>>(selectedDates);
-  useEffect(() => {
-    selectedDatesRef.current = selectedDates;
-  }, [selectedDates]);
+  const notesByDateRef = useRef<Map<string, string>>(notesByDate);
+  const votesByDateRef = useRef<Set<string>>(votesByDate);
 
-  const seed = useCallback((data: CalendarWithDetails, participantId: string) => {
-    // Seed selected dates, pruning past dates
-    const today = localToday();
-    const userDates = data.availability
-      .filter((a) => a.participantId === participantId && a.date >= today)
-      .map((a) => a.date);
-    setSelectedDates(new Set(userDates));
-    const { notes, votes } = ownNotesAndVotes(data, participantId, today);
-    setNotesByDate(notes);
-    setVotesByDate(votes);
+  const commitSelected = useCallback((next: Set<string>) => {
+    selectedDatesRef.current = next;
+    setSelectedDates(next);
+  }, []);
+  const commitNotes = useCallback((next: Map<string, string>) => {
+    notesByDateRef.current = next;
+    setNotesByDate(next);
+  }, []);
+  const commitVotes = useCallback((next: Set<string>) => {
+    votesByDateRef.current = next;
+    setVotesByDate(next);
   }, []);
 
-  const rehydrate = useCallback((data: CalendarWithDetails, participantId: string) => {
-    // Re-hydrate our own notes from the authoritative response. Own-note
-    // edits are still in flight during the local-mutation window, so the
-    // refresh suppression in useCalendarData protects them.
-    const { notes, votes } = ownNotesAndVotes(data, participantId, localToday());
-    setNotesByDate(notes);
-    setVotesByDate(votes);
-  }, []);
+  const seed = useCallback(
+    (data: CalendarWithDetails, participantId: string) => {
+      // Seed selected dates, pruning past dates
+      const today = localToday();
+      const userDates = data.availability
+        .filter((a) => a.participantId === participantId && a.date >= today)
+        .map((a) => a.date);
+      commitSelected(new Set(userDates));
+      const { notes, votes } = ownNotesAndVotes(data, participantId, today);
+      commitNotes(notes);
+      commitVotes(votes);
+    },
+    [commitSelected, commitNotes, commitVotes],
+  );
+
+  const rehydrate = useCallback(
+    (data: CalendarWithDetails, participantId: string) => {
+      // Re-hydrate our own notes from the authoritative response. Own-note
+      // edits are still in flight during the local-mutation window, so the
+      // refresh suppression in useCalendarData protects them.
+      const { notes, votes } = ownNotesAndVotes(data, participantId, localToday());
+      commitNotes(notes);
+      commitVotes(votes);
+    },
+    [commitNotes, commitVotes],
+  );
+
+  // Drop local notes and votes for dates that were just deselected. The
+  // backend drops the row (and both with it), so no override is sent.
+  const pruneNotesAndVotes = useCallback(
+    (dates: Iterable<string>) => {
+      const notes = new Map(notesByDateRef.current);
+      const votes = new Set(votesByDateRef.current);
+      let notesChanged = false;
+      let votesChanged = false;
+      for (const d of dates) {
+        if (notes.delete(d)) notesChanged = true;
+        if (votes.delete(d)) votesChanged = true;
+      }
+      if (notesChanged) commitNotes(notes);
+      if (votesChanged) commitVotes(votes);
+    },
+    [commitNotes, commitVotes],
+  );
 
   // Serialized save logic
   const flushSave = useCallback(async () => {
@@ -181,83 +219,61 @@ export function useAvailabilitySave({
 
   const handleToggle = useCallback(
     (date: string) => {
-      const prev = selectedDatesRef.current;
-      const next = new Set(prev);
+      const next = new Set(selectedDatesRef.current);
       const removed = next.has(date);
       if (removed) next.delete(date);
       else next.add(date);
-      selectedDatesRef.current = next;
-      setSelectedDates(next);
+      commitSelected(next);
 
-      if (removed) {
-        // Deselecting drops the row in the backend; mirror that in local state.
-        // Don't send a `notes` / `preferred` override — the row deletion drops
-        // both server-side.
-        setNotesByDate((prevMap) => {
-          if (!prevMap.has(date)) return prevMap;
-          const m = new Map(prevMap);
-          m.delete(date);
-          return m;
-        });
-        setVotesByDate((prevSet) => {
-          if (!prevSet.has(date)) return prevSet;
-          const s = new Set(prevSet);
-          s.delete(date);
-          return s;
-        });
-      }
+      // Deselecting drops the row in the backend; mirror that in local state.
+      // Don't send a `notes` / `preferred` override — the row deletion drops
+      // both server-side.
+      if (removed) pruneNotesAndVotes([date]);
 
       queueSave(Array.from(next));
     },
-    [queueSave],
+    [commitSelected, pruneNotesAndVotes, queueSave],
   );
 
   const handleSaveNote = useCallback(
     (date: string, text: string) => {
       // Caller passes the already-trimmed text; "" means clear.
-      setNotesByDate((prevMap) => {
-        const m = new Map(prevMap);
-        const before = m.get(date) ?? "";
+      const prev = notesByDateRef.current;
+      const before = prev.get(date) ?? "";
+      const changed = text === "" ? prev.has(date) : before !== text;
+      if (changed) {
+        const next = new Map(prev);
+        if (text === "") next.delete(date);
+        else next.set(date, text);
+        commitNotes(next);
         if (text === "") {
-          if (!m.has(date)) return prevMap;
-          m.delete(date);
-        } else {
-          if (before === text) return prevMap;
-          m.set(date, text);
-        }
-        // Capture analytics *inside* this updater so we read the before/after
-        // from the same snapshot the state transition uses.
-        if (text === "" && before !== "") {
           analytics.capture("availability_note_cleared", { calendar_id: calendarId });
-        } else if (text !== "" && before === "") {
+        } else if (before === "") {
           analytics.capture("availability_note_added", {
             calendar_id: calendarId,
             length: Array.from(text).length,
           });
-        } else if (text !== "" && before !== text) {
+        } else {
           analytics.capture("availability_note_edited", {
             calendar_id: calendarId,
             length: Array.from(text).length,
           });
         }
-        return m;
-      });
+      }
       queueNoteSave(date, text);
     },
-    [queueNoteSave, calendarId],
+    [commitNotes, queueNoteSave, calendarId],
   );
 
   const handleToggleVote = useCallback(
     (date: string, preferred: boolean) => {
-      setVotesByDate((prev) => {
+      const prev = votesByDateRef.current;
+      if (prev.has(date) !== preferred) {
         const next = new Set(prev);
-        const before = next.has(date);
         if (preferred) next.add(date);
         else next.delete(date);
-        if (before === next.has(date)) return prev;
-        votesByDateRef.current = next;
-        return next;
-      });
+        commitVotes(next);
+      }
       pendingPreferredRef.current = true;
       analytics.capture(preferred ? "vote_added" : "vote_removed", {
         calendar_id: calendarId,
@@ -265,7 +281,7 @@ export function useAvailabilitySave({
       markLocalMutation();
       if (!savingRef.current) flushSave();
     },
-    [calendarId, flushSave, markLocalMutation],
+    [calendarId, commitVotes, flushSave, markLocalMutation],
   );
 
   // A date is clearable if it's today or later and not individually finalised.
@@ -281,9 +297,9 @@ export function useAvailabilitySave({
   );
 
   const handleClearAvailability = useCallback(() => {
-    const prevSelected = new Set(selectedDatesRef.current);
-    const prevNotes = new Map(notesByDate);
-    const prevVotes = new Set(votesByDateRef.current);
+    const prevSelected = selectedDatesRef.current;
+    const prevNotes = notesByDateRef.current;
+    const prevVotes = votesByDateRef.current;
     const cleared: string[] = [];
     let notesCleared = 0;
     const next = new Set<string>();
@@ -297,24 +313,8 @@ export function useAvailabilitySave({
     }
     if (cleared.length === 0) return;
 
-    selectedDatesRef.current = next;
-    setSelectedDates(next);
-    if (notesCleared > 0) {
-      setNotesByDate((prev) => {
-        const m = new Map(prev);
-        for (const d of cleared) m.delete(d);
-        return m;
-      });
-    }
-    setVotesByDate((prev) => {
-      let changed = false;
-      const s = new Set(prev);
-      for (const d of cleared) {
-        if (s.delete(d)) changed = true;
-      }
-      if (changed) votesByDateRef.current = s;
-      return changed ? s : prev;
-    });
+    commitSelected(next);
+    pruneNotesAndVotes(cleared);
     queueSave(Array.from(next));
 
     analytics.capture("availability_cleared", {
@@ -324,11 +324,9 @@ export function useAvailabilitySave({
     });
 
     const undo = () => {
-      selectedDatesRef.current = prevSelected;
-      setSelectedDates(prevSelected);
-      setNotesByDate(prevNotes);
-      setVotesByDate(prevVotes);
-      votesByDateRef.current = prevVotes;
+      commitSelected(prevSelected);
+      commitNotes(prevNotes);
+      commitVotes(prevVotes);
       queueSave(Array.from(prevSelected));
       analytics.capture("availability_clear_undone", {
         calendar_id: calendarId,
@@ -341,7 +339,16 @@ export function useAvailabilitySave({
       message: `Cleared ${cleared.length} ${plural}.`,
       action: { label: "Undo", onClick: undo },
     });
-  }, [notesByDate, isClearable, queueSave, calendarId, showToast]);
+  }, [
+    isClearable,
+    commitSelected,
+    commitNotes,
+    commitVotes,
+    pruneNotesAndVotes,
+    queueSave,
+    calendarId,
+    showToast,
+  ]);
 
   const canClear = useMemo(() => {
     if (selectedDates.size === 0) return false;
@@ -360,37 +367,16 @@ export function useAvailabilitySave({
       } else {
         for (const d of dates) next.delete(d);
       }
-      selectedDatesRef.current = next;
-      setSelectedDates(next);
-
-      if (!target) {
-        setNotesByDate((prevMap) => {
-          let changed = false;
-          const m = new Map(prevMap);
-          for (const d of dates) {
-            if (m.delete(d)) changed = true;
-          }
-          return changed ? m : prevMap;
-        });
-        setVotesByDate((prev) => {
-          let changed = false;
-          const s = new Set(prev);
-          for (const d of dates) {
-            if (s.delete(d)) changed = true;
-          }
-          if (changed) votesByDateRef.current = s;
-          return changed ? s : prev;
-        });
-      }
-
+      commitSelected(next);
+      if (!target) pruneNotesAndVotes(dates);
       queueSave(Array.from(next));
     },
-    [queueSave],
+    [commitSelected, pruneNotesAndVotes, queueSave],
   );
 
   const handleRetry = useCallback(() => {
-    queueSave(Array.from(selectedDates));
-  }, [selectedDates, queueSave]);
+    queueSave(Array.from(selectedDatesRef.current));
+  }, [queueSave]);
 
   return {
     selectedDates,
