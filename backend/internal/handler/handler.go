@@ -32,15 +32,15 @@ type CalendarService interface {
 	GetCalendar(ctx context.Context, id string) (model.CalendarWithDetails, error)
 	GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error)
 	AddParticipant(ctx context.Context, calendarID, name string, userID *string, email *string) (model.Participant, string, error)
-	UpdateParticipantEmail(ctx context.Context, calendarID, targetParticipantID string, caller service.ParticipantCaller, email *string) (model.Participant, string, error)
-	SetAvailability(ctx context.Context, calendarID, participantID string, caller service.ParticipantCaller, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) (string, error)
-	ImportAvailability(ctx context.Context, calendarID, participantID string, caller service.ParticipantCaller, dates []string) (string, error)
+	UpdateParticipantEmail(ctx context.Context, calendarID, targetParticipantID string, caller service.ParticipantCaller, email *string) (model.Participant, error)
+	SetAvailability(ctx context.Context, calendarID, participantID string, caller service.ParticipantCaller, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) error
+	ImportAvailability(ctx context.Context, calendarID, participantID string, caller service.ParticipantCaller, dates []string) error
 	FinaliseCalendar(ctx context.Context, calendarID, date string) (model.Calendar, error)
 	UnfinaliseCalendar(ctx context.Context, calendarID string) (model.Calendar, error)
 	ClaimParticipant(ctx context.Context, calendarID, participantID string, caller service.ParticipantCaller) (model.Participant, error)
 	RenameCalendar(ctx context.Context, calendarID, name string) (model.Calendar, error)
 	RemoveParticipant(ctx context.Context, calendarID, participantID string) error
-	RenameParticipant(ctx context.Context, calendarID, targetParticipantID string, caller service.ParticipantCaller, name string) (model.Participant, string, error)
+	RenameParticipant(ctx context.Context, calendarID, targetParticipantID string, caller service.ParticipantCaller, name string) (model.Participant, error)
 	ListUserCalendars(ctx context.Context, userID string) ([]store.CalendarListItem, bool, error)
 	UnlockCalendar(ctx context.Context, calendarID, submitted, remoteAddr string) (string, error)
 	RotateCalendarPassphrase(ctx context.Context, calendarID string) (string, error)

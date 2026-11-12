@@ -147,8 +147,8 @@ func (h *Handler) DuplicateCalendar(w http.ResponseWriter, r *http.Request) {
 const AccessHeader = "X-Calendar-Access"
 
 // ParticipantTokenHeader carries the per-participant secret. Clients send it
-// on participant-scoped writes; the server sets it on a response whenever it
-// mints a new token (anonymous join, or legacy trust-on-first-use write).
+// on participant-scoped writes; the server sets it only on the anonymous join
+// response, the one place a token is issued.
 const ParticipantTokenHeader = "X-Participant-Token"
 
 // participantCaller builds the caller identity for a participant-scoped
@@ -162,9 +162,9 @@ func participantCaller(r *http.Request) service.ParticipantCaller {
 	return c
 }
 
-// setMintedParticipantToken hands a freshly minted participant token back to
-// the client. No-op for "".
-func setMintedParticipantToken(w http.ResponseWriter, token string) {
+// setJoinParticipantToken hands an anonymous joiner their freshly issued
+// participant token. No-op for "" (signed-in joiners get no token).
+func setJoinParticipantToken(w http.ResponseWriter, token string) {
 	if token != "" {
 		w.Header().Set(ParticipantTokenHeader, token)
 	}

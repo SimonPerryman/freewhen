@@ -51,7 +51,6 @@ type Store interface {
 	GetUser(ctx context.Context, id string) (model.User, error)
 	AddParticipantWithTokenHash(ctx context.Context, calendarID, name string, userID *string, email *string, tokenHash *string) (model.Participant, error)
 	GetParticipantForAuth(ctx context.Context, id string) (model.Participant, *string, error)
-	SetParticipantTokenHashIfUnset(ctx context.Context, participantID, tokenHash string) (bool, error)
 	UpdateParticipantEmail(ctx context.Context, calendarID, participantID string, email *string) (model.Participant, error)
 	ClearParticipantEmailByID(ctx context.Context, participantID string) error
 	GetParticipant(ctx context.Context, id string) (model.Participant, error)
@@ -241,33 +240,27 @@ func (s *Service) AddParticipant(ctx context.Context, calendarID, name string, u
 }
 
 // UpdateParticipantEmail sets or clears the participant's contact email.
-// Authorization: see authorizeParticipantWrite (owner allowed). Returns a
-// newly minted participant token on a legacy trust-on-first-use write.
-func (s *Service) UpdateParticipantEmail(ctx context.Context, calendarID, targetParticipantID string, caller ParticipantCaller, email *string) (model.Participant, string, error) {
+// Authorization: see authorizeParticipantWrite (owner allowed).
+func (s *Service) UpdateParticipantEmail(ctx context.Context, calendarID, targetParticipantID string, caller ParticipantCaller, email *string) (model.Participant, error) {
 	cal, err := s.store.GetCalendarOnly(ctx, calendarID)
 	if err != nil {
-		return model.Participant{}, "", err
+		return model.Participant{}, err
 	}
 
 	if email != nil && *email != "" && !strings.Contains(*email, "@") {
-		return model.Participant{}, "", ErrInvalidEmail
+		return model.Participant{}, ErrInvalidEmail
 	}
 
-	_, minted, err := s.authorizeParticipantWrite(ctx, cal, targetParticipantID, caller, true)
-	if err != nil {
-		return model.Participant{}, "", err
+	if _, err := s.authorizeParticipantWrite(ctx, cal, targetParticipantID, caller, true); err != nil {
+		return model.Participant{}, err
 	}
 
-	p, err := s.store.UpdateParticipantEmail(ctx, calendarID, targetParticipantID, email)
-	if err != nil {
-		return model.Participant{}, minted, err
-	}
-	return p, minted, nil
+	return s.store.UpdateParticipantEmail(ctx, calendarID, targetParticipantID, email)
 }
 
 // ClaimParticipant links an anonymous participant row to the signed-in
-// caller. The caller must prove they hold the row (participant token, or the
-// legacy trust-on-first-use path) — knowing the public id is not enough.
+// caller. The caller must prove they hold the row (participant token) —
+// knowing the public id is not enough.
 func (s *Service) ClaimParticipant(ctx context.Context, calendarID, participantID string, caller ParticipantCaller) (model.Participant, error) {
 	if caller.UserID == nil {
 		return model.Participant{}, ErrForbidden
@@ -290,7 +283,7 @@ func (s *Service) ClaimParticipant(ctx context.Context, calendarID, participantI
 	// else's anonymous row, and the target is unlinked so the session rule
 	// never applies.
 	anon := ParticipantCaller{Token: caller.Token}
-	if _, _, err := s.authorizeParticipantWrite(ctx, cal, participantID, anon, false); err != nil {
+	if _, err := s.authorizeParticipantWrite(ctx, cal, participantID, anon, false); err != nil {
 		return model.Participant{}, err
 	}
 	p, err := s.store.ClaimParticipant(ctx, calendarID, participantID, *caller.UserID)
@@ -303,43 +296,40 @@ func (s *Service) ClaimParticipant(ctx context.Context, calendarID, participantI
 }
 
 // SetAvailability replaces the participant's availability. Only the
-// participant themself may write it (the owner has no override). Returns a
-// newly minted participant token on a legacy trust-on-first-use write.
-func (s *Service) SetAvailability(ctx context.Context, calendarID, participantID string, caller ParticipantCaller, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) (string, error) {
+// participant themself may write it (the owner has no override).
+func (s *Service) SetAvailability(ctx context.Context, calendarID, participantID string, caller ParticipantCaller, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) error {
 	cal, err := s.store.GetCalendarOnly(ctx, calendarID)
 	if err != nil {
-		return "", err
+		return err
 	}
-	_, minted, err := s.authorizeParticipantWrite(ctx, cal, participantID, caller, false)
-	if err != nil {
-		return "", err
+	if _, err := s.authorizeParticipantWrite(ctx, cal, participantID, caller, false); err != nil {
+		return err
 	}
 	if err := s.store.SetAvailability(ctx, participantID, dates, noteOverrides, preferredOverrides); err != nil {
-		return minted, err
+		return err
 	}
 	s.touch(ctx, calendarID)
 	s.pub.Publish(calendarID, realtime.EventAvailabilityChanged)
-	return minted, nil
+	return nil
 }
 
 // ImportAvailability merges calendar-imported dates into the participant's
 // existing availability without deleting any hand-entered rows. Used by the
 // "Accept all suggestions" shortcut. Same authorization as SetAvailability.
-func (s *Service) ImportAvailability(ctx context.Context, calendarID, participantID string, caller ParticipantCaller, dates []string) (string, error) {
+func (s *Service) ImportAvailability(ctx context.Context, calendarID, participantID string, caller ParticipantCaller, dates []string) error {
 	cal, err := s.store.GetCalendarOnly(ctx, calendarID)
 	if err != nil {
-		return "", err
+		return err
 	}
-	_, minted, err := s.authorizeParticipantWrite(ctx, cal, participantID, caller, false)
-	if err != nil {
-		return "", err
+	if _, err := s.authorizeParticipantWrite(ctx, cal, participantID, caller, false); err != nil {
+		return err
 	}
 	if err := s.store.MergeAvailabilityDates(ctx, participantID, dates); err != nil {
-		return minted, err
+		return err
 	}
 	s.touch(ctx, calendarID)
 	s.pub.Publish(calendarID, realtime.EventAvailabilityChanged)
-	return minted, nil
+	return nil
 }
 
 // touch bumps the parent calendar's updated_at. Failures are logged but not
@@ -428,34 +418,32 @@ func (s *Service) RenameCalendar(ctx context.Context, calendarID, name string) (
 }
 
 // RenameParticipant updates the name of a participant on a calendar.
-// Authorization: see authorizeParticipantWrite (owner allowed). Returns a
-// newly minted participant token on a legacy trust-on-first-use write.
-func (s *Service) RenameParticipant(ctx context.Context, calendarID, targetParticipantID string, caller ParticipantCaller, name string) (model.Participant, string, error) {
+// Authorization: see authorizeParticipantWrite (owner allowed).
+func (s *Service) RenameParticipant(ctx context.Context, calendarID, targetParticipantID string, caller ParticipantCaller, name string) (model.Participant, error) {
 	cal, err := s.store.GetCalendarOnly(ctx, calendarID)
 	if err != nil {
-		return model.Participant{}, "", err
+		return model.Participant{}, err
 	}
 	if cal.FinalisedDate != nil {
-		return model.Participant{}, "", store.ErrCalendarFinalised
+		return model.Participant{}, store.ErrCalendarFinalised
 	}
 
 	name = strings.TrimSpace(name)
 	if name == "" || len(name) > limits.MaxParticipantNameLength {
-		return model.Participant{}, "", ErrInvalidName
+		return model.Participant{}, ErrInvalidName
 	}
 
-	_, minted, err := s.authorizeParticipantWrite(ctx, cal, targetParticipantID, caller, true)
-	if err != nil {
-		return model.Participant{}, "", err
+	if _, err := s.authorizeParticipantWrite(ctx, cal, targetParticipantID, caller, true); err != nil {
+		return model.Participant{}, err
 	}
 
 	p, err := s.store.UpdateParticipantName(ctx, calendarID, targetParticipantID, name)
 	if err != nil {
-		return model.Participant{}, minted, err
+		return model.Participant{}, err
 	}
 	s.touch(ctx, calendarID)
 	s.pub.Publish(calendarID, realtime.EventParticipantRenamed)
-	return p, minted, nil
+	return p, nil
 }
 
 func (s *Service) RemoveParticipant(ctx context.Context, calendarID, participantID string) error {

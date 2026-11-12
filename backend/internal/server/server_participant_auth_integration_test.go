@@ -184,38 +184,25 @@ func TestParticipantAuth_RenameAndEmail(t *testing.T) {
 	}
 }
 
-func TestParticipantAuth_LegacyTrustOnFirstUse(t *testing.T) {
+func TestParticipantAuth_NoTokenHashForbidden(t *testing.T) {
 	ts := setupTestServer(t)
-	cal, _ := createCalendarAuth(t, ts, "Legacy")
+	cal, _ := createCalendarAuth(t, ts, "No Token")
 
-	// A row created before tokens existed: token_hash NULL.
-	legacy, err := store.New(openTestDB(t)).AddParticipant(t.Context(), cal.ID, "Old Timer", nil, nil)
+	// An anonymous row with token_hash NULL (never issued a token) can never
+	// be written — there is no trust-on-first-use.
+	p, err := store.New(openTestDB(t)).AddParticipant(t.Context(), cal.ID, "Ghost", nil, nil)
 	if err != nil {
-		t.Fatalf("seed legacy participant: %v", err)
+		t.Fatalf("seed participant: %v", err)
 	}
 	path := "/calendars/" + cal.ID + "/availability"
-	body := map[string]any{"participant_id": legacy.ID, "dates": []string{"2026-05-01"}}
+	body := map[string]any{"participant_id": p.ID, "dates": []string{"2026-05-01"}}
 
 	resp, data := doJSONRaw(t, ts, http.MethodPut, path, body, "", nil)
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("first legacy write: %d %s", resp.StatusCode, data)
-	}
-	minted := resp.Header.Get(handler.ParticipantTokenHeader)
-	if minted == "" {
-		t.Fatal("first legacy write must mint a participant token")
-	}
-
-	resp, _ = doJSONRaw(t, ts, http.MethodPut, path, body, "", nil)
 	if resp.StatusCode != http.StatusForbidden {
-		t.Fatalf("second tokenless write: %d, want 403", resp.StatusCode)
+		t.Fatalf("write to tokenless row: %d %s, want 403", resp.StatusCode, data)
 	}
-
-	resp, _ = doJSONRaw(t, ts, http.MethodPut, path, body, "", tokenHeader(minted))
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("write with minted token: %d", resp.StatusCode)
-	}
-	if again := resp.Header.Get(handler.ParticipantTokenHeader); again != "" {
-		t.Errorf("no new token should be minted once one exists, got %q", again)
+	if got := resp.Header.Get(handler.ParticipantTokenHeader); got != "" {
+		t.Errorf("no token may be issued outside join, got %q", got)
 	}
 }
 

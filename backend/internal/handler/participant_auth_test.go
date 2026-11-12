@@ -89,23 +89,6 @@ func TestSetAvailability_ForbiddenIs403(t *testing.T) {
 	}
 }
 
-func TestSetAvailability_MintedTokenReturnedInHeader(t *testing.T) {
-	h := New(&mockService{
-		setAvailability: func(_ context.Context, _, _ string, _ []string, _ map[string]string, _ map[string]bool) error {
-			return nil
-		},
-		mintedToken: "tofu-token",
-	})
-	req := httptest.NewRequest(http.MethodPut, "/calendars/cal1/availability",
-		jsonBody(t, map[string]any{"participant_id": "legacy", "dates": []string{}}))
-	req.SetPathValue("id", "cal1")
-	rec := httptest.NewRecorder()
-	h.SetAvailability(rec, req)
-	if got := rec.Header().Get(ParticipantTokenHeader); got != "tofu-token" {
-		t.Fatalf("%s = %q, want tofu-token", ParticipantTokenHeader, got)
-	}
-}
-
 func TestImportAvailability_ForbiddenIs403(t *testing.T) {
 	h := New(&mockService{importErr: service.ErrForbidden})
 	req := httptest.NewRequest(http.MethodPost, "/calendars/cal1/availability/import",

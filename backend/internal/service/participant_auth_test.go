@@ -11,17 +11,17 @@ import (
 
 // authFixture: calendar "cal1" owned by "owner1"; participants
 //   - "anon"   anonymous, token "tok-anon"
-//   - "legacy" anonymous, no token hash (pre-migration row)
+//   - "notoken" anonymous, no token hash (never writable)
 //   - "linked" linked to user "u1"
 //   - "ownerp" linked to "owner1"
 func authFixture() *mockStore {
 	u1 := "u1"
 	owner := "owner1"
 	parts := map[string]model.Participant{
-		"anon":   {ID: "anon", CalendarID: "cal1"},
-		"legacy": {ID: "legacy", CalendarID: "cal1"},
-		"linked": {ID: "linked", CalendarID: "cal1", UserID: &u1},
-		"ownerp": {ID: "ownerp", CalendarID: "cal1", UserID: &owner},
+		"anon":    {ID: "anon", CalendarID: "cal1"},
+		"notoken": {ID: "notoken", CalendarID: "cal1"},
+		"linked":  {ID: "linked", CalendarID: "cal1", UserID: &u1},
+		"ownerp":  {ID: "ownerp", CalendarID: "cal1", UserID: &owner},
 	}
 	return &mockStore{
 		getParticipant: func(_ context.Context, id string) (model.Participant, error) {
@@ -78,6 +78,8 @@ func TestSetAvailability_Authorization(t *testing.T) {
 		{"anon without token", "anon", ParticipantCaller{}, ErrForbidden},
 		{"anon with wrong token", "anon", ParticipantCaller{Token: "tok-other"}, ErrForbidden},
 		{"anon target, signed-in stranger", "anon", ParticipantCaller{UserID: strp("u2")}, ErrForbidden},
+		{"anon with no token hash, no token", "notoken", ParticipantCaller{}, ErrForbidden},
+		{"anon with no token hash, some token", "notoken", ParticipantCaller{Token: "tok-anon"}, ErrForbidden},
 		{"linked self", "linked", ParticipantCaller{UserID: strp("u1")}, nil},
 		{"linked, other user", "linked", ParticipantCaller{UserID: strp("u2")}, ErrForbidden},
 		{"linked, anonymous caller", "linked", ParticipantCaller{Token: "tok-anon"}, ErrForbidden},
@@ -88,7 +90,7 @@ func TestSetAvailability_Authorization(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			s := New(authFixture(), nil, AccessConfig{Secret: testSecret})
-			_, err := s.SetAvailability(context.Background(), "cal1", tc.target, tc.caller, []string{"2026-05-01"}, nil, nil)
+			err := s.SetAvailability(context.Background(), "cal1", tc.target, tc.caller, []string{"2026-05-01"}, nil, nil)
 			if !errors.Is(err, tc.want) {
 				t.Fatalf("err = %v, want %v", err, tc.want)
 			}
@@ -103,53 +105,32 @@ func TestSetAvailability_ForbiddenDoesNotWrite(t *testing.T) {
 		return nil
 	}
 	s := New(ms, nil, AccessConfig{Secret: testSecret})
-	if _, err := s.SetAvailability(context.Background(), "cal1", "ownerp", ParticipantCaller{}, nil, nil, nil); !errors.Is(err, ErrForbidden) {
+	if err := s.SetAvailability(context.Background(), "cal1", "ownerp", ParticipantCaller{}, nil, nil, nil); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("err = %v, want ErrForbidden", err)
 	}
 }
 
-func TestSetAvailability_LegacyTrustOnFirstUse(t *testing.T) {
-	ms := authFixture()
-	s := New(ms, nil, AccessConfig{Secret: testSecret})
-
-	minted, err := s.SetAvailability(context.Background(), "cal1", "legacy", ParticipantCaller{}, []string{"2026-05-01"}, nil, nil)
-	if err != nil {
-		t.Fatalf("first legacy write: %v", err)
+func TestNoTokenHash_RenameAndEmailForbidden(t *testing.T) {
+	s := New(authFixture(), nil, AccessConfig{Secret: testSecret})
+	ctx := context.Background()
+	if _, err := s.RenameParticipant(ctx, "cal1", "notoken", ParticipantCaller{}, "Hijack"); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("rename: err = %v, want ErrForbidden", err)
 	}
-	if minted == "" {
-		t.Fatal("expected a minted token on first legacy write")
+	if _, err := s.UpdateParticipantEmail(ctx, "cal1", "notoken", ParticipantCaller{}, strp("x@y.com")); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("email: err = %v, want ErrForbidden", err)
 	}
-	if ms.tokenHashes["legacy"] != hashParticipantToken(minted) {
-		t.Fatal("stored hash must match the minted token")
-	}
-
-	// Second caller without the token is now rejected.
-	if _, err := s.SetAvailability(context.Background(), "cal1", "legacy", ParticipantCaller{}, nil, nil, nil); !errors.Is(err, ErrForbidden) {
-		t.Fatalf("second tokenless write: err = %v, want ErrForbidden", err)
-	}
-	// The holder of the minted token is accepted and nothing new is minted.
-	again, err := s.SetAvailability(context.Background(), "cal1", "legacy", ParticipantCaller{Token: minted}, nil, nil, nil)
-	if err != nil || again != "" {
-		t.Fatalf("token holder: minted=%q err=%v", again, err)
-	}
-}
-
-func TestSetAvailability_LegacyRaceLoserForbidden(t *testing.T) {
-	ms := authFixture()
-	ms.tokenRaceLost = true
-	s := New(ms, nil, AccessConfig{Secret: testSecret})
-	if _, err := s.SetAvailability(context.Background(), "cal1", "legacy", ParticipantCaller{}, nil, nil, nil); !errors.Is(err, ErrForbidden) {
-		t.Fatalf("err = %v, want ErrForbidden", err)
+	if _, err := s.ClaimParticipant(ctx, "cal1", "notoken", ParticipantCaller{UserID: strp("u2")}); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("claim: err = %v, want ErrForbidden", err)
 	}
 }
 
 func TestImportAvailability_OtherParticipantForbidden(t *testing.T) {
 	s := New(authFixture(), nil, AccessConfig{Secret: testSecret})
 	// Signed-in u2 tries to import into u1's row.
-	if _, err := s.ImportAvailability(context.Background(), "cal1", "linked", ParticipantCaller{UserID: strp("u2")}, []string{"2026-05-01"}); !errors.Is(err, ErrForbidden) {
+	if err := s.ImportAvailability(context.Background(), "cal1", "linked", ParticipantCaller{UserID: strp("u2")}, []string{"2026-05-01"}); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("err = %v, want ErrForbidden", err)
 	}
-	if _, err := s.ImportAvailability(context.Background(), "cal1", "linked", ParticipantCaller{UserID: strp("u1")}, []string{"2026-05-01"}); err != nil {
+	if err := s.ImportAvailability(context.Background(), "cal1", "linked", ParticipantCaller{UserID: strp("u1")}, []string{"2026-05-01"}); err != nil {
 		t.Fatalf("self import: %v", err)
 	}
 }
@@ -157,13 +138,13 @@ func TestImportAvailability_OtherParticipantForbidden(t *testing.T) {
 func TestUpdateParticipantEmail_Authorization(t *testing.T) {
 	s := New(authFixture(), nil, AccessConfig{Secret: testSecret})
 	email := strp("a@b.com")
-	if _, _, err := s.UpdateParticipantEmail(context.Background(), "cal1", "anon", ParticipantCaller{}, email); !errors.Is(err, ErrForbidden) {
+	if _, err := s.UpdateParticipantEmail(context.Background(), "cal1", "anon", ParticipantCaller{}, email); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("no token: err = %v, want ErrForbidden", err)
 	}
-	if _, _, err := s.UpdateParticipantEmail(context.Background(), "cal1", "anon", ParticipantCaller{Token: "tok-anon"}, email); err != nil {
+	if _, err := s.UpdateParticipantEmail(context.Background(), "cal1", "anon", ParticipantCaller{Token: "tok-anon"}, email); err != nil {
 		t.Fatalf("own token: %v", err)
 	}
-	if _, _, err := s.UpdateParticipantEmail(context.Background(), "cal1", "anon", ParticipantCaller{UserID: strp("owner1")}, email); err != nil {
+	if _, err := s.UpdateParticipantEmail(context.Background(), "cal1", "anon", ParticipantCaller{UserID: strp("owner1")}, email); err != nil {
 		t.Fatalf("owner: %v", err)
 	}
 }

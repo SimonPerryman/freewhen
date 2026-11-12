@@ -38,9 +38,8 @@ type mockService struct {
 	authorizeAccess          func(ctx context.Context, cal model.Calendar, viewer service.Viewer, tokenHeader string) error
 
 	// addParticipantToken is returned as the raw participant token from
-	// AddParticipant; mintedToken from participant-scoped writes.
+	// AddParticipant.
 	addParticipantToken string
-	mintedToken         string
 	importErr           error
 
 	// lastCaller records the ParticipantCaller passed to the most recent
@@ -75,7 +74,7 @@ func (m *mockService) AddParticipant(ctx context.Context, calendarID, name strin
 	return p, m.addParticipantToken, err
 }
 
-func (m *mockService) UpdateParticipantEmail(_ context.Context, _, _ string, _ service.ParticipantCaller, _ *string) (model.Participant, string, error) {
+func (m *mockService) UpdateParticipantEmail(_ context.Context, _, _ string, _ service.ParticipantCaller, _ *string) (model.Participant, error) {
 	panic("unexpected call to UpdateParticipantEmail")
 }
 
@@ -88,17 +87,14 @@ func (m *mockService) ClaimParticipant(ctx context.Context, calendarID, particip
 	return m.claimParticipant(ctx, calendarID, participantID, uid)
 }
 
-func (m *mockService) SetAvailability(ctx context.Context, calendarID, participantID string, caller service.ParticipantCaller, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) (string, error) {
+func (m *mockService) SetAvailability(ctx context.Context, calendarID, participantID string, caller service.ParticipantCaller, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) error {
 	m.lastCaller = &caller
-	return m.mintedToken, m.setAvailability(ctx, calendarID, participantID, dates, noteOverrides, preferredOverrides)
+	return m.setAvailability(ctx, calendarID, participantID, dates, noteOverrides, preferredOverrides)
 }
 
-func (m *mockService) ImportAvailability(_ context.Context, _, _ string, caller service.ParticipantCaller, _ []string) (string, error) {
+func (m *mockService) ImportAvailability(_ context.Context, _, _ string, caller service.ParticipantCaller, _ []string) error {
 	m.lastCaller = &caller
-	if m.importErr != nil {
-		return "", m.importErr
-	}
-	return m.mintedToken, nil
+	return m.importErr
 }
 
 func (m *mockService) FinaliseCalendar(ctx context.Context, calendarID, date string) (model.Calendar, error) {
@@ -117,13 +113,12 @@ func (m *mockService) RemoveParticipant(ctx context.Context, calendarID, partici
 	return m.removeParticipant(ctx, calendarID, participantID)
 }
 
-func (m *mockService) RenameParticipant(ctx context.Context, calendarID, targetParticipantID string, caller service.ParticipantCaller, name string) (model.Participant, string, error) {
+func (m *mockService) RenameParticipant(ctx context.Context, calendarID, targetParticipantID string, caller service.ParticipantCaller, name string) (model.Participant, error) {
 	m.lastCaller = &caller
 	if m.renameParticipant == nil {
-		return model.Participant{}, m.mintedToken, nil
+		return model.Participant{}, nil
 	}
-	p, err := m.renameParticipant(ctx, calendarID, targetParticipantID, caller, name)
-	return p, m.mintedToken, err
+	return m.renameParticipant(ctx, calendarID, targetParticipantID, caller, name)
 }
 
 func (m *mockService) ListUserCalendars(ctx context.Context, userID string) ([]store.CalendarListItem, bool, error) {

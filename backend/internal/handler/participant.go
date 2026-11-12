@@ -83,7 +83,7 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Anonymous joiners receive their participant token exactly once, here.
-	setMintedParticipantToken(w, token)
+	setJoinParticipantToken(w, token)
 	respondJSON(w, http.StatusCreated, p)
 }
 
@@ -123,8 +123,7 @@ func (h *Handler) RenameParticipant(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusBadRequest, "invalid_request", "signed-in users edit their email under account settings")
 			return
 		}
-		p, minted, err := h.service.UpdateParticipantEmail(r.Context(), calendarID, participantID, caller, req.Email)
-		setMintedParticipantToken(w, minted)
+		p, err := h.service.UpdateParticipantEmail(r.Context(), calendarID, participantID, caller, req.Email)
 		if err != nil {
 			switch {
 			case errors.Is(err, store.ErrNotFound):
@@ -156,8 +155,7 @@ func (h *Handler) RenameParticipant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, minted, err := h.service.RenameParticipant(r.Context(), calendarID, participantID, caller, name)
-	setMintedParticipantToken(w, minted)
+	p, err := h.service.RenameParticipant(r.Context(), calendarID, participantID, caller, name)
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
@@ -178,14 +176,7 @@ func (h *Handler) RenameParticipant(w http.ResponseWriter, r *http.Request) {
 
 	// If the caller also supplied an email, apply it as a follow-up update.
 	if req.Email != nil && userID == nil {
-		// The rename above already authorized (and, on the legacy path, minted
-		// a token); forward the minted token so the email write authorizes
-		// against the now-stored hash.
-		emailCaller := caller
-		if minted != "" {
-			emailCaller.Token = minted
-		}
-		updated, _, err := h.service.UpdateParticipantEmail(r.Context(), calendarID, participantID, emailCaller, req.Email)
+		updated, err := h.service.UpdateParticipantEmail(r.Context(), calendarID, participantID, caller, req.Email)
 		if err != nil {
 			if errors.Is(err, service.ErrInvalidEmail) {
 				respondError(w, http.StatusBadRequest, "invalid_email", "email is invalid")

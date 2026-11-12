@@ -142,7 +142,7 @@ func (s *Store) GetParticipant(ctx context.Context, id string) (model.Participan
 }
 
 // GetParticipantForAuth loads a live participant plus its stored token hash
-// (nil for user-linked rows and legacy anonymous rows). Used only by the
+// (nil for user-linked rows). Used only by the
 // service's participant-write authorization; the hash never leaves the
 // backend.
 func (s *Store) GetParticipantForAuth(ctx context.Context, id string) (model.Participant, *string, error) {
@@ -169,24 +169,6 @@ func (s *Store) GetParticipantForAuth(ctx context.Context, id string) (model.Par
 		return p, &h, nil
 	}
 	return p, nil, nil
-}
-
-// SetParticipantTokenHashIfUnset stores a token hash on a legacy participant
-// that has none yet (trust-on-first-use). Returns false if the row already
-// has a hash (another request won the race) or does not exist.
-func (s *Store) SetParticipantTokenHashIfUnset(ctx context.Context, participantID, tokenHash string) (bool, error) {
-	res, err := s.db.ExecContext(ctx,
-		`UPDATE participants SET token_hash = $1 WHERE id = $2 AND token_hash IS NULL AND deleted_at IS NULL`,
-		tokenHash, participantID,
-	)
-	if err != nil {
-		return false, fmt.Errorf("set participant token hash: %w", err)
-	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return false, fmt.Errorf("set participant token hash rows: %w", err)
-	}
-	return n == 1, nil
 }
 
 func (s *Store) ClaimParticipant(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error) {

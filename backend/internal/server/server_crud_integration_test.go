@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/freewhen/backend/internal/model"
+	"github.com/freewhen/backend/internal/store"
 )
 
 // createCalendarAuth creates a calendar as the primary test user and returns
@@ -72,7 +73,8 @@ func TestDuplicateCalendar(t *testing.T) {
 	ts := setupTestServer(t)
 	source, _ := createCalendarAuth(t, ts, "Source")
 
-	// Add a couple of extra participants so include_participants has something to copy.
+	// Two anonymous participants (not copied) and one signed-in participant
+	// (copied) so include_participants has something to filter.
 	resp, body := doJSON(t, ts, http.MethodPost, "/calendars/"+source.ID+"/participants", map[string]string{"name": "Alice"})
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("add alice: %d %s", resp.StatusCode, body)
@@ -80,6 +82,19 @@ func TestDuplicateCalendar(t *testing.T) {
 	resp, _ = doJSON(t, ts, http.MethodPost, "/calendars/"+source.ID+"/participants", map[string]string{"name": "Bob"})
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("add bob: %d", resp.StatusCode)
+	}
+	st := store.New(openTestDB(t))
+	carol, err := st.CreateUser(t.Context(), "carol@example.com", "Carol", "google", "carol-sub")
+	if err != nil {
+		t.Fatalf("create carol: %v", err)
+	}
+	carolSess, err := st.CreateSession(t.Context(), carol.ID)
+	if err != nil {
+		t.Fatalf("carol session: %v", err)
+	}
+	resp, body = doJSONRaw(t, ts, http.MethodPost, "/calendars/"+source.ID+"/participants", map[string]string{"name": "Carol"}, carolSess, nil)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("add carol: %d %s", resp.StatusCode, body)
 	}
 
 	t.Run("DefaultsCopyParticipants", func(t *testing.T) {
@@ -107,8 +122,11 @@ func TestDuplicateCalendar(t *testing.T) {
 		for _, p := range details.Participants {
 			names[p.Name] = true
 		}
-		if !names["Alice"] || !names["Bob"] {
-			t.Errorf("expected Alice+Bob copied, got %+v", details.Participants)
+		if !names["Carol"] {
+			t.Errorf("expected signed-in Carol copied, got %+v", details.Participants)
+		}
+		if names["Alice"] || names["Bob"] {
+			t.Errorf("anonymous Alice/Bob must not be copied, got %+v", details.Participants)
 		}
 	})
 

@@ -33,10 +33,8 @@ layer as follows:
   the `X-Participant-Token` request header. The token is issued once, in the
   `X-Participant-Token` **response** header of the anonymous
   `POST /calendars/{id}/participants` call. Only its SHA-256 hash is stored.
-- **Legacy anonymous participant** (joined before tokens existed): the first
-  successful write is accepted by id alone (trust-on-first-use); the server
-  mints a token, binds it to the row, and returns it in the
-  `X-Participant-Token` response header. Every later write needs it.
+  Joining is the only place a token is issued; an anonymous row with no stored
+  token can never be written.
 - **Calendar owner**: may rename / edit the email of any participant (and
   remove participants). The owner can **not** write another participant's
   availability.
@@ -246,8 +244,6 @@ Replace a participant's available dates. Sending an empty `dates` array clears a
 ```json
 {"ok": true}
 ```
-
-**Response headers:** `X-Participant-Token` when a legacy participant's first write minted a token.
 
 **Errors:** 400 (participant_id required, invalid date, note validation) | 403 (caller is not this participant) | 404 (participant not found) | 409 (calendar finalised)
 

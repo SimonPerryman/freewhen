@@ -48,56 +48,37 @@ func hashParticipantToken(raw string) string {
 //  2. Target is linked to a user → caller's session user must match.
 //  3. Target is anonymous with a stored token hash → caller's token must
 //     hash to it (constant-time compare).
-//  4. Target is anonymous with no hash (legacy row) → trust-on-first-use:
-//     mint a token, store its hash iff still unset, and return the raw token
-//     so the handler can hand it back. A caller that loses the race gets
-//     ErrForbidden.
+//  4. Target is anonymous with no hash → ErrForbidden. Tokens are issued only
+//     at join (AddParticipant), so such a row can never be written.
 //
-// Returns the target participant and, only in case 4, the newly minted raw
-// token. Returns store.ErrNotFound when the target does not exist on this
-// calendar.
-func (s *Service) authorizeParticipantWrite(ctx context.Context, cal model.Calendar, targetID string, caller ParticipantCaller, ownerAllowed bool) (model.Participant, string, error) {
+// Returns the target participant, or store.ErrNotFound when the target does
+// not exist on this calendar.
+func (s *Service) authorizeParticipantWrite(ctx context.Context, cal model.Calendar, targetID string, caller ParticipantCaller, ownerAllowed bool) (model.Participant, error) {
 	target, tokenHash, err := s.store.GetParticipantForAuth(ctx, targetID)
 	if err != nil {
-		return model.Participant{}, "", err
+		return model.Participant{}, err
 	}
 	if target.CalendarID != cal.ID {
-		return model.Participant{}, "", store.ErrNotFound
+		return model.Participant{}, store.ErrNotFound
 	}
 
 	if ownerAllowed && caller.UserID != nil && *caller.UserID == cal.OwnerID {
-		return target, "", nil
+		return target, nil
 	}
 
 	if target.UserID != nil {
 		if caller.UserID != nil && *caller.UserID == *target.UserID {
-			return target, "", nil
+			return target, nil
 		}
-		return model.Participant{}, "", ErrForbidden
+		return model.Participant{}, ErrForbidden
 	}
 
-	if tokenHash != nil {
-		if caller.Token == "" {
-			return model.Participant{}, "", ErrForbidden
-		}
-		got := hashParticipantToken(caller.Token)
-		if subtle.ConstantTimeCompare([]byte(got), []byte(*tokenHash)) != 1 {
-			return model.Participant{}, "", ErrForbidden
-		}
-		return target, "", nil
+	if tokenHash == nil || caller.Token == "" {
+		return model.Participant{}, ErrForbidden
 	}
-
-	// Legacy anonymous row: trust-on-first-use.
-	raw, hash, err := newParticipantToken()
-	if err != nil {
-		return model.Participant{}, "", err
+	got := hashParticipantToken(caller.Token)
+	if subtle.ConstantTimeCompare([]byte(got), []byte(*tokenHash)) != 1 {
+		return model.Participant{}, ErrForbidden
 	}
-	ok, err := s.store.SetParticipantTokenHashIfUnset(ctx, targetID, hash)
-	if err != nil {
-		return model.Participant{}, "", err
-	}
-	if !ok {
-		return model.Participant{}, "", ErrForbidden
-	}
-	return target, raw, nil
+	return target, nil
 }

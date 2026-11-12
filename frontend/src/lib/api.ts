@@ -111,13 +111,11 @@ async function request<T>(
     headers,
   });
 
-  // The backend hands out a participant token on anonymous join, and on the
-  // first write by a participant created before tokens existed. Save it
-  // regardless of status: on the legacy path the token is already bound
-  // server-side even if the write itself then failed.
+  // The backend hands out a participant token only on anonymous join. Save
+  // it whenever the header is present.
   if (calendarId) {
-    const minted = response.headers?.get?.(PARTICIPANT_TOKEN_HEADER);
-    if (minted) setParticipantToken(calendarId, minted);
+    const issued = response.headers?.get?.(PARTICIPANT_TOKEN_HEADER);
+    if (issued) setParticipantToken(calendarId, issued);
   }
 
   if (!response.ok) {

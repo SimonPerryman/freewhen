@@ -38,8 +38,8 @@ func (s *Server) cors(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Origin", s.corsOrigin)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Calendar-Access, X-Participant-Token")
-		// Expose the minted participant token (anonymous join / legacy
-		// trust-on-first-use) and the request id to cross-origin JS.
+		// Expose the participant token issued on anonymous join and the
+		// request id to cross-origin JS.
 		w.Header().Set("Access-Control-Expose-Headers", "X-Request-ID, X-Participant-Token")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 

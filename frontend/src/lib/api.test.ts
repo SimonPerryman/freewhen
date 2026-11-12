@@ -77,17 +77,6 @@ describe("participant token", () => {
     expect(headersOf(0)["X-Participant-Token"]).toBe("tok-abc");
   });
 
-  it("saves a token minted on a legacy participant's first write", async () => {
-    mockFetch.mockResolvedValue({
-      ...jsonResponse({ ok: true }),
-      headers: new Headers({ "X-Participant-Token": "tofu-tok" }),
-    });
-
-    await setAvailability("abc", { participantId: "legacy", dates: [] });
-
-    expect(getParticipantToken("abc")).toBe("tofu-tok");
-  });
-
   it("replaces an older token when a new one is issued", async () => {
     setParticipantToken("abc", "old");
     mockFetch.mockResolvedValue({

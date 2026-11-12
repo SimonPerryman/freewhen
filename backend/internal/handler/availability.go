@@ -102,9 +102,7 @@ func (h *Handler) SetAvailability(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	minted, err := h.service.SetAvailability(r.Context(), calendarID, req.ParticipantID, participantCaller(r), req.Dates, noteOverrides, preferredOverrides)
-	setMintedParticipantToken(w, minted)
-	if err != nil {
+	if err := h.service.SetAvailability(r.Context(), calendarID, req.ParticipantID, participantCaller(r), req.Dates, noteOverrides, preferredOverrides); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			respondCalendarMissing(r, w, h.service, calendarID)
 			return
@@ -172,9 +170,7 @@ func (h *Handler) ImportAvailability(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	minted, err := h.service.ImportAvailability(r.Context(), calendarID, req.ParticipantID, participantCaller(r), req.Days)
-	setMintedParticipantToken(w, minted)
-	if err != nil {
+	if err := h.service.ImportAvailability(r.Context(), calendarID, req.ParticipantID, participantCaller(r), req.Days); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			respondCalendarMissing(r, w, h.service, calendarID)
 			return
