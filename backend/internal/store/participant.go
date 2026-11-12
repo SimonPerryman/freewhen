@@ -38,6 +38,18 @@ func normaliseEmail(email *string) *string {
 }
 
 func (s *Store) AddParticipant(ctx context.Context, calendarID, name string, userID *string, email *string) (model.Participant, error) {
+	return s.AddParticipantWithTokenHash(ctx, calendarID, name, userID, email, nil)
+}
+
+// AddParticipantWithTokenHash inserts a participant and, in the same INSERT,
+// stores the SHA-256 hex digest of its participant token (anonymous joiners).
+// A nil tokenHash leaves the column NULL — used for user-linked participants,
+// which authorize via session instead.
+func (s *Store) AddParticipantWithTokenHash(ctx context.Context, calendarID, name string, userID *string, email *string, tokenHash *string) (model.Participant, error) {
+	var tokenHashVal any
+	if tokenHash != nil {
+		tokenHashVal = *tokenHash
+	}
 	var exists bool
 	var finalisedDate sql.NullString
 	err := s.db.QueryRowContext(ctx,
@@ -75,9 +87,9 @@ func (s *Store) AddParticipant(ctx context.Context, calendarID, name string, use
 		var scannedUserID sql.NullString
 		var scannedEmail sql.NullString
 		err := s.db.QueryRowContext(ctx,
-			`INSERT INTO participants (id, calendar_id, name, colour, user_id, email) VALUES ($1, $2, $3, $4, $5, $6)
+			`INSERT INTO participants (id, calendar_id, name, colour, user_id, email, token_hash) VALUES ($1, $2, $3, $4, $5, $6, $7)
 			 RETURNING id, calendar_id, name, colour, user_id, email`,
-			id, calendarID, name, colour, userIDVal, emailVal,
+			id, calendarID, name, colour, userIDVal, emailVal, tokenHashVal,
 		).Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &scannedUserID, &scannedEmail)
 		if err != nil {
 			if isUniqueViolation(err) {
@@ -127,6 +139,54 @@ func (s *Store) GetParticipant(ctx context.Context, id string) (model.Participan
 		p.Email = &e
 	}
 	return p, nil
+}
+
+// GetParticipantForAuth loads a live participant plus its stored token hash
+// (nil for user-linked rows and legacy anonymous rows). Used only by the
+// service's participant-write authorization; the hash never leaves the
+// backend.
+func (s *Store) GetParticipantForAuth(ctx context.Context, id string) (model.Participant, *string, error) {
+	var p model.Participant
+	var userID, email, tokenHash sql.NullString
+	err := s.db.QueryRowContext(ctx,
+		`SELECT id, calendar_id, name, colour, user_id, email, token_hash FROM participants WHERE id = $1 AND deleted_at IS NULL`, id,
+	).Scan(&p.ID, &p.CalendarID, &p.Name, &p.Colour, &userID, &email, &tokenHash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.Participant{}, nil, ErrNotFound
+		}
+		return model.Participant{}, nil, fmt.Errorf("get participant for auth: %w", err)
+	}
+	if userID.Valid {
+		p.UserID = &userID.String
+	}
+	if email.Valid {
+		e := email.String
+		p.Email = &e
+	}
+	if tokenHash.Valid {
+		h := tokenHash.String
+		return p, &h, nil
+	}
+	return p, nil, nil
+}
+
+// SetParticipantTokenHashIfUnset stores a token hash on a legacy participant
+// that has none yet (trust-on-first-use). Returns false if the row already
+// has a hash (another request won the race) or does not exist.
+func (s *Store) SetParticipantTokenHashIfUnset(ctx context.Context, participantID, tokenHash string) (bool, error) {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE participants SET token_hash = $1 WHERE id = $2 AND token_hash IS NULL AND deleted_at IS NULL`,
+		tokenHash, participantID,
+	)
+	if err != nil {
+		return false, fmt.Errorf("set participant token hash: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("set participant token hash rows: %w", err)
+	}
+	return n == 1, nil
 }
 
 func (s *Store) ClaimParticipant(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error) {

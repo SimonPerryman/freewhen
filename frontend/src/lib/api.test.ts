@@ -9,8 +9,12 @@ import {
   unfinaliseCalendar,
   renameParticipant,
   verifyMagicLink,
+  updateParticipantEmail,
+  importAvailabilityDays,
+  claimParticipant,
   ApiError,
 } from "./api";
+import { getParticipantToken, setParticipantToken } from "./participantToken";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -26,6 +30,75 @@ function jsonResponse(body: unknown, status = 200) {
 
 beforeEach(() => {
   mockFetch.mockReset();
+  localStorage.clear();
+});
+
+describe("participant token", () => {
+  function headersOf(call: number): Record<string, string> {
+    return (mockFetch.mock.calls[call][1] as { headers: Record<string, string> }).headers;
+  }
+
+  it("stores the token returned on anonymous join, keyed by calendar", async () => {
+    mockFetch.mockResolvedValue({
+      ...jsonResponse({ id: "p1", calendar_id: "abc", name: "Alice", colour: "#ff0000" }, 201),
+      headers: new Headers({ "X-Participant-Token": "tok-abc" }),
+    });
+
+    await addParticipant("abc", { name: "Alice" });
+
+    expect(getParticipantToken("abc")).toBe("tok-abc");
+    expect(getParticipantToken("other")).toBeNull();
+  });
+
+  it("sends the stored token on participant-scoped writes for that calendar only", async () => {
+    setParticipantToken("abc", "tok-abc");
+    mockFetch.mockResolvedValue(jsonResponse({ ok: true }));
+
+    await setAvailability("abc", { participantId: "p1", dates: [] });
+    await renameParticipant("abc", "p1", "Alicia");
+    await updateParticipantEmail("abc", "p1", null);
+    await importAvailabilityDays("abc", "p1", []);
+    await setAvailability("xyz", { participantId: "p9", dates: [] });
+
+    for (let i = 0; i < 4; i++) {
+      expect(headersOf(i)["X-Participant-Token"]).toBe("tok-abc");
+    }
+    expect(headersOf(4)["X-Participant-Token"]).toBeUndefined();
+  });
+
+  it("sends the token (and calendar access) on claim", async () => {
+    setParticipantToken("abc", "tok-abc");
+    mockFetch.mockResolvedValue(
+      jsonResponse({ id: "p1", calendar_id: "abc", name: "Alice", colour: "#ff0000" }),
+    );
+
+    await claimParticipant("abc", "p1");
+
+    expect(headersOf(0)["X-Participant-Token"]).toBe("tok-abc");
+  });
+
+  it("saves a token minted on a legacy participant's first write", async () => {
+    mockFetch.mockResolvedValue({
+      ...jsonResponse({ ok: true }),
+      headers: new Headers({ "X-Participant-Token": "tofu-tok" }),
+    });
+
+    await setAvailability("abc", { participantId: "legacy", dates: [] });
+
+    expect(getParticipantToken("abc")).toBe("tofu-tok");
+  });
+
+  it("replaces an older token when a new one is issued", async () => {
+    setParticipantToken("abc", "old");
+    mockFetch.mockResolvedValue({
+      ...jsonResponse({ id: "p2", calendar_id: "abc", name: "Bob", colour: "#ff0000" }, 201),
+      headers: new Headers({ "X-Participant-Token": "new" }),
+    });
+
+    await addParticipant("abc", { name: "Bob" });
+
+    expect(getParticipantToken("abc")).toBe("new");
+  });
 });
 
 describe("createCalendar", () => {
@@ -246,13 +319,15 @@ describe("renameParticipant", () => {
       jsonResponse({ id: "p1", calendar_id: "abc", name: "Alicia", colour: "#ff0000" }),
     );
 
-    const result = await renameParticipant("abc", "p1", "Alicia", "p1");
+    const result = await renameParticipant("abc", "p1", "Alicia");
 
+    // No participant_id in the body: identity comes from the session or the
+    // X-Participant-Token header, never a caller-supplied id.
     expect(mockFetch).toHaveBeenCalledWith("http://localhost:8080/calendars/abc/participants/p1", {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "Alicia", participant_id: "p1" }),
+      body: JSON.stringify({ name: "Alicia" }),
     });
     expect(result.name).toBe("Alicia");
   });
@@ -263,7 +338,7 @@ describe("renameParticipant", () => {
     );
 
     try {
-      await renameParticipant("abc", "p1", "Alicia", "p1");
+      await renameParticipant("abc", "p1", "Alicia");
       expect.fail("expected ApiError");
     } catch (err) {
       expect(err).toBeInstanceOf(ApiError);

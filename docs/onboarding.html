@@ -386,6 +386,7 @@ erDiagram
     text colour
     uuid user_id FK
     text email
+    text token_hash
     ts   deleted_at
   }
   AVAILABILITY {
@@ -413,6 +414,7 @@ erDiagram
   <h3 class="kicker">Subtleties worth knowing</h3>
   <ul class="tight">
     <li><strong>Anonymous participants</strong> — <code>participants.user_id</code> can be NULL. A signed-in user can later <em>claim</em> a participant, linking it to their account.</li>
+    <li><strong>Participant ids are public, not credentials</strong> — writes to a participant row (availability, rename, email, claim) are authorised in <code>service.authorizeParticipantWrite</code>: linked rows need the matching session user; anonymous rows need the secret issued once at join in the <code>X-Participant-Token</code> response header (only its SHA-256 lands in <code>participants.token_hash</code>). The frontend keeps it in <code>localStorage["freewhen:participantTokens"]</code> and <code>request()</code> sends it back. Rows from before tokens existed (<code>token_hash</code> NULL) are trust-on-first-use: the first write mints a token. The owner can rename/remove anyone but cannot write others' availability.</li>
     <li><strong>Passphrase rotation</strong> — bumping <code>access_epoch</code> invalidates every previously-issued access token (the HMAC includes the epoch).</li>
     <li><strong>Sliding + absolute session expiry</strong> — each request advances <code>expires_at</code> up to 30d, but never past <code>absolute_expires_at</code> (created_at + 90d).</li>
   </ul>
@@ -470,10 +472,10 @@ erDiagram
       <tbody>
         <tr><td class="method">POST</td><td class="path">/calendars/{id}/participants</td><td><span class="pill opt">opt</span></td><td>Join (anon or signed-in)</td></tr>
         <tr><td class="method">DELETE</td><td class="path">/calendars/{id}/participants/me</td><td><span class="pill auth">auth</span></td><td>Leave</td></tr>
-        <tr><td class="method">PATCH</td><td class="path">/calendars/{id}/participants/{pid}</td><td><span class="pill opt">opt</span></td><td>Rename (passphrase-gated)</td></tr>
-        <tr><td class="method">POST</td><td class="path">/calendars/{id}/participants/{pid}/claim</td><td><span class="pill auth">auth</span></td><td>Link anonymous row to user</td></tr>
+        <tr><td class="method">PATCH</td><td class="path">/calendars/{id}/participants/{pid}</td><td><span class="pill opt">opt</span></td><td>Rename / email (self via session or <code>X-Participant-Token</code>, or owner; passphrase-gated)</td></tr>
+        <tr><td class="method">POST</td><td class="path">/calendars/{id}/participants/{pid}/claim</td><td><span class="pill auth">auth</span></td><td>Link anonymous row to user (needs its participant token; passphrase-gated)</td></tr>
         <tr><td class="method">DELETE</td><td class="path">/calendars/{id}/participants/{pid}</td><td><span class="pill owner">owner</span></td><td>Remove</td></tr>
-        <tr><td class="method">PUT</td><td class="path">/calendars/{id}/availability</td><td><span class="pill opt">opt</span></td><td>Replace dates / notes / preferred</td></tr>
+        <tr><td class="method">PUT</td><td class="path">/calendars/{id}/availability</td><td><span class="pill opt">opt</span></td><td>Replace dates / notes / preferred (self only — session or <code>X-Participant-Token</code>)</td></tr>
       </tbody>
     </table>
   </div>

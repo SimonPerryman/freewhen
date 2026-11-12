@@ -19,6 +19,34 @@ Session-based auth with HTTP-only cookies. Creator must sign in to create a cale
 | GET | `/auth/me` | Session | Return current user or 401 |
 | POST | `/auth/logout` | Session | Delete session, clear cookie |
 
+## Participant authorization
+
+Participant ids are public (they appear in `GET /calendars/{id}`), so they are
+never proof of identity. Every write that targets a participant row —
+`PUT /availability`, `POST /availability/import`,
+`PATCH /participants/{participantId}` (name / email) and
+`POST /participants/{participantId}/claim` — is authorized by the service
+layer as follows:
+
+- **Linked participant** (`user_id` set): the session user must be that user.
+- **Anonymous participant**: the request must carry the participant's secret in
+  the `X-Participant-Token` request header. The token is issued once, in the
+  `X-Participant-Token` **response** header of the anonymous
+  `POST /calendars/{id}/participants` call. Only its SHA-256 hash is stored.
+- **Legacy anonymous participant** (joined before tokens existed): the first
+  successful write is accepted by id alone (trust-on-first-use); the server
+  mints a token, binds it to the row, and returns it in the
+  `X-Participant-Token` response header. Every later write needs it.
+- **Calendar owner**: may rename / edit the email of any participant (and
+  remove participants). The owner can **not** write another participant's
+  availability.
+
+A rejected write returns **403** `{"code": "forbidden"}`. The `participant_id`
+body field on `PATCH /participants/{participantId}` is ignored.
+
+CORS allows the `X-Participant-Token` request header and exposes it (and
+`X-Request-ID`) on responses.
+
 ## Calendars
 
 | Method | Path | Auth | Description |
@@ -26,8 +54,10 @@ Session-based auth with HTTP-only cookies. Creator must sign in to create a cale
 | POST | `/calendars` | Required | Create a calendar (sets owner_id, auto-joins owner as participant) |
 | GET | `/calendars/{id}` | — | Get calendar with participants and availability |
 | POST | `/calendars/{id}/participants` | Optional | Join a calendar (auto-links user_id if signed in) |
-| POST | `/calendars/{id}/participants/{participantId}/claim` | Required | Link an anonymous participant to the authenticated user |
-| PUT | `/calendars/{id}/availability` | — | Update availability |
+| POST | `/calendars/{id}/participants/{participantId}/claim` | Required + participant token | Link an anonymous participant to the authenticated user |
+| PATCH | `/calendars/{id}/participants/{participantId}` | Self or owner | Rename a participant / set or clear an anonymous participant's email |
+| PUT | `/calendars/{id}/availability` | Self | Update availability (see [Participant authorization](#participant-authorization)) |
+| POST | `/calendars/{id}/availability/import` | Required + self | Merge imported dates into the caller's own availability |
 | POST | `/calendars/{id}/finalise` | Owner | Lock the calendar to a chosen date |
 | DELETE | `/calendars/{id}/finalise` | Owner | Clear the locked date, reopen the calendar |
 | GET | `/calendars/{id}/missing` | Owner | Returns invite list + "Not joined" / "Joined but not responded" buckets |
@@ -151,13 +181,15 @@ Add a participant to a calendar. If the user is signed in (session cookie presen
 }
 ```
 
+**Response headers:** for an anonymous join, `X-Participant-Token: <secret>`. This is the only time the token is returned; the client must store it and send it back on writes for this participant. Signed-in joiners get no token (their session authorizes them).
+
 **Errors:** 400 (name required, invalid JSON) | 404 (calendar not found) | 409 (name taken, calendar finalised, user already joined)
 
 ---
 
 ### POST /calendars/{id}/participants/{participantId}/claim
 
-Link an anonymous participant to the authenticated user. Used when a user joins anonymously and later signs in. The participant must not already be linked to another user.
+Link an anonymous participant to the authenticated user. Used when a user joins anonymously and later signs in. The participant must not already be linked to another user, and the caller must prove they hold it: send the participant's `X-Participant-Token` (legacy rows without a token follow the trust-on-first-use rule). Subject to the calendar passphrase gate (`X-Calendar-Access`). The response never includes the participant's stored `email`.
 
 **Response 200**
 
@@ -171,13 +203,13 @@ Link an anonymous participant to the authenticated user. Used when a user joins 
 }
 ```
 
-**Errors:** 401 (not authenticated) | 404 (participant not found) | 409 (already linked, user already joined)
+**Errors:** 401 (not authenticated, passphrase required) | 403 (missing or wrong participant token) | 404 (participant not found) | 409 (already linked, user already joined)
 
 ---
 
 ### PUT /calendars/{id}/availability
 
-Replace a participant's available dates. Sending an empty `dates` array clears availability.
+Replace a participant's available dates. Sending an empty `dates` array clears availability. `participant_id` names the target row; the caller must be that participant (session for linked rows, `X-Participant-Token` for anonymous rows — see [Participant authorization](#participant-authorization)).
 
 **Request**
 
@@ -215,7 +247,9 @@ Replace a participant's available dates. Sending an empty `dates` array clears a
 {"ok": true}
 ```
 
-**Errors:** 400 (participant_id required, invalid date, note validation) | 404 (participant not found) | 409 (calendar finalised)
+**Response headers:** `X-Participant-Token` when a legacy participant's first write minted a token.
+
+**Errors:** 400 (participant_id required, invalid date, note validation) | 403 (caller is not this participant) | 404 (participant not found) | 409 (calendar finalised)
 
 ---
 

@@ -48,7 +48,7 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 		email = nil
 	}
 
-	p, err := h.service.AddParticipant(r.Context(), calendarID, req.Name, userID, email)
+	p, token, err := h.service.AddParticipant(r.Context(), calendarID, req.Name, userID, email)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			respondCalendarMissing(r, w, h.service, calendarID)
@@ -82,12 +82,15 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Anonymous joiners receive their participant token exactly once, here.
+	setMintedParticipantToken(w, token)
 	respondJSON(w, http.StatusCreated, p)
 }
 
 // RenameParticipant handles PATCH /calendars/{id}/participants/{participantId}.
-// Accepts a name and (optionally) the caller's own participant_id; see
-// service.RenameParticipant for the authorization rules.
+// Accepts a name and/or email. The caller is identified by session and the
+// X-Participant-Token header (any `participant_id` body field is ignored);
+// see service.authorizeParticipantWrite for the rules.
 func (h *Handler) RenameParticipant(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
@@ -99,19 +102,16 @@ func (h *Handler) RenameParticipant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Name          *string `json:"name"`
-		Email         *string `json:"email"`
-		ParticipantID string  `json:"participant_id"`
+		Name  *string `json:"name"`
+		Email *string `json:"email"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid_json", "invalid JSON")
 		return
 	}
 
-	var userID *string
-	if user := UserFromContext(r); user != nil {
-		userID = &user.ID
-	}
+	caller := participantCaller(r)
+	userID := caller.UserID
 
 	// Email-only updates skip the rename / finalise guards — clearing or
 	// setting your contact address is allowed even after the calendar locks.
@@ -123,7 +123,8 @@ func (h *Handler) RenameParticipant(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusBadRequest, "invalid_request", "signed-in users edit their email under account settings")
 			return
 		}
-		p, err := h.service.UpdateParticipantEmail(r.Context(), calendarID, participantID, userID, req.ParticipantID, req.Email)
+		p, minted, err := h.service.UpdateParticipantEmail(r.Context(), calendarID, participantID, caller, req.Email)
+		setMintedParticipantToken(w, minted)
 		if err != nil {
 			switch {
 			case errors.Is(err, store.ErrNotFound):
@@ -155,7 +156,8 @@ func (h *Handler) RenameParticipant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, err := h.service.RenameParticipant(r.Context(), calendarID, participantID, userID, req.ParticipantID, name)
+	p, minted, err := h.service.RenameParticipant(r.Context(), calendarID, participantID, caller, name)
+	setMintedParticipantToken(w, minted)
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
@@ -176,7 +178,14 @@ func (h *Handler) RenameParticipant(w http.ResponseWriter, r *http.Request) {
 
 	// If the caller also supplied an email, apply it as a follow-up update.
 	if req.Email != nil && userID == nil {
-		updated, err := h.service.UpdateParticipantEmail(r.Context(), calendarID, participantID, userID, req.ParticipantID, req.Email)
+		// The rename above already authorized (and, on the legacy path, minted
+		// a token); forward the minted token so the email write authorizes
+		// against the now-stored hash.
+		emailCaller := caller
+		if minted != "" {
+			emailCaller.Token = minted
+		}
+		updated, _, err := h.service.UpdateParticipantEmail(r.Context(), calendarID, participantID, emailCaller, req.Email)
 		if err != nil {
 			if errors.Is(err, service.ErrInvalidEmail) {
 				respondError(w, http.StatusBadRequest, "invalid_email", "email is invalid")
@@ -201,10 +210,18 @@ func (h *Handler) ClaimParticipant(w http.ResponseWriter, r *http.Request) {
 	calendarID := r.PathValue("id")
 	participantID := r.PathValue("participantId")
 
-	p, err := h.service.ClaimParticipant(r.Context(), calendarID, participantID, user.ID)
+	if ok, _ := h.requireCalendarAccess(w, r, calendarID); !ok {
+		return
+	}
+
+	p, err := h.service.ClaimParticipant(r.Context(), calendarID, participantID, participantCaller(r))
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			respondCalendarMissing(r, w, h.service, calendarID)
+			return
+		}
+		if errors.Is(err, service.ErrForbidden) {
+			respondError(w, http.StatusForbidden, "forbidden", "not allowed to claim this participant")
 			return
 		}
 		if errors.Is(err, store.ErrAlreadyLinked) {
@@ -219,5 +236,8 @@ func (h *Handler) ClaimParticipant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Once linked, the participant's contact address resolves via users.email;
+	// never echo the stored per-participant email back.
+	p.Email = nil
 	respondJSON(w, http.StatusOK, p)
 }

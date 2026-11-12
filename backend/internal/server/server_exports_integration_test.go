@@ -180,7 +180,9 @@ func TestExportEnrichedDescription(t *testing.T) {
 		if notes != nil {
 			payload["notes"] = notes
 		}
-		resp, body := doJSON(t, ts, http.MethodPut, "/calendars/"+cal.ID+"/availability", payload)
+		// Session authorizes the owner's linked row; anonymous rows are
+		// authorized by the participant token doJSON* replays.
+		resp, body := doJSONAuth(t, ts, http.MethodPut, "/calendars/"+cal.ID+"/availability", payload)
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("set availability for %s: %d %s", p.Name, resp.StatusCode, body)
 		}
@@ -266,7 +268,9 @@ func TestExportDescriptionNoNotes(t *testing.T) {
 	decodeJSON(t, body, &createResp)
 	cal := createResp.Calendar
 
-	resp, _ := doJSON(t, ts, http.MethodPut, "/calendars/"+cal.ID+"/availability", map[string]any{
+	// The owner's participant row is user-linked, so the write needs the
+	// owner's session.
+	resp, _ := doJSONAuth(t, ts, http.MethodPut, "/calendars/"+cal.ID+"/availability", map[string]any{
 		"participant_id": createResp.Participant.ID,
 		"dates":          []string{"2026-06-01"},
 	})

@@ -21,6 +21,11 @@ import {
   setCalendarAccessToken,
 } from "./calendarAccess";
 import { API_BASE_URL } from "./config";
+import {
+  PARTICIPANT_TOKEN_HEADER,
+  getParticipantToken,
+  setParticipantToken,
+} from "./participantToken";
 
 const ACCESS_HEADER = "X-Calendar-Access";
 
@@ -96,6 +101,8 @@ async function request<T>(
   if (calendarId) {
     const token = getCalendarAccessToken(calendarId);
     if (token) headers[ACCESS_HEADER] = token;
+    const participantToken = getParticipantToken(calendarId);
+    if (participantToken) headers[PARTICIPANT_TOKEN_HEADER] = participantToken;
   }
 
   const response = await fetch(`${BASE_URL}${path}`, {
@@ -103,6 +110,15 @@ async function request<T>(
     credentials: "include",
     headers,
   });
+
+  // The backend hands out a participant token on anonymous join, and on the
+  // first write by a participant created before tokens existed. Save it
+  // regardless of status: on the legacy path the token is already bound
+  // server-side even if the write itself then failed.
+  if (calendarId) {
+    const minted = response.headers?.get?.(PARTICIPANT_TOKEN_HEADER);
+    if (minted) setParticipantToken(calendarId, minted);
+  }
 
   if (!response.ok) {
     // A 401 on a calendar-scoped request means the stored token is no longer
@@ -233,15 +249,17 @@ export async function renameCalendar(calendarId: string, name: string): Promise<
   return updateCalendar(calendarId, { name });
 }
 
+// renameParticipant renames a participant. The caller is identified by the
+// session cookie (signed-in / owner) or the stored participant token
+// (anonymous self-rename), which `request()` attaches automatically.
 export async function renameParticipant(
   calendarId: string,
   participantId: string,
   name: string,
-  callerParticipantId: string | null,
 ): Promise<Participant> {
   return request<Participant>(`/calendars/${calendarId}/participants/${participantId}`, {
     method: "PATCH",
-    body: JSON.stringify({ name, participant_id: callerParticipantId ?? "" }),
+    body: JSON.stringify({ name }),
     calendarId,
   });
 }
@@ -253,11 +271,10 @@ export async function updateParticipantEmail(
   calendarId: string,
   participantId: string,
   email: string | null,
-  callerParticipantId: string | null,
 ): Promise<Participant> {
   return request<Participant>(`/calendars/${calendarId}/participants/${participantId}`, {
     method: "PATCH",
-    body: JSON.stringify({ email: email ?? "", participant_id: callerParticipantId ?? "" }),
+    body: JSON.stringify({ email: email ?? "" }),
     calendarId,
   });
 }
@@ -366,8 +383,11 @@ export async function claimParticipant(
   calendarId: string,
   participantId: string,
 ): Promise<Participant> {
+  // calendarId attaches the passphrase access token and the participant token
+  // that proves this browser owns the row being claimed.
   return request<Participant>(`/calendars/${calendarId}/participants/${participantId}/claim`, {
     method: "POST",
+    calendarId,
   });
 }
 

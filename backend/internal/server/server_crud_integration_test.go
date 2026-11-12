@@ -229,8 +229,8 @@ func TestRenameParticipant(t *testing.T) {
 		t.Errorf("blank: expected 400, got %d", resp.StatusCode)
 	}
 
-	// Anonymous caller asserting their own participant_id → 200.
-	// Add a second anonymous participant so we can use their own ID.
+	// Anonymous caller holding their own participant token → 200 (doJSON
+	// replays the token issued at join). Add a second anonymous participant.
 	resp, body = doJSON(t, ts, http.MethodPost, "/calendars/"+cal.ID+"/participants", map[string]string{"name": "Bob"})
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("add bob: %d %s", resp.StatusCode, body)
@@ -239,18 +239,19 @@ func TestRenameParticipant(t *testing.T) {
 	decodeJSON(t, body, &bob)
 
 	resp, body = doJSON(t, ts, http.MethodPatch, "/calendars/"+cal.ID+"/participants/"+bob.ID, map[string]string{
-		"name":           "Robert",
-		"participant_id": bob.ID,
+		"name": "Robert",
 	})
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("anon self-rename: %d %s", resp.StatusCode, body)
 	}
 
-	// Anonymous caller without proving identity → 403.
-	resp, _ = doJSON(t, ts, http.MethodPatch, "/calendars/"+cal.ID+"/participants/"+bob.ID, map[string]string{
-		"name": "Hacker",
-	})
+	// Anonymous caller without a token → 403, even when the body claims to
+	// be bob (the legacy participant_id field is ignored).
+	resp, _ = doJSONRaw(t, ts, http.MethodPatch, "/calendars/"+cal.ID+"/participants/"+bob.ID, map[string]string{
+		"name":           "Hacker",
+		"participant_id": bob.ID,
+	}, "", nil)
 	if resp.StatusCode != http.StatusForbidden {
-		t.Errorf("anon no-id: expected 403, got %d", resp.StatusCode)
+		t.Errorf("anon no-token: expected 403, got %d", resp.StatusCode)
 	}
 }

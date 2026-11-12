@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/freewhen/backend/internal/limits"
+	"github.com/freewhen/backend/internal/service"
 	"github.com/freewhen/backend/internal/store"
 )
 
@@ -101,10 +102,15 @@ func (h *Handler) SetAvailability(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err := h.service.SetAvailability(r.Context(), calendarID, req.ParticipantID, req.Dates, noteOverrides, preferredOverrides)
+	minted, err := h.service.SetAvailability(r.Context(), calendarID, req.ParticipantID, participantCaller(r), req.Dates, noteOverrides, preferredOverrides)
+	setMintedParticipantToken(w, minted)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			respondCalendarMissing(r, w, h.service, calendarID)
+			return
+		}
+		if errors.Is(err, service.ErrForbidden) {
+			respondError(w, http.StatusForbidden, "forbidden", "not allowed to edit this participant")
 			return
 		}
 		if errors.Is(err, store.ErrCalendarFinalised) {
@@ -166,9 +172,15 @@ func (h *Handler) ImportAvailability(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := h.service.ImportAvailability(r.Context(), calendarID, req.ParticipantID, req.Days); err != nil {
+	minted, err := h.service.ImportAvailability(r.Context(), calendarID, req.ParticipantID, participantCaller(r), req.Days)
+	setMintedParticipantToken(w, minted)
+	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			respondCalendarMissing(r, w, h.service, calendarID)
+			return
+		}
+		if errors.Is(err, service.ErrForbidden) {
+			respondError(w, http.StatusForbidden, "forbidden", "not allowed to edit this participant")
 			return
 		}
 		if errors.Is(err, store.ErrCalendarFinalised) {

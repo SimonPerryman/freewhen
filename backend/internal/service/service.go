@@ -49,7 +49,9 @@ type Store interface {
 	GetCalendar(ctx context.Context, id string) (model.CalendarWithDetails, error)
 	GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error)
 	GetUser(ctx context.Context, id string) (model.User, error)
-	AddParticipant(ctx context.Context, calendarID, name string, userID *string, email *string) (model.Participant, error)
+	AddParticipantWithTokenHash(ctx context.Context, calendarID, name string, userID *string, email *string, tokenHash *string) (model.Participant, error)
+	GetParticipantForAuth(ctx context.Context, id string) (model.Participant, *string, error)
+	SetParticipantTokenHashIfUnset(ctx context.Context, participantID, tokenHash string) (bool, error)
 	UpdateParticipantEmail(ctx context.Context, calendarID, participantID string, email *string) (model.Participant, error)
 	ClearParticipantEmailByID(ctx context.Context, participantID string) error
 	GetParticipant(ctx context.Context, id string) (model.Participant, error)
@@ -198,75 +200,100 @@ type Viewer struct {
 	UserID *string
 }
 
-func (s *Service) AddParticipant(ctx context.Context, calendarID, name string, userID *string, email *string) (model.Participant, error) {
+// AddParticipant joins a participant to a calendar. Anonymous joiners
+// (userID == nil) are issued a participant token: only its hash is stored and
+// the raw value is returned here exactly once, for the handler to pass back to
+// the browser. Signed-in joiners get "" — they authorize by session.
+func (s *Service) AddParticipant(ctx context.Context, calendarID, name string, userID *string, email *string) (model.Participant, string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return model.Participant{}, ErrInvalidName
+		return model.Participant{}, "", ErrInvalidName
 	}
 	if len(name) > limits.MaxParticipantNameLength {
-		return model.Participant{}, ErrInvalidName
+		return model.Participant{}, "", ErrInvalidName
 	}
 	if email != nil && *email != "" && !strings.Contains(*email, "@") {
-		return model.Participant{}, ErrInvalidEmail
+		return model.Participant{}, "", ErrInvalidEmail
 	}
 	count, err := s.store.CountCalendarParticipants(ctx, calendarID)
 	if err != nil {
-		return model.Participant{}, err
+		return model.Participant{}, "", err
 	}
 	if count >= limits.MaxParticipantsPerCalendar {
-		return model.Participant{}, store.ErrCalendarFull
+		return model.Participant{}, "", store.ErrCalendarFull
 	}
-	p, err := s.store.AddParticipant(ctx, calendarID, name, userID, email)
+	var rawToken string
+	var tokenHash *string
+	if userID == nil {
+		raw, hash, err := newParticipantToken()
+		if err != nil {
+			return model.Participant{}, "", err
+		}
+		rawToken, tokenHash = raw, &hash
+	}
+	p, err := s.store.AddParticipantWithTokenHash(ctx, calendarID, name, userID, email, tokenHash)
 	if err != nil {
-		return model.Participant{}, err
+		return model.Participant{}, "", err
 	}
 	s.touch(ctx, calendarID)
 	s.pub.Publish(calendarID, realtime.EventParticipantJoined)
-	return p, nil
+	return p, rawToken, nil
 }
 
 // UpdateParticipantEmail sets or clears the participant's contact email.
-// Authorization mirrors RenameParticipant: owner, self (via callerParticipantID
-// matching), or signed-in user matching the participant's user_id.
-func (s *Service) UpdateParticipantEmail(ctx context.Context, calendarID, targetParticipantID string, callerUserID *string, callerParticipantID string, email *string) (model.Participant, error) {
+// Authorization: see authorizeParticipantWrite (owner allowed). Returns a
+// newly minted participant token on a legacy trust-on-first-use write.
+func (s *Service) UpdateParticipantEmail(ctx context.Context, calendarID, targetParticipantID string, caller ParticipantCaller, email *string) (model.Participant, string, error) {
 	cal, err := s.store.GetCalendarOnly(ctx, calendarID)
 	if err != nil {
-		return model.Participant{}, err
-	}
-
-	allowed := callerUserID != nil && *callerUserID == cal.OwnerID
-	if !allowed && callerParticipantID != "" && callerParticipantID == targetParticipantID {
-		allowed = true
-	}
-	if !allowed && callerUserID != nil {
-		target, err := s.store.GetParticipant(ctx, targetParticipantID)
-		if err != nil {
-			return model.Participant{}, err
-		}
-		if target.CalendarID != calendarID {
-			return model.Participant{}, store.ErrNotFound
-		}
-		if target.UserID != nil && *target.UserID == *callerUserID {
-			allowed = true
-		}
-	}
-	if !allowed {
-		return model.Participant{}, ErrForbidden
+		return model.Participant{}, "", err
 	}
 
 	if email != nil && *email != "" && !strings.Contains(*email, "@") {
-		return model.Participant{}, ErrInvalidEmail
+		return model.Participant{}, "", ErrInvalidEmail
+	}
+
+	_, minted, err := s.authorizeParticipantWrite(ctx, cal, targetParticipantID, caller, true)
+	if err != nil {
+		return model.Participant{}, "", err
 	}
 
 	p, err := s.store.UpdateParticipantEmail(ctx, calendarID, targetParticipantID, email)
 	if err != nil {
-		return model.Participant{}, err
+		return model.Participant{}, minted, err
 	}
-	return p, nil
+	return p, minted, nil
 }
 
-func (s *Service) ClaimParticipant(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error) {
-	p, err := s.store.ClaimParticipant(ctx, calendarID, participantID, userID)
+// ClaimParticipant links an anonymous participant row to the signed-in
+// caller. The caller must prove they hold the row (participant token, or the
+// legacy trust-on-first-use path) — knowing the public id is not enough.
+func (s *Service) ClaimParticipant(ctx context.Context, calendarID, participantID string, caller ParticipantCaller) (model.Participant, error) {
+	if caller.UserID == nil {
+		return model.Participant{}, ErrForbidden
+	}
+	cal, err := s.store.GetCalendarOnly(ctx, calendarID)
+	if err != nil {
+		return model.Participant{}, err
+	}
+	target, _, err := s.store.GetParticipantForAuth(ctx, participantID)
+	if err != nil {
+		return model.Participant{}, err
+	}
+	if target.CalendarID != calendarID {
+		return model.Participant{}, store.ErrNotFound
+	}
+	if target.UserID != nil {
+		return model.Participant{}, store.ErrAlreadyLinked
+	}
+	// Token-based check only: the owner must not be able to claim someone
+	// else's anonymous row, and the target is unlinked so the session rule
+	// never applies.
+	anon := ParticipantCaller{Token: caller.Token}
+	if _, _, err := s.authorizeParticipantWrite(ctx, cal, participantID, anon, false); err != nil {
+		return model.Participant{}, err
+	}
+	p, err := s.store.ClaimParticipant(ctx, calendarID, participantID, *caller.UserID)
 	if err != nil {
 		return model.Participant{}, err
 	}
@@ -275,39 +302,44 @@ func (s *Service) ClaimParticipant(ctx context.Context, calendarID, participantI
 	return p, nil
 }
 
-func (s *Service) SetAvailability(ctx context.Context, calendarID, participantID string, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) error {
-	p, err := s.store.GetParticipant(ctx, participantID)
+// SetAvailability replaces the participant's availability. Only the
+// participant themself may write it (the owner has no override). Returns a
+// newly minted participant token on a legacy trust-on-first-use write.
+func (s *Service) SetAvailability(ctx context.Context, calendarID, participantID string, caller ParticipantCaller, dates []string, noteOverrides map[string]string, preferredOverrides map[string]bool) (string, error) {
+	cal, err := s.store.GetCalendarOnly(ctx, calendarID)
 	if err != nil {
-		return err
+		return "", err
 	}
-	if p.CalendarID != calendarID {
-		return store.ErrNotFound
+	_, minted, err := s.authorizeParticipantWrite(ctx, cal, participantID, caller, false)
+	if err != nil {
+		return "", err
 	}
 	if err := s.store.SetAvailability(ctx, participantID, dates, noteOverrides, preferredOverrides); err != nil {
-		return err
+		return minted, err
 	}
 	s.touch(ctx, calendarID)
 	s.pub.Publish(calendarID, realtime.EventAvailabilityChanged)
-	return nil
+	return minted, nil
 }
 
 // ImportAvailability merges calendar-imported dates into the participant's
 // existing availability without deleting any hand-entered rows. Used by the
-// "Accept all suggestions" shortcut.
-func (s *Service) ImportAvailability(ctx context.Context, calendarID, participantID string, dates []string) error {
-	p, err := s.store.GetParticipant(ctx, participantID)
+// "Accept all suggestions" shortcut. Same authorization as SetAvailability.
+func (s *Service) ImportAvailability(ctx context.Context, calendarID, participantID string, caller ParticipantCaller, dates []string) (string, error) {
+	cal, err := s.store.GetCalendarOnly(ctx, calendarID)
 	if err != nil {
-		return err
+		return "", err
 	}
-	if p.CalendarID != calendarID {
-		return store.ErrNotFound
+	_, minted, err := s.authorizeParticipantWrite(ctx, cal, participantID, caller, false)
+	if err != nil {
+		return "", err
 	}
 	if err := s.store.MergeAvailabilityDates(ctx, participantID, dates); err != nil {
-		return err
+		return minted, err
 	}
 	s.touch(ctx, calendarID)
 	s.pub.Publish(calendarID, realtime.EventAvailabilityChanged)
-	return nil
+	return minted, nil
 }
 
 // touch bumps the parent calendar's updated_at. Failures are logged but not
@@ -396,51 +428,34 @@ func (s *Service) RenameCalendar(ctx context.Context, calendarID, name string) (
 }
 
 // RenameParticipant updates the name of a participant on a calendar.
-// Authorization: the caller is allowed if they are the calendar owner, if the
-// supplied callerParticipantID matches the target (the honor-system trust
-// boundary used by the anon-join availability write path), or if the caller
-// is signed in and the target participant is linked to the same user.
-func (s *Service) RenameParticipant(ctx context.Context, calendarID, targetParticipantID string, callerUserID *string, callerParticipantID, name string) (model.Participant, error) {
+// Authorization: see authorizeParticipantWrite (owner allowed). Returns a
+// newly minted participant token on a legacy trust-on-first-use write.
+func (s *Service) RenameParticipant(ctx context.Context, calendarID, targetParticipantID string, caller ParticipantCaller, name string) (model.Participant, string, error) {
 	cal, err := s.store.GetCalendarOnly(ctx, calendarID)
 	if err != nil {
-		return model.Participant{}, err
+		return model.Participant{}, "", err
 	}
 	if cal.FinalisedDate != nil {
-		return model.Participant{}, store.ErrCalendarFinalised
-	}
-
-	allowed := callerUserID != nil && *callerUserID == cal.OwnerID
-	if !allowed && callerParticipantID != "" && callerParticipantID == targetParticipantID {
-		allowed = true
-	}
-	if !allowed && callerUserID != nil {
-		target, err := s.store.GetParticipant(ctx, targetParticipantID)
-		if err != nil {
-			return model.Participant{}, err
-		}
-		if target.CalendarID != calendarID {
-			return model.Participant{}, store.ErrNotFound
-		}
-		if target.UserID != nil && *target.UserID == *callerUserID {
-			allowed = true
-		}
-	}
-	if !allowed {
-		return model.Participant{}, ErrForbidden
+		return model.Participant{}, "", store.ErrCalendarFinalised
 	}
 
 	name = strings.TrimSpace(name)
 	if name == "" || len(name) > limits.MaxParticipantNameLength {
-		return model.Participant{}, ErrInvalidName
+		return model.Participant{}, "", ErrInvalidName
+	}
+
+	_, minted, err := s.authorizeParticipantWrite(ctx, cal, targetParticipantID, caller, true)
+	if err != nil {
+		return model.Participant{}, "", err
 	}
 
 	p, err := s.store.UpdateParticipantName(ctx, calendarID, targetParticipantID, name)
 	if err != nil {
-		return model.Participant{}, err
+		return model.Participant{}, minted, err
 	}
 	s.touch(ctx, calendarID)
 	s.pub.Publish(calendarID, realtime.EventParticipantRenamed)
-	return p, nil
+	return p, minted, nil
 }
 
 func (s *Service) RemoveParticipant(ctx context.Context, calendarID, participantID string) error {
