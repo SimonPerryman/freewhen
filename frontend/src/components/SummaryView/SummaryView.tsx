@@ -115,7 +115,12 @@ function PrimaryFinalise({ date, onFinalise }: FinaliseButtonProps) {
       <Button variant="primary" size="lg" fullWidth loading={submitting} onClick={handleCommit}>
         {submitting ? "Confirming…" : `Confirm ${formatDate(date)}?`}
       </Button>
-      <Button variant="secondary" size="lg" disabled={submitting} onClick={() => setConfirming(false)}>
+      <Button
+        variant="secondary"
+        size="lg"
+        disabled={submitting}
+        onClick={() => setConfirming(false)}
+      >
         Cancel
       </Button>
     </div>
@@ -230,8 +235,8 @@ export default function SummaryView({
                 </span>
                 <span className={styles.rowEnd}>
                   {showFinalise && d.date !== topDate ? (
-                  <FinaliseButton date={d.date} onFinalise={onFinalise!} />
-                ) : null}
+                    <FinaliseButton date={d.date} onFinalise={onFinalise!} />
+                  ) : null}
                   <PreferencePill
                     voters={votersFor(d.date)}
                     calendarId={calendarId}

@@ -76,7 +76,11 @@ export default function ShareButton({
 
   if (variant === "hero") {
     return (
-      <button type="button" className={`${styles.button} ${styles.hero} ${secondary ? styles.secondary : ""}`} onClick={handleClick}>
+      <button
+        type="button"
+        className={`${styles.button} ${styles.hero} ${secondary ? styles.secondary : ""}`}
+        onClick={handleClick}
+      >
         {copied ? "Copied!" : canShare ? "Share" : "Copy link"}
       </button>
     );

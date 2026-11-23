@@ -73,8 +73,10 @@ function CheckEmailContent() {
         <h1 className={styles.heading}>Check your email</h1>
         <p className={styles.subheading}>
           We sent a sign-in link to{" "}
-          <strong className={checkStyles.email}>{email ? <EmailAddress email={email} /> : "your email"}</strong> Click the link to
-          sign in.
+          <strong className={checkStyles.email}>
+            {email ? <EmailAddress email={email} /> : "your email"}
+          </strong>{" "}
+          Click the link to sign in.
         </p>
         <p className={checkStyles.hint}>
           The link expires in 15 minutes. If you don&rsquo;t see it, check your spam folder.
