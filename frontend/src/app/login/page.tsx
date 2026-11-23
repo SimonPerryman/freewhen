@@ -102,7 +102,7 @@ function LoginContent() {
             aria-describedby={error ? "login-email-error" : undefined}
           />
           <button type="submit" className={styles.emailButton} disabled={sending || !email}>
-            {sending ? "Sending..." : "Send magic link →"}
+            {sending ? "Sending..." : "Send magic link"}
           </button>
           {error && (
             <p id="login-email-error" className={styles.error} role="alert">

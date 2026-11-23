@@ -85,7 +85,7 @@ export default function RenameCalendarSheet({
             Cancel
           </Button>
           <Button type="submit" variant="primary" disabled={submitting}>
-            {submitting ? "Saving…" : "Save →"}
+            {submitting ? "Saving…" : "Save"}
           </Button>
         </div>
       </form>

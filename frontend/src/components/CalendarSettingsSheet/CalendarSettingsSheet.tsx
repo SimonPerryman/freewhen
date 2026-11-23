@@ -29,7 +29,7 @@ export default function CalendarSettingsSheet({
     <Sheet title="Settings" onClose={onClose} closeLabel="Close settings">
       <section className={styles.section}>
         <Button variant="secondary" onClick={onRename}>
-          Rename calendar →
+          Rename calendar
         </Button>
       </section>
 
@@ -64,14 +64,14 @@ export default function CalendarSettingsSheet({
           </div>
         ) : (
           <Button variant="secondary" onClick={onEnablePassphrase}>
-            Require a passphrase →
+            Require a passphrase
           </Button>
         )}
       </section>
 
       <section className={styles.section}>
         <Button variant="secondary" onClick={onDuplicate}>
-          Duplicate this calendar →
+          Duplicate this calendar
         </Button>
       </section>
     </Sheet>
