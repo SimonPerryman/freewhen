@@ -163,42 +163,6 @@ export function buildNotesByDateAndAuthor(
   return map;
 }
 
-// Header meta pills: "{n} people" and either "{n} weekends" (when every
-// distinct upcoming date anyone marked is a Sat/Sun) or "{n} days".
-export function calendarMetaLabels(
-  calendar: CalendarWithDetails,
-  selectedDates: Set<string>,
-  today: string,
-): { peopleLabel: string; dateLabel: string } {
-  const participantCount = calendar.participants.length;
-  const distinctDates = new Set<string>();
-  for (const a of calendar.availability) {
-    if (a.date >= today) distinctDates.add(a.date);
-  }
-  for (const d of selectedDates) {
-    if (d >= today) distinctDates.add(d);
-  }
-  const dateCount = distinctDates.size;
-  let allWeekends = dateCount > 0;
-  for (const d of distinctDates) {
-    const [y, m, day] = d.split("-").map(Number);
-    const dow = new Date(y, m - 1, day).getDay();
-    if (dow !== 0 && dow !== 6) {
-      allWeekends = false;
-      break;
-    }
-  }
-  const weekends = Math.ceil(dateCount / 2);
-  const dateLabel =
-    dateCount === 0
-      ? "no dates yet"
-      : allWeekends
-        ? `${weekends} ${weekends === 1 ? "weekend" : "weekends"}`
-        : `${dateCount} ${dateCount === 1 ? "day" : "days"}`;
-  const peopleLabel = `${participantCount} ${participantCount === 1 ? "person" : "people"}`;
-  return { peopleLabel, dateLabel };
-}
-
 export interface OwnAvailability {
   // The current participant, or null when not joined.
   participant: Participant | null;

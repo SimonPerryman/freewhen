@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 const replaceMock = vi.fn();
 const pushMock = vi.fn();
@@ -14,6 +15,12 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/components/AuthProvider/AuthProvider", () => ({
   useAuth: () => ({ user: null, checkAuth: checkAuthMock }),
 }));
+
+const sendMagicLinkMock = vi.fn();
+vi.mock("@/lib/api", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
+  return { ...actual, sendMagicLink: (...args: unknown[]) => sendMagicLinkMock(...args) };
+});
 
 import LoginPage from "./page";
 
@@ -59,5 +66,34 @@ describe("LoginPage return_url handling", () => {
     expect(replaceMock).not.toHaveBeenCalled();
     const link = screen.getByRole("link", { name: /continue with google/i });
     expect(link.getAttribute("href")).toMatch(/return_url=%2F$/);
+  });
+});
+
+describe("LoginPage email form", () => {
+  it("validates on submit instead of disabling the button", async () => {
+    checkAuthMock.mockResolvedValue(null);
+    renderWith(null);
+    const button = screen.getByRole("button", { name: "Send magic link" });
+    expect(button).toBeEnabled();
+    await userEvent.click(button);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/enter your email/i);
+    await userEvent.type(screen.getByLabelText("Email"), "nope");
+    await userEvent.click(button);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/doesn't look like an email/i);
+    expect(sendMagicLinkMock).not.toHaveBeenCalled();
+  });
+
+  it("sends the link and goes to check-email, carrying the return path", async () => {
+    checkAuthMock.mockResolvedValue(null);
+    sendMagicLinkMock.mockResolvedValue(undefined);
+    renderWith("/calendars");
+    await userEvent.type(screen.getByLabelText("Email"), "a@b.co");
+    await userEvent.click(screen.getByRole("button", { name: "Send magic link" }));
+    await waitFor(() =>
+      expect(pushMock).toHaveBeenCalledWith(
+        "/login/check-email?email=a%40b.co&return_url=%2Fcalendars",
+      ),
+    );
+    expect(sendMagicLinkMock).toHaveBeenCalledWith("a@b.co", "/calendars");
   });
 });

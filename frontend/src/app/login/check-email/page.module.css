@@ -1,11 +1,33 @@
 .email {
+  display: block;
+  margin: var(--space-2) 0;
   color: var(--text-primary);
-  word-break: break-all;
+  /* Own line; only break inside the address if it's wider than the screen. */
+  overflow-wrap: anywhere;
+}
+
+.domain {
+  white-space: nowrap;
 }
 
 .hint {
-  margin: 0;
+  margin: 0 0 var(--space-5);
   font-size: var(--text-sm);
   color: var(--text-secondary);
   line-height: var(--leading-normal);
+}
+
+.error {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+  color: var(--error);
+}
+
+.different {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--accent);
 }

@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import analytics from "@/lib/analytics";
+import { deleteCalendar } from "@/lib/api";
+import log from "@/lib/log";
 import { useCalendarEvents } from "@/lib/useCalendarEvents";
 import { MAX_PARTICIPANTS_PER_CALENDAR } from "@/lib/limits";
 import type { CalendarWithDetails } from "@/lib/types";
@@ -14,8 +16,9 @@ import { useParticipantIdentity } from "@/lib/useParticipantIdentity";
 import { useAvailabilitySave } from "@/lib/useAvailabilitySave";
 import { useCalendarRename } from "@/lib/useCalendarRename";
 import { useCalendarOwnerActions } from "@/lib/useCalendarOwnerActions";
-import { calendarMetaLabels, useAvailabilityMaps } from "@/lib/availabilityMaps";
-import { ServerTodayProvider, useToday } from "@/lib/useToday";
+import { respondedParticipantIds, useAvailabilityMaps } from "@/lib/availabilityMaps";
+import { useToast } from "@/lib/toast";
+import { ServerTodayProvider } from "@/lib/useToday";
 import CalendarGrid from "@/components/CalendarGrid/CalendarGrid";
 import CalendarHeader from "@/components/CalendarHeader/CalendarHeader";
 import CalendarParticipantsSection from "@/components/CalendarParticipantsSection/CalendarParticipantsSection";
@@ -41,6 +44,8 @@ const DuplicateCalendarSheet = dynamic(
   () => import("@/components/DuplicateCalendarSheet/DuplicateCalendarSheet"),
   { loading: () => null },
 );
+const DELETE_UNDO_MS = 6000;
+
 const CalendarOwnerDialogs = dynamic(
   () => import("@/components/CalendarOwnerDialogs/CalendarOwnerDialogs"),
   { loading: () => null },
@@ -71,7 +76,6 @@ function CalendarPageContent({
   initialData?: CalendarWithDetails | null;
 }) {
   const { user, checkAuth } = useAuth();
-  const today = useToday();
   const router = useRouter();
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -168,12 +172,56 @@ function CalendarPageContent({
     setOpenDayDate(null);
   }, []);
 
+  const { showToast } = useToast();
+
+  // Delete is deferred: the API call only goes out if Undo isn't pressed
+  // within the toast window. The timer outlives this component on purpose so
+  // navigating away doesn't cancel the delete.
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleDeleteCalendar = useCallback(() => {
+    if (deleteTimerRef.current) return;
+    deleteTimerRef.current = setTimeout(async () => {
+      deleteTimerRef.current = null;
+      try {
+        await deleteCalendar(calendarId);
+        router.push("/");
+      } catch (err) {
+        log.warn("delete_calendar_failed", { error: err });
+        showToast({ message: "Couldn't delete that calendar. Please try again." });
+      }
+    }, DELETE_UNDO_MS);
+    showToast({
+      message: "Calendar will be deleted",
+      durationMs: DELETE_UNDO_MS,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
+          deleteTimerRef.current = null;
+        },
+      },
+    });
+  }, [calendarId, router, showToast]);
   const handleRemoveAvailabilityForDay = useCallback(
     (date: string) => {
+      // Removing drops the note and vote server-side, so remember them for Undo.
+      const note = notesByDate.get(date) ?? "";
+      const preferred = votesByDate.has(date);
       handleToggle(date);
       setOpenDayDate(null);
+      showToast({
+        message: "Availability removed",
+        action: {
+          label: "Undo",
+          onClick: () => {
+            handleToggle(date);
+            if (note) availability.handleSaveNote(date, note);
+            if (preferred) availability.handleToggleVote(date, true);
+          },
+        },
+      });
     },
-    [handleToggle],
+    [handleToggle, notesByDate, votesByDate, availability, showToast],
   );
 
   const { freeByDate, voteCountsByDate, preferredByDate, noteAuthorsByDate, notesByDateAndAuthor } =
@@ -234,7 +282,10 @@ function CalendarPageContent({
   const passphrase = calendar.calendar.passphrase ?? null;
   const isOwner = !!user && calendar.calendar.ownerId === user.id;
   const isFull = calendar.participants.length >= MAX_PARTICIPANTS_PER_CALENDAR;
-  const { peopleLabel, dateLabel } = calendarMetaLabels(calendar, selectedDates, today);
+  // freeByDate already layers the viewer's unsaved selection over everyone
+  // else's rows, so marking a first date counts straight away.
+  const respondedIds = respondedParticipantIds(freeByDate);
+  const hasMissing = calendar.participants.some((p) => !respondedIds.has(p.id));
   // "You haven't joined" UI waits until we know who you are: a server-rendered
   // page paints before localStorage has been read.
   const notJoined = identityResolved && !currentParticipant;
@@ -259,8 +310,8 @@ function CalendarPageContent({
           onRenameDraftChange={rename.setRenameDraft}
           onRenameCommit={rename.handleRenameCommit}
           onRenameCancel={rename.handleRenameCancel}
-          peopleLabel={peopleLabel}
-          dateLabel={dateLabel}
+          participants={calendar.participants}
+          respondedIds={respondedIds}
         />
 
         {finalisedDate ? (
@@ -394,6 +445,7 @@ function CalendarPageContent({
           <WhosMissingPanel
             calendarId={calendar.calendar.id}
             participants={calendar.participants}
+            hasMissing={hasMissing}
           />
         ) : null}
 
@@ -406,6 +458,7 @@ function CalendarPageContent({
             onCloseSettings={() => setSettingsOpen(false)}
             onStartRename={rename.handleRenameStart}
             onOpenDuplicate={() => setDuplicateOpen(true)}
+            onDeleteCalendar={handleDeleteCalendar}
           />
         ) : null}
       </div>

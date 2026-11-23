@@ -10,7 +10,7 @@ test("magic-link: request a link, fetch it from the captured-email endpoint, cli
 
   await page.goto("/login");
 
-  await page.getByLabel("Email address").fill(email);
+  await page.getByLabel("Email").fill(email);
   await page.getByRole("button", { name: "Send magic link" }).click();
 
   // Frontend redirects to /login/check-email after a successful send.

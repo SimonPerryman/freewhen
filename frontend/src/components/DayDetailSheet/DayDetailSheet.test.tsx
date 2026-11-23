@@ -69,8 +69,12 @@ describe("DayDetailSheet", () => {
     const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
     // Three emoji that are each a single code point (BMP-only emoji chosen so
     // userEvent.type can insert them without surrogate-pair issues).
-    await user.type(textarea, "🎉🎉🎉");
-    expect(screen.getByText("3/140")).toBeInTheDocument();
+    await user.type(textarea, "🎉".repeat(3));
+    expect(Array.from(textarea.value)).toHaveLength(3);
+    // The counter stays hidden until 20 characters are left.
+    expect(screen.queryByText(/left/)).toBeNull();
+    await user.paste("🎉".repeat(120));
+    expect(screen.getByText("17 left")).toBeInTheDocument();
   });
 
   it("save calls onSaveNote with the trimmed text", async () => {
@@ -94,7 +98,7 @@ describe("DayDetailSheet", () => {
 
     const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
     await user.type(textarea, "  only after 6pm  ");
-    await user.click(screen.getByRole("button", { name: "Save" }));
+    await user.click(screen.getByRole("button", { name: "Save note" }));
     expect(onSaveNote).toHaveBeenCalledWith("only after 6pm");
   });
 
@@ -120,7 +124,7 @@ describe("DayDetailSheet", () => {
     // Type 145 'a' — the textarea should hold 140.
     await user.type(textarea, "a".repeat(145));
     expect(textarea.value).toHaveLength(140);
-    expect(screen.getByText("140/140")).toBeInTheDocument();
+    expect(screen.getByText("Limit reached")).toBeInTheDocument();
   });
 
   it("remove-availability button calls the prop and then closes", async () => {
@@ -296,6 +300,62 @@ describe("DayDetailSheet", () => {
       );
       expect(screen.queryByRole("checkbox", { name: /prefer this date/i })).toBeNull();
       expect(screen.getByLabelText("Me prefers this date")).toBeInTheDocument();
+    });
+  });
+
+  describe("progressive disclosure", () => {
+    function renderSheet(props: Partial<React.ComponentProps<typeof DayDetailSheet>> = {}) {
+      const me = makeParticipant("me", "Me");
+      return render(
+        <DayDetailSheet
+          date={date}
+          participants={[me]}
+          availability={[makeAvailability("me", date)]}
+          currentParticipantId="me"
+          currentNote="hello"
+          isSelected={true}
+          finalised={false}
+          onToggleVote={() => {}}
+          onSaveNote={() => {}}
+          onRemoveAvailability={() => {}}
+          onClose={() => {}}
+          {...props}
+        />,
+      );
+    }
+
+    it("hides Reset and Save until the note changes", async () => {
+      const user = userEvent.setup();
+      renderSheet();
+      expect(screen.queryByRole("button", { name: "Save note" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Reset" })).toBeNull();
+      await user.type(screen.getByRole("textbox"), "!");
+      expect(screen.getByRole("button", { name: "Save note" })).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Reset" }));
+      expect(screen.queryByRole("button", { name: "Save note" })).toBeNull();
+    });
+
+    it("shows the prefer hint until the first time a date is preferred", async () => {
+      window.localStorage.removeItem("freewhen:prefer-hint-seen");
+      const user = userEvent.setup();
+      renderSheet();
+      expect(await screen.findByText(/Mark your top picks/)).toBeInTheDocument();
+      await user.click(screen.getByRole("checkbox"));
+      expect(screen.queryByText(/Mark your top picks/)).toBeNull();
+      expect(window.localStorage.getItem("freewhen:prefer-hint-seen")).toBe("1");
+    });
+
+    it("omits the prefer hint once seen", () => {
+      window.localStorage.setItem("freewhen:prefer-hint-seen", "1");
+      renderSheet();
+      expect(screen.queryByText(/Mark your top picks/)).toBeNull();
+      window.localStorage.removeItem("freewhen:prefer-hint-seen");
+    });
+
+    it("uses a single 'Note (optional)' label", () => {
+      renderSheet();
+      expect(screen.getByLabelText("Note (optional)")).toBeInTheDocument();
+      expect(screen.queryByText(/140 characters/)).toBeNull();
     });
   });
 });

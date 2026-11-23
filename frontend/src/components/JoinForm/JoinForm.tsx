@@ -2,11 +2,9 @@
 
 import { useState, type FormEvent } from "react";
 import { MAX_PARTICIPANT_NAME_LENGTH } from "@/lib/limits";
+import CharCounter from "@/components/CharCounter/CharCounter";
 import Button from "@/components/Button/Button";
 import styles from "./JoinForm.module.css";
-
-// Show a live character count once the user is within this many characters of the cap.
-const COUNTER_THRESHOLD = 10;
 
 interface JoinFormProps {
   onJoin: (name: string, email?: string | null) => Promise<void>;
@@ -26,24 +24,27 @@ export default function JoinForm({
   const [name, setName] = useState(defaultName);
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
+  const [nameInvalid, setNameInvalid] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmedName = name.trim();
-    if (!trimmedName) return;
+    if (!trimmedName) {
+      setNameInvalid(true);
+      return;
+    }
     const trimmedEmail = email.trim();
     setSubmitting(true);
     try {
-      await onJoin(trimmedName, hideEmail ? null : trimmedEmail || null);
+      await onJoin(trimmedName, hideEmail || !showEmail ? null : trimmedEmail || null);
     } finally {
       setSubmitting(false);
     }
   }
 
-  const showCounter = name.length >= MAX_PARTICIPANT_NAME_LENGTH - COUNTER_THRESHOLD;
-
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form className={styles.form} onSubmit={handleSubmit} noValidate>
       <label className={styles.label} htmlFor="participant-name">
         Your name
       </label>
@@ -52,27 +53,29 @@ export default function JoinForm({
         className={styles.input}
         type="text"
         value={name}
-        onChange={(e) => setName(e.target.value)}
+        onChange={(e) => {
+          setName(e.target.value);
+          setNameInvalid(false);
+        }}
         placeholder="Enter your name"
         autoComplete="off"
         disabled={submitting}
         maxLength={MAX_PARTICIPANT_NAME_LENGTH}
-        required
-        aria-required="true"
-        aria-invalid={!!error}
-        aria-describedby={error ? "participant-name-error" : undefined}
+        aria-invalid={!!error || nameInvalid}
+        aria-describedby={error || nameInvalid ? "participant-name-error" : undefined}
       />
-      {showCounter ? (
-        <p className={styles.counter} aria-live="polite">
-          {name.length} / {MAX_PARTICIPANT_NAME_LENGTH}
-        </p>
-      ) : null}
-      {error ? (
+      <CharCounter count={name.length} max={MAX_PARTICIPANT_NAME_LENGTH} />
+      {error || nameInvalid ? (
         <p id="participant-name-error" role="alert" className={styles.error}>
-          {error}
+          {error ?? "Enter your name to join."}
         </p>
       ) : null}
-      {!hideEmail ? (
+      {!hideEmail && !showEmail ? (
+        <button type="button" className={styles.emailLink} onClick={() => setShowEmail(true)}>
+          + Get notified when a date&apos;s picked
+        </button>
+      ) : null}
+      {!hideEmail && showEmail ? (
         <div className={styles.emailField}>
           <label className={styles.label} htmlFor="participant-email">
             Email (optional)
@@ -83,6 +86,7 @@ export default function JoinForm({
             type="email"
             inputMode="email"
             autoComplete="email"
+            autoFocus
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
@@ -100,7 +104,7 @@ export default function JoinForm({
         variant="primary"
         size="lg"
         className={styles.submit}
-        disabled={submitting || !name.trim()}
+        disabled={submitting}
       >
         {submitting ? "Joining…" : "Join"}
       </Button>

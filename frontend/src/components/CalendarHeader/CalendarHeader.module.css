@@ -4,9 +4,37 @@
 
 .metaRow {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
   margin-top: var(--space-2);
+  min-width: 0;
+}
+
+.dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--dot-colour);
+  border: 2px solid var(--dot-colour);
+  box-sizing: border-box;
+}
+
+/* Joined but no dates yet: hollow ring, so status isn't carried by colour alone. */
+.dotPending {
+  background: transparent;
+}
+
+.responded {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 .renameHint {

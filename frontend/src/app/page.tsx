@@ -113,6 +113,9 @@ export default function Home() {
               {buttonLabel}
             </button>
           </div>
+          {!user && !isLoading ? (
+            <p className={styles.hint}>You&rsquo;ll sign in with your email to save it.</p>
+          ) : null}
           {error ? (
             <p role="alert" className={styles.error}>
               {error}

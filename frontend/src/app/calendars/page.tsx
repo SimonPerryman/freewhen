@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ApiError, listMyCalendars } from "@/lib/api";
 import analytics from "@/lib/analytics";
@@ -75,7 +76,16 @@ export default function MyCalendarsPage() {
   return (
     <div className={styles.page}>
       <main id="main" className={styles.container}>
-        <h1 className={styles.heading}>My calendars</h1>
+        <div className={styles.headingRow}>
+          <h1 className={styles.heading}>My calendars</h1>
+          {status === "ready" && calendars.length > 0 ? (
+            <Link href="/" className={styles.newButton}>
+              <span className={styles.newButtonLabel}>
+                <span aria-hidden="true">+ </span>New calendar
+              </span>
+            </Link>
+          ) : null}
+        </div>
         <MyCalendarsList
           status={status}
           calendars={calendars}

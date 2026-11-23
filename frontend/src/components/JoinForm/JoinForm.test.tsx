@@ -28,6 +28,7 @@ describe("JoinForm", () => {
     render(<JoinForm onJoin={onJoin} error={null} />);
 
     await user.type(screen.getByLabelText(/your name/i), "Alice");
+    await user.click(screen.getByRole("button", { name: /get notified/i }));
     await user.type(screen.getByLabelText(/email/i), "  alice@example.com  ");
     await user.click(screen.getByRole("button", { name: /join/i }));
 
@@ -38,13 +39,12 @@ describe("JoinForm", () => {
     const user = userEvent.setup();
     render(<JoinForm onJoin={onJoin} error={null} defaultName="Alice" />);
     const name = screen.getByLabelText(/your name/i);
+    await user.click(screen.getByRole("button", { name: /get notified/i }));
     const email = screen.getByLabelText(/email/i);
     const submit = screen.getByRole("button", { name: /join/i });
 
-    const follows = (a: Element, b: Element) =>
-      !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(follows(name, email)).toBe(true);
-    expect(follows(email, submit)).toBe(true);
+    const order = Array.from((name as HTMLInputElement).form!.elements);
+    expect(order).toEqual([name, email, submit]);
 
     await user.click(name);
     await user.tab();
@@ -56,11 +56,27 @@ describe("JoinForm", () => {
   it("hides the email field when hideEmail is set", () => {
     render(<JoinForm onJoin={onJoin} error={null} hideEmail />);
     expect(screen.queryByLabelText(/email/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /get notified/i })).not.toBeInTheDocument();
   });
 
-  it("disables submit when input is empty", () => {
+  it("shows only the name field until the notify link is tapped", async () => {
+    const user = userEvent.setup();
     render(<JoinForm onJoin={onJoin} error={null} />);
-    expect(screen.getByRole("button", { name: /join/i })).toBeDisabled();
+    expect(screen.queryByLabelText(/email/i)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /get notified when a date's picked/i }));
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+  });
+
+  it("keeps Join enabled and validates on submit", async () => {
+    const user = userEvent.setup();
+    render(<JoinForm onJoin={onJoin} error={null} />);
+    const join = screen.getByRole("button", { name: /join/i });
+    expect(join).toBeEnabled();
+    await user.click(join);
+    expect(onJoin).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(/enter your name/i);
+    await user.type(screen.getByLabelText(/your name/i), "A");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("shows error state", () => {
@@ -75,13 +91,13 @@ describe("JoinForm", () => {
 
   it("does not show the counter for short names", () => {
     render(<JoinForm onJoin={onJoin} error={null} defaultName="Alice" />);
-    expect(screen.queryByText(/\/ 50/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/left/)).not.toBeInTheDocument();
   });
 
-  it("shows the counter once the user is within 10 chars of the cap", () => {
-    const name = "a".repeat(40);
+  it("shows the counter once the user is within 20 chars of the cap", () => {
+    const name = "a".repeat(30);
     render(<JoinForm onJoin={onJoin} error={null} defaultName={name} />);
-    expect(screen.getByText("40 / 50")).toBeInTheDocument();
+    expect(screen.getByText("20 left")).toBeInTheDocument();
   });
 
   it("caps the input at the participant-name limit via maxLength", () => {

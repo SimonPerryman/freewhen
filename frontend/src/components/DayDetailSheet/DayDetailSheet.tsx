@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Availability, Participant } from "@/lib/types";
 import { MAX_NOTE_LENGTH, codePointCount } from "@/lib/limits";
+import CharCounter, { isAtLimit } from "@/components/CharCounter/CharCounter";
 import Button from "@/components/Button/Button";
 import Sheet from "@/components/Sheet/Sheet";
 import styles from "./DayDetailSheet.module.css";
@@ -26,6 +27,24 @@ interface DayDetailSheetProps {
   onToggleVote?: (preferred: boolean) => void;
   onRemoveAvailability: () => void;
   onClose: () => void;
+}
+
+const PREFER_HINT_KEY = "freewhen:prefer-hint-seen";
+
+function readPreferHintSeen(): boolean {
+  try {
+    return window.localStorage.getItem(PREFER_HINT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writePreferHintSeen() {
+  try {
+    window.localStorage.setItem(PREFER_HINT_KEY, "1");
+  } catch {
+    // Storage blocked: the hint just keeps showing.
+  }
 }
 
 const dateFormatter = new Intl.DateTimeFormat("en-GB", {
@@ -76,6 +95,13 @@ export default function DayDetailSheet({
 }: DayDetailSheetProps) {
   const [draft, setDraft] = useState(currentNote);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  // Starts true so server and first client render match; the effect below
+  // reveals the hint for people who haven't preferred a date yet.
+  const [preferHintSeen, setPreferHintSeen] = useState(true);
+
+  useEffect(() => {
+    setPreferHintSeen(readPreferHintSeen());
+  }, []);
 
   useEffect(() => {
     setDraft(currentNote);
@@ -137,9 +163,11 @@ export default function DayDetailSheet({
 
   const draftCount = codePointCount(draft);
   const tooLong = draftCount > MAX_NOTE_LENGTH;
+  const atLimit = isAtLimit(draftCount, MAX_NOTE_LENGTH);
   const trimmed = draft.trim();
   const isWhitespaceOnly = draft.length > 0 && trimmed.length === 0;
   const canSave = !tooLong && !isWhitespaceOnly;
+  const noteChanged = draft.trim() !== currentNote.trim();
 
   function handleTextChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     // Strip newlines on entry so the counter and the eventual save match.
@@ -212,13 +240,21 @@ export default function DayDetailSheet({
               type="checkbox"
               className={styles.preferCheckbox}
               checked={isPreferred}
-              onChange={(e) => onToggleVote(e.target.checked)}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  writePreferHintSeen();
+                  setPreferHintSeen(true);
+                }
+                onToggleVote(e.target.checked);
+              }}
             />
             <span className={styles.preferText}>
               <span className={styles.preferTitle}>Prefer this date</span>
-              <span className={styles.preferHint}>
-                Mark your top picks — helps the group pick a date everyone actually wants.
-              </span>
+              {preferHintSeen ? null : (
+                <span className={styles.preferHint}>
+                  Mark your top picks — helps the group pick a date everyone actually wants.
+                </span>
+              )}
             </span>
           </label>
         </section>
@@ -227,13 +263,12 @@ export default function DayDetailSheet({
       {editable ? (
         <section className={styles.section}>
           <label className={styles.editorLabel} htmlFor="day-sheet-note">
-            Your note
-            <span className={styles.editorHint}>Optional — 140 characters</span>
+            Note (optional)
           </label>
           <textarea
             ref={textareaRef}
             id="day-sheet-note"
-            className={styles.textarea}
+            className={atLimit ? `${styles.textarea} ${styles.textareaAtLimit}` : styles.textarea}
             value={draft}
             onChange={handleTextChange}
             onKeyDown={(e) => {
@@ -243,34 +278,19 @@ export default function DayDetailSheet({
               }
             }}
             placeholder="e.g. only after 6pm"
-            aria-describedby="day-sheet-note-counter"
           />
           <div className={styles.editorFoot}>
-            <span
-              id="day-sheet-note-counter"
-              className={tooLong ? styles.counterOver : styles.counter}
-              aria-live="polite"
-            >
-              {draftCount}/{MAX_NOTE_LENGTH}
-            </span>
-            <div className={styles.editorActions}>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setDraft(currentNote)}
-                disabled={draft === currentNote}
-              >
-                Reset
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleSave}
-                disabled={!canSave || draft.trim() === currentNote.trim()}
-              >
-                Save
-              </Button>
-            </div>
+            <CharCounter count={draftCount} max={MAX_NOTE_LENGTH} />
+            {noteChanged ? (
+              <div className={styles.editorActions}>
+                <Button variant="secondary" size="sm" onClick={() => setDraft(currentNote)}>
+                  Reset
+                </Button>
+                <Button variant="primary" size="sm" onClick={handleSave} disabled={!canSave}>
+                  Save note
+                </Button>
+              </div>
+            ) : null}
           </div>
         </section>
       ) : null}

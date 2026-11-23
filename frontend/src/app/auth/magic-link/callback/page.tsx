@@ -30,9 +30,9 @@ function MagicLinkCallbackContent() {
 
   if (!token) {
     return (
-      <div className={loginStyles.page}>
-        <main className={loginStyles.container}>
-          <h1 className={loginStyles.heading}>Invalid link</h1>
+      <div className={`${loginStyles.page} ${styles.page}`}>
+        <main className={`${loginStyles.container} ${styles.container}`}>
+          <h1 className={`${loginStyles.heading} ${styles.heading}`}>Invalid link</h1>
           <p className={styles.message}>
             This sign-in link is missing a token. Try requesting a new one.
           </p>
@@ -59,9 +59,9 @@ function MagicLinkCallbackContent() {
   }
 
   return (
-    <div className={loginStyles.page}>
-      <main className={loginStyles.container}>
-        <h1 className={loginStyles.heading}>Sign in to FreeWhen</h1>
+    <div className={`${loginStyles.page} ${styles.page}`}>
+      <main className={`${loginStyles.container} ${styles.container}`}>
+        <h1 className={`${loginStyles.heading} ${styles.heading}`}>Sign in to FreeWhen</h1>
         <p className={loginStyles.subheading}>Click below to finish signing in.</p>
         <Button variant="primary" size="lg" fullWidth loading={submitting} onClick={onContinue}>
           {submitting ? "Signing you in…" : "Continue"}

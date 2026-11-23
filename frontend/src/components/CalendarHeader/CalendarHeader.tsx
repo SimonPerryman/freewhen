@@ -1,8 +1,9 @@
 "use client";
 
-import type { MutableRefObject } from "react";
+import type { CSSProperties, MutableRefObject } from "react";
 import LiveStatusDot from "@/components/LiveStatusDot/LiveStatusDot";
 import { MAX_CALENDAR_NAME_LENGTH } from "@/lib/limits";
+import type { Participant } from "@/lib/types";
 import { renderTitle, titlePlain } from "@/lib/title";
 import type { StreamStatus } from "@/lib/useCalendarEvents";
 import styles from "./CalendarHeader.module.css";
@@ -19,12 +20,13 @@ interface Props {
   onRenameDraftChange: (value: string) => void;
   onRenameCommit: () => void;
   onRenameCancel: () => void;
-  peopleLabel: string;
-  dateLabel: string;
+  participants: Participant[];
+  // Participants who have marked at least one date.
+  respondedIds: ReadonlySet<string>;
 }
 
 // Calendar page header: title (or the inline rename input), settings cog,
-// live-updates dot, and the people / dates meta pills.
+// live-updates dot, and the "N of M responded" readout.
 export default function CalendarHeader({
   calendarName,
   showSettings,
@@ -35,8 +37,8 @@ export default function CalendarHeader({
   onRenameDraftChange,
   onRenameCommit,
   onRenameCancel,
-  peopleLabel,
-  dateLabel,
+  participants,
+  respondedIds,
 }: Props) {
   return (
     <div className={styles.header}>
@@ -99,10 +101,23 @@ export default function CalendarHeader({
           Wrap a word in *asterisks* to italicise it.
         </p>
       ) : null}
-      <div className={styles.metaRow}>
-        <span className="pill">{peopleLabel}</span>
-        <span className="pill">{dateLabel}</span>
-      </div>
+      {participants.length > 0 ? (
+        <div className={styles.metaRow}>
+          <span className={styles.dots} aria-hidden="true">
+            {participants.map((p) => (
+              <span
+                key={p.id}
+                className={`${styles.dot} ${respondedIds.has(p.id) ? "" : styles.dotPending}`}
+                style={{ "--dot-colour": p.colour } as CSSProperties}
+              />
+            ))}
+          </span>
+          <span className={styles.responded}>
+            {participants.filter((p) => respondedIds.has(p.id)).length} of {participants.length}{" "}
+            responded
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }

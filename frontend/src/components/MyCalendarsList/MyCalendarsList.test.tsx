@@ -12,7 +12,10 @@ vi.mock("next/navigation", () => ({
 
 const deleteCalendarMock = vi.fn<(id: string) => Promise<void>>(async () => undefined);
 const leaveCalendarMock = vi.fn<(id: string) => Promise<void>>(async () => undefined);
+const createCalendarMock = vi.fn();
 vi.mock("@/lib/api", () => ({
+  ApiError: class ApiError extends Error {},
+  createCalendar: (...args: unknown[]) => createCalendarMock(...args),
   deleteCalendar: (id: string) => deleteCalendarMock(id),
   leaveCalendar: (id: string) => leaveCalendarMock(id),
 }));
@@ -42,11 +45,22 @@ describe("MyCalendarsList", () => {
     expect(screen.getByLabelText("Loading calendars")).toBeTruthy();
   });
 
-  it("renders the empty state with a CTA", () => {
+  it("renders the empty state with an inline create form", () => {
     renderWithToast(<MyCalendarsList status="ready" calendars={[]} hasMore={false} />);
-    expect(screen.getByText(/haven't created or joined/i)).toBeTruthy();
-    const cta = screen.getByRole("link", { name: /create a calendar/i });
-    expect(cta.getAttribute("href")).toBe("/");
+    expect(screen.getByRole("heading", { name: /no calendars yet/i })).toBeTruthy();
+    expect(screen.getByLabelText(/event name/i)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Create" })).toBeTruthy();
+  });
+
+  it("creates a calendar from the empty state and requires a name", async () => {
+    createCalendarMock.mockResolvedValue({ id: "new1", name: "Trip" });
+    renderWithToast(<MyCalendarsList status="ready" calendars={[]} hasMore={false} />);
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/give your calendar a name/i);
+    expect(createCalendarMock).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText(/event name/i), { target: { value: " Trip " } });
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    await vi.waitFor(() => expect(createCalendarMock).toHaveBeenCalledWith({ name: "Trip" }));
   });
 
   it("renders an Owner pill only for owned calendars", () => {

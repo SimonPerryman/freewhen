@@ -12,6 +12,7 @@ interface Props {
   onCloseSettings: () => void;
   onStartRename: () => void;
   onOpenDuplicate: () => void;
+  onDeleteCalendar: () => void;
 }
 
 // The owner's overlays: settings sheet and the confirm dialogs
@@ -24,6 +25,7 @@ export default function CalendarOwnerDialogs({
   onCloseSettings,
   onStartRename,
   onOpenDuplicate,
+  onDeleteCalendar,
 }: Props) {
   return (
     <>
@@ -77,6 +79,10 @@ export default function CalendarOwnerDialogs({
           onDuplicate={() => {
             onCloseSettings();
             onOpenDuplicate();
+          }}
+          onDelete={() => {
+            onCloseSettings();
+            onDeleteCalendar();
           }}
           onClose={onCloseSettings}
         />
