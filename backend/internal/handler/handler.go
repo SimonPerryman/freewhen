@@ -58,7 +58,7 @@ type Handler struct {
 	service           CalendarService
 	trustedProxyDepth int
 	// frontendURL is the canonical public origin of the FreeWhen frontend
-	// (e.g. https://freewhen.app). Used to render the "View on FreeWhen" link
+	// (e.g. https://freewhen.example.com). Used to render the "View on FreeWhen" link
 	// embedded in exported events. Empty in environments without a public URL
 	// configured — the link is omitted in that case.
 	frontendURL string

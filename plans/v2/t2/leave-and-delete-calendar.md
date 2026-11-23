@@ -70,11 +70,6 @@ participants must add `AND deleted_at IS NULL` (or `WHERE c.deleted_at IS
 NULL` on joins). Audit each query — this is the bulk of the work and the
 biggest source of leak risk.
 
-Every existing query in `internal/store/` that reads calendars or
-participants must add `AND deleted_at IS NULL` (or `WHERE c.deleted_at IS
-NULL` on joins). Audit each query — this is the bulk of the work and the
-biggest source of leak risk.
-
 ### Backend — Leave (member)
 
 - New endpoint: `DELETE /calendars/{id}/participants/me`

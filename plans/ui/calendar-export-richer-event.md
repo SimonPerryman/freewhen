@@ -36,8 +36,8 @@ This plan enriches the exported event body (Google Calendar `details` param + IC
      • Alice — Have to leave by 9pm
      • Bob — Can host
 
-     View on FreeWhen: https://freewhen.app/calendars/<id>
-     Created with FreeWhen — https://freewhen.app
+     View on FreeWhen: https://freewhen.simonperryman.co.uk/calendars/<id>
+     Created with FreeWhen — https://freewhen.simonperryman.co.uk
      ```
      - Sort participants alphabetically by name (stable, no implicit "owner first" surprise).
      - Skip the `Notes:` block entirely if no one left a note.
@@ -48,7 +48,7 @@ This plan enriches the exported event body (Google Calendar `details` param + IC
    - `ExportGoogle` — add `q.Set("details", description)` before encoding. Google's render URL accepts plain text with `\n` newlines (auto-linkified URLs); no HTML needed.
 
 4. **Frontend base URL config.**
-   - Need a canonical public URL for the calendar link. Add a `FRONTEND_BASE_URL` env var to `internal/config/config.go` (e.g. `https://freewhen.app` in prod, `http://localhost:3000` in dev). Read once at startup; pass into the handler via the existing handler struct.
+   - Need a canonical public URL for the calendar link. Add a `FRONTEND_BASE_URL` env var to `internal/config/config.go` (e.g. `https://freewhen.simonperryman.co.uk` in prod, `http://localhost:3000` in dev). Read once at startup; pass into the handler via the existing handler struct.
    - 12-factor: explicit env var, no `NODE_ENV`-style branching. Document in `docs/infra-notes.md` and add to Terraform Cloud Run env in `infra/`.
 
 5. **Tests.**

@@ -581,10 +581,9 @@ usages (wordmark, calendar titles via `renderTitle()`) are untouched.
   "everyone's") descends much deeper than its `f` (in "free"), so the
   `f` reads as truncated next to it. Probed `font-feature-settings:
   ss01, salt` for a swash `f` (no-op — Instrument Serif has no such
-  alternate). Built two specimens — `plans/ui/font-specimen.html` (full
-  alphabet across alt accent faces) and
-  `plans/ui/font-specimen-f-swap.html` (single-glyph `f` swap via
-  donor face) — but ultimately resolved by reword: headline now reads
+  alternate). Built two temporary specimen pages (not kept) — one showing the full
+  alphabet across alt accent faces and one testing a single-glyph `f`
+  swap via a donor face — but ultimately resolved by reword: headline now reads
   "Find when we're all *free.*" in `src/app/page.tsx`. The `we're all`
   phrase has no `y`, so the `f` descender no longer competes. No font
   changes needed; metadata in `layout.tsx`/`manifest.ts` left as

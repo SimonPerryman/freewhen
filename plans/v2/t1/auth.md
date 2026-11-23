@@ -162,7 +162,7 @@ All other endpoints (`GET /calendars/{id}`, `POST /calendars/{id}/participants`,
 
 ## Log
 
-- 2025-04-18 — Created plan
-- 2026-04-19 — Updated plan: made owner_id NOT NULL (no prod data), added CSRF strategy (SameSite=Lax + CORS), added api.freewhen.com subdomain for same-site cookies, added return URL encoding in OAuth state, made /auth/me lazy, added CORS credentials header, added infrastructure section, clarified user ID format
+- 2026-04-18 — Created plan
+- 2026-04-19 — Updated plan: made owner_id NOT NULL (no prod data), added CSRF strategy (SameSite=Lax + CORS), added api.freewhen.example.com subdomain for same-site cookies, added return URL encoding in OAuth state, made /auth/me lazy, added CORS credentials header, added infrastructure section, clarified user ID format
 - 2026-04-19 — Implemented backend phases 1, 2, 4 and frontend phases 1, 2, 3. Migration 003_add_auth.sql (users, sessions tables, calendars.owner_id). Store layer: user.go, session.go. Auth middleware (requireAuth, optionalAuth) with session cookie + rolling expiry. CORS updated with credentials header. Auth handler: Google OAuth login/callback with state nonce verification, /auth/me, /auth/logout. Calendar ownership: POST /calendars requires auth, sets owner_id. Frontend: API client with credentials:include, AuthProvider context (lazy checkAuth), login page with Google button, home page auth gate, Header component with sign-in/sign-out. All unit tests updated and passing. Backend Phase 3 (magic link) deferred per plan. Infrastructure (DNS, Google OAuth creds) still needed before deployment.
 - 2026-04-19 — Backend Phase 3 (magic link) implemented in plans/v2/t1/magic-link.md. All code phases complete. Marked done.

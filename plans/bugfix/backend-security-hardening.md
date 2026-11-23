@@ -1,6 +1,6 @@
 # Backend security hardening (export gate, email_verified, body limits)
 
-Status: in-progress
+Status: done
 
 ## Goal
 
@@ -82,3 +82,4 @@ Close three findings from a read-only backend review:
 - 2026-11-12 10:50 — Frontend `ExportButtons` appends stored access token; docs/api.md + onboarding.html updated
 - 2026-11-12 10:55 — Go/make not available locally and CI not starting: backend lint/tests/integration NOT run; PR opened as draft. Frontend oxlint/oxfmt clean, ExportButtons tests pass (unrelated pre-existing `localStorage` failures in other suites in this environment)
 - 2026-11-12 11:20 — Rebased onto main after #70–#72 (ExportButtons now uses `API_BASE_URL` from `@/lib/config` plus the `?access=` token); go build/vet/test + integration, vitest (316), oxlint, oxfmt all pass
+- 2026-11-23 20:52 — Marked done: shipped in #73 (c56f179). Export gate (`handler/export.go`), `email_verified` check (`idprovider/google.go`) and `limitBody` (`server/middleware.go`) are all on main.
