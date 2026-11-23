@@ -27,6 +27,7 @@ import Home from "./page";
 import AuthProvider from "@/components/AuthProvider/AuthProvider";
 
 beforeEach(() => {
+  localStorage.clear();
   pushMock.mockReset();
   createCalendarMock.mockReset();
   getMeMock.mockReset();
@@ -115,5 +116,70 @@ describe("Home (calendar creation page)", () => {
     await user.click(screen.getByRole("button", { name: /^create/i }));
 
     expect(pushMock).toHaveBeenCalledWith("/login");
+  });
+
+  it("keeps the typed name when signed out and creates the calendar after sign-in", async () => {
+    getMeMock.mockResolvedValue(null);
+    const user = userEvent.setup();
+    const first = renderWithAuth();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^create/i })).toBeInTheDocument();
+    });
+    await user.type(screen.getByLabelText(/event name/i), "  Ski week ");
+    await user.click(screen.getByRole("button", { name: /^create/i }));
+    expect(pushMock).toHaveBeenCalledWith("/login");
+    first.unmount();
+
+    // Back from the magic link, now signed in.
+    getMeMock.mockResolvedValue({ id: "u1", email: "test@example.com", name: "Test" });
+    createCalendarMock.mockResolvedValue({ id: "xyz", name: "Ski week", createdAt: "" });
+    renderWithAuth();
+    await waitFor(() => {
+      expect(createCalendarMock).toHaveBeenCalledWith({ name: "Ski week" });
+    });
+    expect(pushMock).toHaveBeenLastCalledWith("/calendars/xyz");
+  });
+
+  it("does not create a duplicate on reload after the pending name was consumed", async () => {
+    localStorage.setItem(
+      "freewhen:pending-calendar-name",
+      JSON.stringify({ name: "Trip", savedAt: Date.now() }),
+    );
+    getMeMock.mockResolvedValue({ id: "u1", email: "test@example.com", name: "Test" });
+    createCalendarMock.mockResolvedValue({ id: "a1", name: "Trip", createdAt: "" });
+    const first = renderWithAuth();
+    await waitFor(() => expect(createCalendarMock).toHaveBeenCalledTimes(1));
+    first.unmount();
+    renderWithAuth();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^create/i })).toBeInTheDocument();
+    });
+    expect(createCalendarMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows an error and keeps the name when the resumed create fails", async () => {
+    localStorage.setItem(
+      "freewhen:pending-calendar-name",
+      JSON.stringify({ name: "Trip", savedAt: Date.now() }),
+    );
+    getMeMock.mockResolvedValue({ id: "u1", email: "test@example.com", name: "Test" });
+    const { ApiError } = await import("@/lib/api");
+    createCalendarMock.mockRejectedValue(new ApiError(500, "boom"));
+    renderWithAuth();
+    expect(await screen.findByRole("alert")).toHaveTextContent("boom");
+    expect(screen.getByLabelText(/event name/i)).toHaveValue("Trip");
+  });
+
+  it("ignores a stale pending name", async () => {
+    localStorage.setItem(
+      "freewhen:pending-calendar-name",
+      JSON.stringify({ name: "Old", savedAt: Date.now() - 2 * 60 * 60 * 1000 }),
+    );
+    getMeMock.mockResolvedValue({ id: "u1", email: "test@example.com", name: "Test" });
+    renderWithAuth();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^create/i })).toBeInTheDocument();
+    });
+    expect(createCalendarMock).not.toHaveBeenCalled();
   });
 });

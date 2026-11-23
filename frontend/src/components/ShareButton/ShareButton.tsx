@@ -11,6 +11,8 @@ interface ShareButtonProps {
   finalisedDate?: string | null;
   passphrase?: string | null;
   variant?: "default" | "hero";
+  // Quieter outline style, for when another action on the page is the primary one.
+  secondary?: boolean;
   state?: "pre-finalisation" | "finalised";
 }
 
@@ -20,6 +22,7 @@ export default function ShareButton({
   finalisedDate = null,
   passphrase = null,
   variant = "default",
+  secondary = false,
   state = "pre-finalisation",
 }: ShareButtonProps) {
   const [canShare, setCanShare] = useState(false);
@@ -73,7 +76,7 @@ export default function ShareButton({
 
   if (variant === "hero") {
     return (
-      <button type="button" className={`${styles.button} ${styles.hero}`} onClick={handleClick}>
+      <button type="button" className={`${styles.button} ${styles.hero} ${secondary ? styles.secondary : ""}`} onClick={handleClick}>
         {copied ? "Copied!" : canShare ? "Share" : "Copy link"}
       </button>
     );

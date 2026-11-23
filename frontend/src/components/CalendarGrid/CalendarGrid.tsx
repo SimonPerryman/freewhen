@@ -456,7 +456,7 @@ export default function CalendarGrid({
         </button>
       </div>
 
-      {currentParticipantId && !stripDismissed ? (
+      {currentParticipantId && !stripDismissed && !locked ? (
         <div className={styles.instructionStrip} data-testid="instruction-strip">
           <strong>Tap once</strong> to mark a date free. <strong>Tap again</strong> to prefer it or
           add a note.

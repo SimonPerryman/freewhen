@@ -3,7 +3,7 @@
 import InvitePrompt from "@/components/InvitePrompt/InvitePrompt";
 import ParticipantList from "@/components/ParticipantList/ParticipantList";
 import ShareButton from "@/components/ShareButton/ShareButton";
-import SummaryView from "@/components/SummaryView/SummaryView";
+import SummaryView, { useTopDate } from "@/components/SummaryView/SummaryView";
 import type { Participant } from "@/lib/types";
 import styles from "./CalendarParticipantsSection.module.css";
 
@@ -46,6 +46,7 @@ export default function CalendarParticipantsSection({
   onRemoveParticipant,
   onRenameParticipant,
 }: Props) {
+  const topDate = useTopDate(participants, freeByDate);
   const list = (
     <ParticipantList
       participants={participants}
@@ -93,6 +94,7 @@ export default function CalendarParticipantsSection({
             finalisedDate={finalisedDate}
             passphrase={passphrase}
             variant="hero"
+            secondary={isOwner && topDate !== null}
           />
         </div>
         {list}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { Availability, Participant } from "@/lib/types";
 import ExportButtons from "@/components/ExportButtons/ExportButtons";
 import styles from "./FinalisedBanner.module.css";
@@ -9,10 +9,8 @@ interface FinalisedBannerProps {
   date: string;
   emoji?: string;
   // When provided, renders export buttons (Google Calendar deep link + .ics
-  // download) alongside the unfinalise action.
+  // download).
   calendarId?: string;
-  canUnfinalise?: boolean;
-  onUnfinalise?: () => Promise<void> | void;
   // Optional — when provided, the banner surfaces per-participant notes for
   // the finalised date inline. The plan's §8 rationale: notes become
   // load-bearing at the exact moment someone needs to decide whether to show
@@ -39,15 +37,10 @@ export default function FinalisedBanner({
   date,
   emoji = "📅",
   calendarId,
-  canUnfinalise = false,
-  onUnfinalise,
   participants,
   availability,
   voteCount = 0,
 }: FinalisedBannerProps) {
-  const [confirming, setConfirming] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-
   const notes = useMemo(() => {
     if (!participants || !availability) return [];
     const byId = new Map(participants.map((p) => [p.id, p]));
@@ -57,17 +50,6 @@ export default function FinalisedBanner({
       .filter((row): row is { participant: Participant; note: string } => !!row.participant)
       .sort((a, b) => a.participant.name.localeCompare(b.participant.name));
   }, [participants, availability, date]);
-
-  async function handleCommit() {
-    if (!onUnfinalise) return;
-    setSubmitting(true);
-    try {
-      await onUnfinalise();
-    } finally {
-      setSubmitting(false);
-      setConfirming(false);
-    }
-  }
 
   return (
     <div className={styles.banner} role="status" aria-live="polite">
@@ -108,39 +90,6 @@ export default function FinalisedBanner({
       {calendarId ? (
         <div className={styles.exportRow}>
           <ExportButtons calendarId={calendarId} />
-        </div>
-      ) : null}
-      {canUnfinalise && onUnfinalise ? (
-        <div className={styles.actions}>
-          {confirming ? (
-            <>
-              <button
-                type="button"
-                className={styles.confirmButton}
-                onClick={handleCommit}
-                disabled={submitting}
-              >
-                {submitting ? "Reopening…" : "Reopen calendar?"}
-              </button>
-              <button
-                type="button"
-                className={styles.cancelButton}
-                onClick={() => setConfirming(false)}
-                disabled={submitting}
-                aria-label="Cancel"
-              >
-                ✕
-              </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              className={styles.unfinaliseButton}
-              onClick={() => setConfirming(true)}
-            >
-              Unfinalise
-            </button>
-          )}
         </div>
       ) : null}
     </div>

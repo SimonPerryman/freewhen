@@ -224,6 +224,17 @@ function CalendarPageContent({
     [handleToggle, notesByDate, votesByDate, availability, showToast],
   );
 
+  const { handleFinalise, handleUnfinalise } = owner;
+  const handleChangeDate = useCallback(async () => {
+    const previous = finalisedDate;
+    if (!previous) return;
+    await handleUnfinalise();
+    showToast({
+      message: "Calendar reopened",
+      action: { label: "Undo", onClick: () => void handleFinalise(previous) },
+    });
+  }, [finalisedDate, handleFinalise, handleUnfinalise, showToast]);
+
   const { freeByDate, voteCountsByDate, preferredByDate, noteAuthorsByDate, notesByDateAndAuthor } =
     useAvailabilityMaps(calendar, {
       participant: currentParticipant,
@@ -319,8 +330,6 @@ function CalendarPageContent({
             date={finalisedDate}
             emoji={calendarEmoji || "📅"}
             calendarId={calendar.calendar.id}
-            canUnfinalise={isOwner}
-            onUnfinalise={owner.handleUnfinalise}
             participants={calendar.participants}
             availability={calendar.availability}
             voteCount={voteCountsByDate.get(finalisedDate) ?? 0}
@@ -340,12 +349,6 @@ function CalendarPageContent({
               hideEmail={!!user}
             />
           )
-        ) : null}
-
-        {notJoined && finalisedDate ? (
-          <p className={styles.emptyHint}>
-            This calendar is finalised — no further changes needed.
-          </p>
         ) : null}
 
         {availability.saveError ? (
@@ -392,6 +395,12 @@ function CalendarPageContent({
           joined={!!currentParticipant}
           finalisedDate={finalisedDate}
         />
+
+        {isOwner && finalisedDate ? (
+          <button type="button" className={styles.quietLink} onClick={handleChangeDate}>
+            Change the date
+          </button>
+        ) : null}
 
         {duplicateOpen ? (
           <DuplicateCalendarSheet

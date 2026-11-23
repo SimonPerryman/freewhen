@@ -122,3 +122,21 @@
   border-radius: var(--radius-md);
   line-height: var(--leading-normal);
 }
+
+.quietLink {
+  display: block;
+  margin: var(--space-3) auto 0;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.quietLink:hover {
+  color: var(--text-primary);
+}
