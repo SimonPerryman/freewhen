@@ -103,37 +103,6 @@
   text-align: center;
 }
 
-.empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-8) var(--space-4);
-  text-align: center;
-  color: var(--text-secondary);
-}
-
-.emptyTitle {
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.emptyCta {
-  display: inline-block;
-  padding: var(--space-2-5) var(--space-4-5);
-  font-size: var(--text-base);
-  font-weight: 500;
-  color: var(--accent-text);
-  background: var(--accent);
-  border-radius: var(--radius-sm);
-  text-decoration: none;
-}
-
-.emptyCta:hover {
-  background: var(--accent-hover);
-}
-
 .skeleton {
   display: flex;
   flex-direction: column;

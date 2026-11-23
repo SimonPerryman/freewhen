@@ -10,7 +10,9 @@ export default function Header() {
   const pathname = usePathname();
   const { user, isLoading } = useAuth();
 
-  if (pathname === "/login") return null;
+  // On the sign-in screens the bar carries only the logo: a "Sign in" link
+  // there is a dead end, and the signed-in nav is irrelevant mid-auth.
+  const onAuthScreen = pathname === "/login" || pathname.startsWith("/login/");
 
   return (
     <header className={styles.header}>
@@ -18,7 +20,9 @@ export default function Header() {
         Free<span className="serif-accent">When</span>
       </a>
       <nav aria-label="Primary" className={styles.actions}>
-        {isLoading ? null : user ? (
+        {onAuthScreen ? (
+          <ColorSchemeIconButton />
+        ) : isLoading ? null : user ? (
           <>
             <a href="/calendars" className={styles.myCalendarsLink}>
               My calendars

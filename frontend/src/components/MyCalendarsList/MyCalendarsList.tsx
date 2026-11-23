@@ -8,6 +8,7 @@ import { formatFinalisedDate, formatRelative } from "@/lib/relativeTime";
 import { deleteCalendar, leaveCalendar } from "@/lib/api";
 import { useToast } from "@/lib/toast";
 import log from "@/lib/log";
+import EmptyCalendars from "@/components/EmptyCalendars/EmptyCalendars";
 import DuplicateCalendarSheet from "@/components/DuplicateCalendarSheet/DuplicateCalendarSheet";
 import RenameCalendarSheet from "@/components/RenameCalendarSheet/RenameCalendarSheet";
 import RowMenu, { type RowMenuItem } from "@/components/RowMenu/RowMenu";
@@ -127,16 +128,7 @@ export default function MyCalendarsList({ status, calendars, hasMore, onRetry }:
   const visibleCalendars = calendars.filter((c) => !hiddenIds.has(c.id));
 
   if (visibleCalendars.length === 0) {
-    return (
-      <div className={styles.empty}>
-        <div className={styles.emptyTitle}>
-          You haven&apos;t created or joined any calendars yet.
-        </div>
-        <Link href="/" className={styles.emptyCta}>
-          Create a calendar
-        </Link>
-      </div>
-    );
+    return <EmptyCalendars />;
   }
 
   return (

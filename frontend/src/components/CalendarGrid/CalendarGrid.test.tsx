@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import type { ComponentProps } from "react";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import CalendarGrid, { computeHeatPercent } from "./CalendarGrid";
 import { COLOUR_PALETTE, textOnColour } from "@/lib/overlap";
@@ -905,6 +905,35 @@ describe("CalendarGrid", () => {
   });
 
   describe("instruction strip", () => {
+    beforeEach(() => {
+      try {
+        localStorage.clear();
+      } catch {
+        /* ignore */
+      }
+    });
+
+    it("disappears after the first tap and stays gone", async () => {
+      const ps = makeParticipants(1);
+      const props = {
+        participants: ps,
+        freeByDate: new Map<string, Set<string>>(),
+        currentParticipantId: ps[0].id,
+        onToggle,
+        joined: true,
+      };
+      const { unmount } = render(<CalendarGrid {...props} />);
+      expect(screen.getByTestId("instruction-strip")).toBeTruthy();
+      const cell = screen
+        .getAllByTestId("day-cell")
+        .find((c) => c.tagName === "BUTTON" && !(c as HTMLButtonElement).disabled);
+      fireEvent.click(cell as HTMLElement);
+      expect(screen.queryByTestId("instruction-strip")).toBeNull();
+      unmount();
+      render(<CalendarGrid {...props} />);
+      expect(screen.queryByTestId("instruction-strip")).toBeNull();
+    });
+
     it("renders when currentParticipantId is set", () => {
       const ps = makeParticipants(1);
       render(

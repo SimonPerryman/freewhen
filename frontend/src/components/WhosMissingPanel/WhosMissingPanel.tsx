@@ -17,6 +17,9 @@ import styles from "./WhosMissingPanel.module.css";
 interface Props {
   calendarId: string;
   participants: Participant[];
+  // Someone has joined but not marked a date. The panel stays hidden until
+  // then (unless the owner already has it open).
+  hasMissing?: boolean;
   refreshKey?: number;
 }
 
@@ -44,7 +47,12 @@ function writeOpenState(calendarId: string, open: boolean) {
   }
 }
 
-export default function WhosMissingPanel({ calendarId, participants, refreshKey }: Props) {
+export default function WhosMissingPanel({
+  calendarId,
+  participants,
+  hasMissing = true,
+  refreshKey,
+}: Props) {
   const { showToast } = useToast();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<MissingView | null>(null);
@@ -208,6 +216,8 @@ export default function WhosMissingPanel({ calendarId, participants, refreshKey 
     if (!view) return [];
     return view.invites.filter((inv) => inv.matchedParticipantId !== null);
   }, [view]);
+
+  if (!hasMissing && !open) return null;
 
   return (
     <section className={styles.panel} aria-label="Who's missing?">

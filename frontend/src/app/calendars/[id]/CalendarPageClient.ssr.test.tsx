@@ -85,7 +85,7 @@ describe("CalendarPageClient with server data", () => {
     // Synchronously, before any effect has resolved.
     expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Trip" })).toBeInTheDocument();
-    expect(screen.getByText("2 people")).toBeInTheDocument();
+    expect(screen.getByText(/of 2 responded/)).toBeInTheDocument();
 
     // A new visitor gets the join form once identity resolves (localStorage).
     expect(await screen.findByLabelText(/your name/i)).toBeInTheDocument();

@@ -42,6 +42,15 @@ beforeEach(() => {
 });
 
 describe("WhosMissingPanel", () => {
+  it("renders nothing when nobody is missing", () => {
+    const { container } = render(
+      <ToastProvider>
+        <WhosMissingPanel calendarId="c1" participants={[]} hasMissing={false} />
+      </ToastProvider>,
+    );
+    expect(container.querySelector("section")).toBeNull();
+  });
+
   it("is collapsed by default and loads when opened", async () => {
     mockedApi.getMissing.mockResolvedValue({
       invites: [

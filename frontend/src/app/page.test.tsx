@@ -51,6 +51,14 @@ describe("Home (calendar creation page)", () => {
     });
   });
 
+  it("hints that sign-in is needed only when signed out", async () => {
+    getMeMock.mockRejectedValue(new Error("401"));
+    renderWithAuth();
+    expect(
+      await screen.findByText(/you.ll sign in with your email to save it/i),
+    ).toBeInTheDocument();
+  });
+
   it("submits with trimmed name and navigates on success", async () => {
     getMeMock.mockResolvedValue({ id: "u1", email: "test@example.com", name: "Test" });
     createCalendarMock.mockResolvedValue({

@@ -12,6 +12,7 @@ interface Props {
   onRegeneratePassphrase: () => void;
   onDisablePassphrase: () => void;
   onDuplicate: () => void;
+  onDelete: () => void;
   onClose: () => void;
 }
 
@@ -23,6 +24,7 @@ export default function CalendarSettingsSheet({
   onRegeneratePassphrase,
   onDisablePassphrase,
   onDuplicate,
+  onDelete,
   onClose,
 }: Props) {
   return (
@@ -73,6 +75,12 @@ export default function CalendarSettingsSheet({
         <Button variant="secondary" onClick={onDuplicate}>
           Duplicate this calendar
         </Button>
+      </section>
+
+      <section className={styles.section}>
+        <button type="button" className={styles.deleteLink} onClick={onDelete}>
+          Delete calendar
+        </button>
       </section>
     </Sheet>
   );

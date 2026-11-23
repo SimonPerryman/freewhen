@@ -33,9 +33,9 @@ test("anonymous joiner picks a date, adds a note, marks it preferred, and reload
   // Note + preferred. The "Save" button in the sheet only enables once the
   // textarea differs from the empty currentNote.
   const note = "only after 6pm";
-  await sheet.getByLabel("Your note").fill(note);
+  await sheet.getByLabel("Note (optional)").fill(note);
   await sheet.getByRole("checkbox", { name: /Prefer this date/ }).check();
-  await sheet.getByRole("button", { name: "Save" }).click();
+  await sheet.getByRole("button", { name: "Save note" }).click();
 
   // Sheet closes (Save calls handleSave then onClose).
   await expect(sheet).toBeHidden();

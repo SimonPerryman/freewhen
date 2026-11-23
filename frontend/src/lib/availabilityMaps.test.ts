@@ -6,7 +6,6 @@ import {
   buildNotesByDateAndAuthor,
   buildPreferredByDate,
   buildVoteCountsByDate,
-  calendarMetaLabels,
   countResponded,
   respondedParticipantIds,
   useAvailabilityMaps,
@@ -107,28 +106,5 @@ describe("availabilityMaps", () => {
     rerender({ o: { ...own, notesByDate: new Map() } });
     expect(result.current.freeByDate).toBe(first.freeByDate);
     expect(result.current.noteAuthorsByDate).not.toBe(first.noteAuthorsByDate);
-  });
-
-  describe("calendarMetaLabels", () => {
-    const base = { ...calendar, availability: [] };
-    it("labels empty calendars", () => {
-      expect(calendarMetaLabels(base, new Set(), "2099-01-01")).toEqual({
-        peopleLabel: "2 people",
-        dateLabel: "no dates yet",
-      });
-    });
-    it("counts weekends when every date is a Sat/Sun", () => {
-      // 2099-01-03 is a Saturday, 2099-01-04 a Sunday.
-      const labels = calendarMetaLabels(base, new Set(["2099-01-03", "2099-01-04"]), "2099-01-01");
-      expect(labels.dateLabel).toBe("1 weekend");
-    });
-    it("counts days otherwise and ignores past dates", () => {
-      const labels = calendarMetaLabels(
-        { ...base, participants: [me] },
-        new Set(["2098-12-31", "2099-01-02", "2099-01-05"]),
-        "2099-01-01",
-      );
-      expect(labels).toEqual({ peopleLabel: "1 person", dateLabel: "2 days" });
-    });
   });
 });

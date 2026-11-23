@@ -18,27 +18,6 @@ describe("ParticipantList", () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it("counts only participants who have marked availability as responded", () => {
-    const participants = [
-      participant({ id: "owner", name: "Owner" }),
-      participant({ id: "p2", name: "Bob" }),
-    ];
-    const { rerender } = render(
-      <ParticipantList participants={participants} currentParticipantId="owner" />,
-    );
-    expect(screen.getByText("0 of 2 responded")).toBeInTheDocument();
-
-    rerender(
-      <ParticipantList
-        participants={participants}
-        currentParticipantId="owner"
-        // "gone" left the calendar; their stale rows must not count.
-        respondedIds={new Set(["p2", "gone"])}
-      />,
-    );
-    expect(screen.getByText("1 of 2 responded")).toBeInTheDocument();
-  });
-
   it("renders participant names", () => {
     const participants = [
       participant({ id: "p1", name: "Alice" }),

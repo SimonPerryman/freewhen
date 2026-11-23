@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, duplicateCalendar } from "@/lib/api";
 import analytics from "@/lib/analytics";
 import { MAX_CALENDAR_NAME_LENGTH } from "@/lib/limits";
+import { stripFormatting } from "@/lib/stripFormatting";
 import Button from "@/components/Button/Button";
 import Sheet from "@/components/Sheet/Sheet";
 import TextField from "@/components/TextField/TextField";
@@ -22,7 +23,7 @@ export default function DuplicateCalendarSheet({
   onClose,
   onDuplicated,
 }: Props) {
-  const defaultName = `${sourceName} (copy)`.slice(0, MAX_CALENDAR_NAME_LENGTH);
+  const defaultName = `${stripFormatting(sourceName)} (copy)`.slice(0, MAX_CALENDAR_NAME_LENGTH);
   const [name, setName] = useState(defaultName);
   const [includeParticipants, setIncludeParticipants] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -96,6 +97,7 @@ export default function DuplicateCalendarSheet({
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={MAX_CALENDAR_NAME_LENGTH}
+          counter
           disabled={submitting}
           aria-invalid={!!error}
           aria-describedby={error ? "duplicate-sheet-error" : undefined}

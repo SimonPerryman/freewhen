@@ -66,3 +66,12 @@
   background: color-mix(in srgb, var(--error) 10%, transparent);
   border-radius: var(--radius-sm);
 }
+
+.atLimit {
+  border-color: var(--error);
+}
+
+.counterRow {
+  display: flex;
+  justify-content: flex-end;
+}

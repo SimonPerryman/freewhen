@@ -26,30 +26,14 @@
   box-shadow: var(--shadow-md);
 }
 
-.dots {
-  display: flex;
-  gap: var(--space-1);
-  flex-wrap: wrap;
-}
-
 .compactLabel {
   white-space: nowrap;
   font-weight: 500;
 }
 
-.count {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 var(--space-1-5);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--accent-text);
-  background: var(--accent);
-  border-radius: 11px;
+.chevron {
   margin-left: auto;
+  font-size: var(--text-xs);
 }
 
 .fullList {

@@ -37,6 +37,25 @@ function writeCoachmarkDismissed(calendarId: string, participantId: string): voi
   }
 }
 
+// "Tap once to mark…" strip: gone for good (per browser) after the first tap.
+const INSTRUCTION_STRIP_KEY = "freewhen.instructionStrip.dismissed";
+
+function readInstructionStripDismissed(): boolean {
+  try {
+    return localStorage.getItem(INSTRUCTION_STRIP_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeInstructionStripDismissed(): void {
+  try {
+    localStorage.setItem(INSTRUCTION_STRIP_KEY, "1");
+  } catch {
+    /* private mode etc — silently ignore */
+  }
+}
+
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAY_LETTERS = ["M", "T", "W", "T", "F", "S", "S"];
 const MONTH_SHORT = [
@@ -175,6 +194,11 @@ export default function CalendarGrid({
   const cellRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [coachmarkAnchor, setCoachmarkAnchor] = useState<HTMLButtonElement | null>(null);
   const coachmarkTimer = useRef<ReturnType<typeof setTimeout>>(null);
+  // Read after mount so server and first client render agree.
+  const [stripDismissed, setStripDismissed] = useState(false);
+  useEffect(() => {
+    if (readInstructionStripDismissed()) setStripDismissed(true);
+  }, []);
 
   const dismissCoachmark = useCallback(() => {
     if (coachmarkTimer.current) {
@@ -222,6 +246,8 @@ export default function CalendarGrid({
 
   const handleDayClick = useCallback(
     (dateStr: string, alreadySelected: boolean) => {
+      setStripDismissed(true);
+      writeInstructionStripDismissed();
       // Tap-on-own-free-cell opens the day sheet (notes + "Remove availability").
       // Tap on an unselected cell still toggles fast. Range-mode taps (onRangeToggle)
       // come through a different path and are not affected.
@@ -430,7 +456,7 @@ export default function CalendarGrid({
         </button>
       </div>
 
-      {currentParticipantId ? (
+      {currentParticipantId && !stripDismissed ? (
         <div className={styles.instructionStrip} data-testid="instruction-strip">
           <strong>Tap once</strong> to mark a date free. <strong>Tap again</strong> to prefer it or
           add a note.

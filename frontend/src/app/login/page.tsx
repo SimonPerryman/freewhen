@@ -4,6 +4,8 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getGoogleLoginUrl, sendMagicLink, ApiError } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider/AuthProvider";
+import Button from "@/components/Button/Button";
+import TextField from "@/components/TextField/TextField";
 import { safeReturnPath } from "@/lib/safeReturnPath";
 import styles from "./page.module.css";
 
@@ -14,6 +16,9 @@ export default function LoginPage() {
     </Suspense>
   );
 }
+
+// Deliberately loose: the server is the authority, this only catches typos.
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function LoginContent() {
   const router = useRouter();
@@ -38,11 +43,22 @@ function LoginContent() {
   async function handleEmailSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    const trimmed = email.trim();
+    if (!trimmed) {
+      setError("Enter your email address.");
+      return;
+    }
+    if (!EMAIL_PATTERN.test(trimmed)) {
+      setError("That doesn't look like an email address.");
+      return;
+    }
     setSending(true);
 
     try {
-      await sendMagicLink(email, returnUrl);
-      router.push(`/login/check-email?email=${encodeURIComponent(email)}`);
+      await sendMagicLink(trimmed, returnUrl);
+      const params = new URLSearchParams({ email: trimmed });
+      if (returnUrl !== "/") params.set("return_url", returnUrl);
+      router.push(`/login/check-email?${params}`);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -85,30 +101,20 @@ function LoginContent() {
           <span className={styles.dividerText}>or</span>
         </div>
 
-        <form onSubmit={handleEmailSubmit} className={styles.emailForm}>
-          <label htmlFor="login-email" className={styles.emailLabel}>
-            Email address
-          </label>
-          <input
-            id="login-email"
+        <form onSubmit={handleEmailSubmit} className={styles.emailForm} noValidate>
+          <TextField
+            label="Email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
-            className={styles.emailInput}
-            required
+            autoComplete="email"
             disabled={sending}
-            aria-invalid={!!error}
-            aria-describedby={error ? "login-email-error" : undefined}
+            error={error || undefined}
           />
-          <button type="submit" className={styles.emailButton} disabled={sending || !email}>
-            {sending ? "Sending..." : "Send magic link"}
-          </button>
-          {error && (
-            <p id="login-email-error" className={styles.error} role="alert">
-              {error}
-            </p>
-          )}
+          <Button type="submit" variant="primary" size="lg" fullWidth loading={sending}>
+            {sending ? "Sending…" : "Send magic link"}
+          </Button>
         </form>
       </main>
     </div>

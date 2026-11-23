@@ -1,11 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
 import InvitePrompt from "@/components/InvitePrompt/InvitePrompt";
 import ParticipantList from "@/components/ParticipantList/ParticipantList";
 import ShareButton from "@/components/ShareButton/ShareButton";
 import SummaryView from "@/components/SummaryView/SummaryView";
-import { respondedParticipantIds } from "@/lib/availabilityMaps";
 import type { Participant } from "@/lib/types";
 import styles from "./CalendarParticipantsSection.module.css";
 
@@ -30,7 +28,7 @@ interface Props {
 
 // Everything below the grid that depends on how far along the calendar is:
 // finalised → share + list; 2+ people → summary card + list; otherwise the
-// invite prompt (plus the list once one person has joined).
+// invite prompt once you have joined (plus the list once one person has joined).
 export default function CalendarParticipantsSection({
   calendarId,
   calendarName,
@@ -48,15 +46,10 @@ export default function CalendarParticipantsSection({
   onRemoveParticipant,
   onRenameParticipant,
 }: Props) {
-  // freeByDate already layers the viewer's unsaved selection over everyone
-  // else's rows, so marking a first date counts straight away.
-  const respondedIds = useMemo(() => respondedParticipantIds(freeByDate), [freeByDate]);
-
   const list = (
     <ParticipantList
       participants={participants}
       currentParticipantId={currentParticipantId}
-      respondedIds={respondedIds}
       canRemove={isOwner}
       canRenameOthers={isOwner}
       onRemove={onRemoveParticipant}
@@ -107,14 +100,17 @@ export default function CalendarParticipantsSection({
     );
   }
 
+  // The invite card is for people already in: it waits until the viewer has joined.
   return (
     <>
-      <InvitePrompt
-        calendarName={calendarName}
-        calendarEmoji={calendarEmoji}
-        finalisedDate={finalisedDate}
-        passphrase={passphrase}
-      />
+      {currentParticipantId ? (
+        <InvitePrompt
+          calendarName={calendarName}
+          calendarEmoji={calendarEmoji}
+          finalisedDate={finalisedDate}
+          passphrase={passphrase}
+        />
+      ) : null}
       {participants.length === 1 ? list : null}
     </>
   );

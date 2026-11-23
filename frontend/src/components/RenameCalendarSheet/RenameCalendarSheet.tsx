@@ -77,6 +77,7 @@ export default function RenameCalendarSheet({
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={MAX_CALENDAR_NAME_LENGTH}
+          counter
           disabled={submitting}
           error={error}
         />

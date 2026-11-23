@@ -1,11 +1,6 @@
-.section {
-  padding: var(--space-3-5) 0;
-  border-top: 1px solid var(--border);
-}
-
-.section:first-of-type {
-  border-top: none;
-  padding-top: var(--space-1);
+/* Groups are separated by spacing alone, no rules. */
+.section + .section {
+  margin-top: var(--space-6);
 }
 
 .sectionLabel {
@@ -68,4 +63,20 @@
 .dot {
   color: var(--text-secondary);
   font-size: var(--text-xs);
+}
+
+.deleteLink {
+  padding: var(--space-2) 0;
+  min-height: 44px;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  color: var(--error);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.deleteLink:hover {
+  text-decoration-thickness: 2px;
 }
