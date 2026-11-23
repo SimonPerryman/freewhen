@@ -66,6 +66,4 @@ Run `make lint` and `make test` before every commit. For changes that touch back
 
 ## License
 
-FreeWhen is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE). It's free to use, modify, and share for personal and other noncommercial purposes. Commercial use needs permission — get in touch via [GitHub](https://github.com/SimonPerryman).
-
-This is not an OSI-approved open-source license.
+FreeWhen is open source under the [MIT License](LICENSE).
