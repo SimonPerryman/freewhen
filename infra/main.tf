@@ -7,8 +7,10 @@ terraform {
       version = "~> 6.0"
     }
     github = {
-      source  = "integrations/github"
-      version = "~> 6.0"
+      source = "integrations/github"
+      # 6.13 floor: standalone github_repository_vulnerability_alerts and the
+      # optional ruleset allowed_merge_methods used in github.tf.
+      version = "~> 6.13"
     }
   }
 

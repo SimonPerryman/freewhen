@@ -34,9 +34,15 @@ variable "gcp_wif_provider" {
 }
 
 variable "github_token" {
-  description = "GitHub PAT with Actions/Secrets/Variables read+write. Set via TF_VAR_github_token env var; never commit to tfvars."
+  description = "GitHub fine-grained PAT with Actions/Secrets/Variables/Administration read+write on the repo. Set via TF_VAR_github_token env var; never commit to tfvars."
   type        = string
   sensitive   = true
+}
+
+variable "enable_branch_protection" {
+  description = "Create the main-branch ruleset. Keep false while the repo is private: GitHub returns 403 for rulesets on free private repos. Set true after making the repo public."
+  type        = bool
+  default     = false
 }
 
 variable "billing_account_id" {
