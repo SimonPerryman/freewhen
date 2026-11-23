@@ -12,7 +12,6 @@ import (
 )
 
 var colourPalette = []string{
-	"#E63946", // red
 	"#457B9D", // steel blue
 	"#2A9D8F", // teal
 	"#E9C46A", // saffron

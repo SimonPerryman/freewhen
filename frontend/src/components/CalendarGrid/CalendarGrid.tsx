@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, type ReactNode } from "react";
 import type { Participant } from "@/lib/types";
 import {
   layoutSlots,
@@ -99,6 +99,9 @@ interface CalendarGridProps {
   onRangeToggle?: (dates: string[], target: boolean) => void;
   onClear?: () => void;
   canClear?: boolean;
+  // Extra controls rendered inside the "Quick fill" disclosure (e.g. the
+  // Google Calendar import entry).
+  quickFillExtra?: ReactNode;
   selectedDates?: Set<string>;
   joined: boolean;
   finalisedDate?: string | null;
@@ -180,6 +183,7 @@ export default function CalendarGrid({
   onRangeToggle,
   onClear,
   canClear = false,
+  quickFillExtra,
   selectedDates,
   joined,
   finalisedDate = null,
@@ -391,33 +395,35 @@ export default function CalendarGrid({
       onTouchEnd={handleTouchEnd}
     >
       {toolbarAvailable ? (
-        <div className={styles.toolbar} role="toolbar" aria-label="Bulk availability tools">
-          <button
-            type="button"
-            className={styles.toolbarButton}
-            onClick={() => handleQuickAction("weekends")}
-          >
-            Weekends
-          </button>
-          <button
-            type="button"
-            className={styles.toolbarButton}
-            onClick={() => handleQuickAction("weekdays")}
-          >
-            Weekdays
-          </button>
-          {onClear ? (
+        <details className={styles.quickFill}>
+          <summary className={styles.quickFillSummary}>Quick fill</summary>
+          <div className={styles.toolbar} role="toolbar" aria-label="Bulk availability tools">
             <button
               type="button"
-              className={`${styles.toolbarButton} ${styles.toolbarButtonSecondary}`}
-              onClick={onClear}
-              disabled={!canClear}
-              aria-disabled={!canClear}
+              className={styles.toolbarButton}
+              onClick={() => handleQuickAction("weekends")}
             >
-              Clear
+              Weekends
             </button>
-          ) : null}
-        </div>
+            <button
+              type="button"
+              className={styles.toolbarButton}
+              onClick={() => handleQuickAction("weekdays")}
+            >
+              Weekdays
+            </button>
+            {quickFillExtra}
+            {onClear && canClear ? (
+              <button
+                type="button"
+                className={`${styles.toolbarButton} ${styles.toolbarButtonSecondary}`}
+                onClick={onClear}
+              >
+                Clear
+              </button>
+            ) : null}
+          </div>
+        </details>
       ) : null}
 
       <div className={styles.nav}>
@@ -592,13 +598,13 @@ export default function CalendarGrid({
                       <span
                         key={p.id}
                         className={isFree ? styles.slotFree : styles.slotFaint}
-                        style={{ backgroundColor: p.colour }}
+                        style={isFree ? { backgroundColor: p.colour } : undefined}
                         data-testid={`slot-${p.id}`}
                       >
                         {initial ? (
                           <span
                             className={styles.slotInitial}
-                            style={{ color: textOnColour(p.colour) }}
+                            style={isFree ? { color: textOnColour(p.colour) } : undefined}
                             aria-hidden="true"
                           >
                             {initial}

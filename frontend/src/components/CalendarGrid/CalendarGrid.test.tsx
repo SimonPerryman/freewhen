@@ -99,6 +99,27 @@ describe("CalendarGrid", () => {
     // The rest should be faint
     const faintSlots = allSlots.filter((s) => s.className.includes("slotFaint"));
     expect(faintSlots.length).toBe(allSlots.length - 1);
+    // Only free slots carry the participant colour; the rest are empty outlines
+    expect((freeSlots[0] as HTMLElement).style.backgroundColor).not.toBe("");
+    expect((faintSlots[0] as HTMLElement).style.backgroundColor).toBe("");
+  });
+
+  it("groups the bulk tools in a Quick fill disclosure", () => {
+    const ps = makeParticipants(1);
+    render(
+      <CalendarGrid
+        participants={ps}
+        freeByDate={new Map()}
+        currentParticipantId={ps[0].id}
+        onToggle={onToggle}
+        onRangeToggle={vi.fn()}
+        quickFillExtra={<button type="button">Import extra</button>}
+        joined={true}
+      />,
+    );
+    const details = screen.getByText("Quick fill").closest("details")!;
+    expect(details).toContainElement(screen.getByRole("button", { name: "Weekends" }));
+    expect(details).toContainElement(screen.getByRole("button", { name: "Import extra" }));
   });
 
   it("n=1: no everyone-free highlight even when sole participant is free", () => {
@@ -697,7 +718,7 @@ describe("CalendarGrid", () => {
   });
 
   it("initial glyph is aria-hidden and coloured for contrast against slot colour", () => {
-    const ps = [makeParticipant("a", 0, "Alex")]; // COLOUR_PALETTE[0] = #E63946 (dark)
+    const ps = [makeParticipant("a", 0, "Alex")]; // COLOUR_PALETTE[0] (dark blue)
     const freeByDate = new Map([[futureDateStr(3), new Set([ps[0].id])]]);
 
     render(
@@ -710,7 +731,9 @@ describe("CalendarGrid", () => {
       />,
     );
 
-    const slot = screen.getAllByTestId(`slot-${ps[0].id}`)[0];
+    const slot = screen
+      .getAllByTestId(`slot-${ps[0].id}`)
+      .find((s) => s.className.includes("slotFree"))!;
     const initial = within(slot).getByText("A");
     expect(initial.getAttribute("aria-hidden")).toBe("true");
     const actual = (initial as HTMLElement).style.color;
@@ -737,7 +760,7 @@ describe("CalendarGrid", () => {
     expect(screen.getByRole("button", { name: /^clear$/i })).toBeEnabled();
   });
 
-  it("Clear button is disabled when canClear is false", () => {
+  it("Clear button is hidden when canClear is false", () => {
     const ps = makeParticipants(1);
     render(
       <CalendarGrid
@@ -751,7 +774,7 @@ describe("CalendarGrid", () => {
         joined={true}
       />,
     );
-    expect(screen.getByRole("button", { name: /^clear$/i })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /^clear$/i })).toBeNull();
   });
 
   it("clicking Clear calls onClear", async () => {

@@ -1,7 +1,6 @@
 import type { Participant } from "./types";
 
 export const COLOUR_PALETTE = [
-  "#E63946",
   "#457B9D",
   "#2A9D8F",
   "#E9C46A",

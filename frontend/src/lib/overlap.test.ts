@@ -121,7 +121,7 @@ describe("textOnColour", () => {
   it("locks in palette pairings (WCAG luminance, 0.5 threshold)", () => {
     // Computed against the WCAG formula — changes to the palette or threshold
     // should surface here so the design choice is explicit.
-    expect(textOnColour("#E63946")).toBe("#fff"); // red
+    expect(textOnColour("#264653")).toBe("#fff"); // charcoal
     expect(textOnColour("#457B9D")).toBe("#fff"); // blue
     expect(textOnColour("#2A9D8F")).toBe("#fff"); // teal
     expect(textOnColour("#E9C46A")).toBe("#000"); // yellow — the only "light" palette entry
