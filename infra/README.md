@@ -7,7 +7,7 @@ Terraform configuration for FreeWhen's GCP project and GitHub Actions wiring. Se
 - `cloud_run.tf` — backend Cloud Run service (env vars, secrets, scaling, IAM)
 - `artifact_registry.tf` — container image repo
 - `iam.tf` — service accounts and role bindings (including `tf-plan` / `tf-apply`)
-- `github.tf` — Workload Identity Federation pool + provider, plus GitHub Actions variables/secrets
+- `github.tf` — Workload Identity Federation pool + provider, plus GitHub Actions variables/secrets and repo hardening (workflow token permissions, Dependabot alerts, `main` ruleset gated by `enable_branch_protection`)
 - `secrets.tf` — Secret Manager entries
 - `billing.tf` — billing budget and alert channel (£5/month)
 - `main.tf`, `variables.tf` — providers and inputs

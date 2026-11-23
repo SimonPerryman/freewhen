@@ -147,6 +147,38 @@ UPDATE users SET is_admin = true WHERE email = 'you@example.com';
    to the Cloud Run URL (or your custom domain). Update `CORS_ORIGIN` on the
    service to match the Vercel domain.
 
+## Going public
+
+GitHub repo hardening lives in `infra/github.tf`: read-only default
+`GITHUB_TOKEN` + Actions can't approve PRs, Dependabot alerts, and a ruleset
+on `main` (PR required, 0 approvals, squash only, required checks `changes` +
+`ci`, no force push or deletion, repo admins bypass). The ruleset is gated by
+`enable_branch_protection` (default `false`) because GitHub returns 403 for
+rulesets on free private repos. `TF_GITHUB_TOKEN` (the fine-grained PAT) needs
+**Administration: Read and write** on the repo for these resources; add it
+before the hardening PR merges, or the CI `tf-apply` fails.
+
+Checklist:
+
+1. Flip visibility: Settings → General → Danger Zone → Change visibility →
+   Public. (Not in Terraform on purpose: `github_repository` isn't managed.)
+2. Set `enable_branch_protection = true` in `infra/terraform.tfvars` in a PR.
+3. Merge it. `tf-apply` in CI creates the ruleset (or `make tf-plan` then
+   `terraform -chdir=infra apply` locally).
+4. Manual settings the provider can't manage without importing
+   `github_repository`:
+   - Settings → Actions → General → "Approval for running fork pull request
+     workflows from contributors": **Require approval for all external
+     contributors**.
+   - Settings → Advanced Security → **Secret scanning** on, and **Push
+     protection** on.
+   - Optional: Settings → Advanced Security → **Dependabot security updates**
+     (auto-PRs; alerts are already on via Terraform).
+5. Watch the first CI run on `main` and the deploy (`deploy.yml`: tf-apply,
+   backend, frontend) go green. Open a throwaway PR and confirm `changes` and
+   `ci` show as required and a direct push to `main` is rejected for
+   non-admins.
+
 ## Secret rotation
 
 All runtime secrets live in Secret Manager and are referenced by `infra/secrets.tf` (data sources, never managed). Rotate by adding a new version — Cloud Run reads `version = "latest"`, so the new revision picks it up on next deploy or after a `gcloud run services update --clear-revision`-style nudge.
