@@ -69,7 +69,7 @@ export default function PassphraseGate({
           error={error}
         />
         <Button type="submit" variant="primary" size="lg" disabled={submitting || !value.trim()}>
-          {submitting ? "Unlocking…" : "Unlock →"}
+          {submitting ? "Unlocking…" : "Unlock"}
         </Button>
       </form>
     </div>

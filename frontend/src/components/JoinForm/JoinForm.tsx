@@ -102,7 +102,7 @@ export default function JoinForm({
         className={styles.submit}
         disabled={submitting || !name.trim()}
       >
-        {submitting ? "Joining…" : "Join →"}
+        {submitting ? "Joining…" : "Join"}
       </Button>
     </form>
   );

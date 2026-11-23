@@ -125,7 +125,7 @@ export default function DuplicateCalendarSheet({
             Cancel
           </Button>
           <Button type="submit" variant="primary" disabled={submitting}>
-            {submitting ? "Duplicating…" : "Duplicate →"}
+            {submitting ? "Duplicating…" : "Duplicate"}
           </Button>
         </div>
       </form>

@@ -11,15 +11,10 @@
 .sectionLabel {
   margin: 0 0 var(--space-2);
   font-size: var(--text-xs);
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-secondary);
-}
-
-.sectionLabel::before {
-  content: "→ ";
-  color: var(--accent);
 }
 
 .sectionHint {
