@@ -45,45 +45,6 @@
   line-height: 1.1;
 }
 
-.actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1-5);
-}
-
-.unfinaliseButton,
-.confirmButton,
-.cancelButton {
-  font-family: inherit;
-  font-size: var(--text-sm);
-  padding: var(--space-1-5) var(--space-3);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  border: 1px solid currentColor;
-  background: transparent;
-  color: var(--card-bg);
-  transition:
-    background-color 0.12s,
-    color 0.12s;
-}
-
-.unfinaliseButton:hover,
-.cancelButton:hover {
-  background: color-mix(in srgb, var(--card-bg) 15%, transparent);
-}
-
-.confirmButton {
-  background: var(--card-bg);
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.confirmButton:disabled,
-.cancelButton:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .noteList {
   list-style: none;
   margin: var(--space-3) 0 0;

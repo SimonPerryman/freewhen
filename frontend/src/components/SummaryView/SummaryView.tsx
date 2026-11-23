@@ -3,6 +3,7 @@ import { computeSummary } from "@/lib/summary";
 import { parseLocalDate } from "@/lib/localDate";
 import { useToday } from "@/lib/useToday";
 import type { Participant } from "@/lib/types";
+import Button from "@/components/Button/Button";
 import PreferencePill, {
   type PreferencePillVoter,
 } from "@/components/PreferencePill/PreferencePill";
@@ -71,13 +72,7 @@ function FinaliseButton({ date, onFinalise }: FinaliseButtonProps) {
         onClick={handleCommit}
         disabled={submitting}
       >
-        {submitting ? (
-          "Confirming…"
-        ) : (
-          <>
-            Confirm <span className={styles.nowrap}>{formatDate(date)}?</span>
-          </>
-        )}
+        {submitting ? "Confirming…" : "Confirm?"}
       </button>
       <button
         type="button"
@@ -90,6 +85,54 @@ function FinaliseButton({ date, onFinalise }: FinaliseButtonProps) {
       </button>
     </span>
   );
+}
+
+// The best date gets one full-width primary action; the date is in the label.
+function PrimaryFinalise({ date, onFinalise }: FinaliseButtonProps) {
+  const [confirming, setConfirming] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleCommit() {
+    setSubmitting(true);
+    try {
+      await onFinalise(date);
+    } finally {
+      setSubmitting(false);
+      setConfirming(false);
+    }
+  }
+
+  if (!confirming) {
+    return (
+      <Button variant="primary" size="lg" fullWidth onClick={() => setConfirming(true)}>
+        Finalise {formatDate(date)}
+      </Button>
+    );
+  }
+
+  return (
+    <div className={styles.primaryConfirm}>
+      <Button variant="primary" size="lg" fullWidth loading={submitting} onClick={handleCommit}>
+        {submitting ? "Confirming…" : `Confirm ${formatDate(date)}?`}
+      </Button>
+      <Button variant="secondary" size="lg" disabled={submitting} onClick={() => setConfirming(false)}>
+        Cancel
+      </Button>
+    </div>
+  );
+}
+
+// The date the owner is most likely to finalise: first everyone-free day,
+// else the first most-free day.
+export function useTopDate(
+  participants: Participant[],
+  freeByDate: Map<string, Set<string>>,
+): string | null {
+  const today = useToday();
+  return useMemo(() => {
+    const summary = computeSummary(participants, freeByDate, parseLocalDate(today));
+    return summary.everyoneFree[0]?.date ?? summary.mostFree[0]?.date ?? null;
+  }, [participants, freeByDate, today]);
 }
 
 export default function SummaryView({
@@ -142,6 +185,7 @@ export default function SummaryView({
   if (participants.length < 2) return null;
 
   const showFinalise = canFinalise && !!onFinalise;
+  const topDate = summary.everyoneFree[0]?.date ?? summary.mostFree[0]?.date ?? null;
 
   return (
     <div className={styles.section}>
@@ -154,7 +198,9 @@ export default function SummaryView({
             <li key={d.date} className={styles.dateItemAccent}>
               <span>{formatDate(d.date)}</span>
               <span className={styles.rowEnd}>
-                {showFinalise ? <FinaliseButton date={d.date} onFinalise={onFinalise!} /> : null}
+                {showFinalise && d.date !== topDate ? (
+                  <FinaliseButton date={d.date} onFinalise={onFinalise!} />
+                ) : null}
                 <PreferencePill voters={votersFor(d.date)} calendarId={calendarId} date={d.date} />
                 <NotesPill
                   notes={notesFor(d.date)}
@@ -183,7 +229,9 @@ export default function SummaryView({
                   </span>
                 </span>
                 <span className={styles.rowEnd}>
-                  {showFinalise ? <FinaliseButton date={d.date} onFinalise={onFinalise!} /> : null}
+                  {showFinalise && d.date !== topDate ? (
+                  <FinaliseButton date={d.date} onFinalise={onFinalise!} />
+                ) : null}
                   <PreferencePill
                     voters={votersFor(d.date)}
                     calendarId={calendarId}
@@ -195,6 +243,12 @@ export default function SummaryView({
           </ul>
         </>
       )}
+
+      {showFinalise && topDate ? (
+        <div className={styles.primaryAction}>
+          <PrimaryFinalise date={topDate} onFinalise={onFinalise!} />
+        </div>
+      ) : null}
     </div>
   );
 }

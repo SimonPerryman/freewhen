@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, createCalendar } from "@/lib/api";
 import { MAX_CALENDAR_NAME_LENGTH } from "@/lib/limits";
 import analytics from "@/lib/analytics";
+import { savePendingCalendarName, takePendingCalendarName } from "@/lib/pendingCalendarName";
 import { useAuth } from "@/components/AuthProvider/AuthProvider";
 import HeroLiveGrid from "@/components/HeroLiveGrid/HeroLiveGrid";
 import { useTypewriterPlaceholder } from "@/lib/useTypewriterPlaceholder";
@@ -29,18 +30,11 @@ export default function Home() {
     paused: name.length > 0 || isFocused,
   });
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function create(calendarName: string) {
     setError(null);
-
-    if (!user) {
-      router.push("/login");
-      return;
-    }
-
     setSubmitting(true);
     try {
-      const result = await createCalendar({ name: name.trim() });
+      const result = await createCalendar({ name: calendarName });
       analytics.capture("calendar_created", { calendar_id: result.id });
 
       // Store owner's auto-joined participant in localStorage
@@ -59,6 +53,7 @@ export default function Home() {
       router.push(`/calendars/${result.id}`);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
+        savePendingCalendarName(calendarName);
         router.push("/login");
         return;
       }
@@ -74,6 +69,33 @@ export default function Home() {
       setError(message);
       setSubmitting(false);
     }
+  }
+
+  // Back from the magic-link sign-in with a name saved on the way out: create
+  // the calendar now. The name is removed from storage before the request, so
+  // a failure leaves it in the field to retry and a reload creates nothing.
+  const resumed = useRef(false);
+  useEffect(() => {
+    if (isLoading || !user || resumed.current) return;
+    resumed.current = true;
+    const pending = takePendingCalendarName();
+    if (pending === null) return;
+    setName(pending);
+    void create(pending);
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- runs once per sign-in
+  }, [isLoading, user]);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmed = name.trim();
+
+    if (!user) {
+      if (trimmed !== "") savePendingCalendarName(trimmed);
+      router.push("/login");
+      return;
+    }
+
+    void create(trimmed);
   }
 
   const buttonLabel = submitting ? "Creating…" : "Create";

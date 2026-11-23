@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import SummaryView from "./SummaryView";
 import type { Participant } from "@/lib/types";
 
@@ -81,10 +81,10 @@ describe("SummaryView", () => {
 
     render(<SummaryView participants={participants} freeByDate={freeByDate} />);
 
-    expect(screen.queryByText("Finalise")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Finalise/)).not.toBeInTheDocument();
   });
 
-  it("shows finalise button on each row when canFinalise is true", () => {
+  it("shows a primary Finalise for the top date and a chip on the other rows", () => {
     const participants = [makeParticipant("a"), makeParticipant("b"), makeParticipant("c")];
     const allFreeDate = futureDateStr(1);
     const partialFreeDate = futureDateStr(2);
@@ -102,9 +102,32 @@ describe("SummaryView", () => {
       />,
     );
 
-    // One on the everyone-free row, one on the most-free row
-    const buttons = screen.getAllByText("Finalise");
-    expect(buttons).toHaveLength(2);
+    // The top date gets the full-width primary with the date in its label;
+    // the other row keeps the small chip.
+    expect(screen.getByRole("button", { name: "Finalise Mon 16 Jun" })).toBeInTheDocument();
+    expect(screen.getAllByText("Finalise")).toHaveLength(1);
+  });
+
+  it("chip rows confirm with a short label so the row stays on one line", () => {
+    const participants = [makeParticipant("a"), makeParticipant("b"), makeParticipant("c")];
+    const freeByDate = new Map([
+      [futureDateStr(1), new Set(["a", "b", "c"])],
+      [futureDateStr(2), new Set(["a", "b"])],
+    ]);
+    const onFinalise = vi.fn();
+
+    render(
+      <SummaryView
+        participants={participants}
+        freeByDate={freeByDate}
+        canFinalise
+        onFinalise={onFinalise}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Finalise Tue 17 Jun" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm?" }));
+    expect(onFinalise).toHaveBeenCalledWith(futureDateStr(2));
   });
 
   it("two-step confirm flow calls onFinalise with the date", async () => {
@@ -122,15 +145,11 @@ describe("SummaryView", () => {
       />,
     );
 
-    fireEvent.click(screen.getByText("Finalise"));
+    fireEvent.click(screen.getByRole("button", { name: "Finalise Mon 16 Jun" }));
     expect(onFinalise).not.toHaveBeenCalled();
 
     // Confirmation button appears with date label
-    const confirmBtn = screen.getByRole("button", { name: "Confirm Mon 16 Jun?" });
-    // The date is one unbreakable unit so it never wraps mid-phrase on a
-    // narrow screen.
-    expect(within(confirmBtn).getByText("Mon 16 Jun?").className).toContain("nowrap");
-    fireEvent.click(confirmBtn);
+    fireEvent.click(screen.getByRole("button", { name: "Confirm Mon 16 Jun?" }));
 
     expect(onFinalise).toHaveBeenCalledWith(date);
   });
@@ -244,10 +263,10 @@ describe("SummaryView", () => {
       />,
     );
 
-    fireEvent.click(screen.getByText("Finalise"));
-    fireEvent.click(screen.getByLabelText("Cancel"));
+    fireEvent.click(screen.getByRole("button", { name: "Finalise Mon 16 Jun" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(onFinalise).not.toHaveBeenCalled();
-    expect(screen.getByText("Finalise")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Finalise Mon 16 Jun" })).toBeInTheDocument();
   });
 });

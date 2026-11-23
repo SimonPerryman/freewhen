@@ -26,6 +26,18 @@
   box-shadow: var(--shadow-md);
 }
 
+.button.secondary {
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent);
+  box-shadow: none;
+}
+
+.button.secondary:hover {
+  background: var(--tile-bg);
+  box-shadow: none;
+}
+
 .button:active {
   transform: scale(0.98);
 }

@@ -31,6 +31,7 @@
 }
 
 .dateItem {
+  white-space: nowrap;
   font-size: var(--text-base);
   padding: var(--space-0-5) 0;
   color: var(--text-primary);
@@ -41,6 +42,7 @@
 }
 
 .dateItemAccent {
+  white-space: nowrap;
   font-size: var(--text-base);
   padding: var(--space-0-5) 0;
   color: var(--accent);
@@ -123,7 +125,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
 }
 
@@ -132,4 +134,18 @@
   color: var(--text-secondary);
   margin: 0 0 var(--space-4);
   padding: var(--space-0-5) 0;
+}
+
+.primaryAction {
+  margin-top: var(--space-4);
+}
+
+.primaryConfirm {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.primaryConfirm > :first-child {
+  flex: 1;
+  min-width: 0;
 }

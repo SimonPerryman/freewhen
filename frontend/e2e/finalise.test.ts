@@ -79,6 +79,13 @@ test("owner can finalise an everyone-free date; non-owners cannot", async ({
   const after = await api.get(`/calendars/${calendar.id}`);
   const body = (await after.json()) as { calendar: { finalised_date: string | null } };
   expect(body.calendar.finalised_date).toBe(targetDate);
+
+  // "Change the date" reopens the calendar; Undo finalises the same date again.
+  await page.getByRole("button", { name: "Change the date" }).click();
+  await expect(page.getByText("Calendar reopened")).toBeVisible();
+  await expect(page.getByText("Confirmed")).toBeHidden();
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(page.getByText("Confirmed")).toBeVisible();
 });
 
 test("passphrase gate: wrong passphrase is rejected, right one unlocks, and .ics export works with access", async ({

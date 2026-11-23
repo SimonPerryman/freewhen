@@ -913,6 +913,21 @@ describe("CalendarGrid", () => {
       }
     });
 
+    it("is not shown once the calendar is finalised", () => {
+      const ps = makeParticipants(1);
+      render(
+        <CalendarGrid
+          participants={ps}
+          freeByDate={new Map<string, Set<string>>()}
+          currentParticipantId={ps[0].id}
+          onToggle={onToggle}
+          joined
+          finalisedDate="2099-01-01"
+        />,
+      );
+      expect(screen.queryByTestId("instruction-strip")).toBeNull();
+    });
+
     it("disappears after the first tap and stays gone", async () => {
       const ps = makeParticipants(1);
       const props = {

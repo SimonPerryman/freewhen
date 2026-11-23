@@ -164,6 +164,7 @@ vi.mock("@/components/ShareButton/ShareButton", () => ({
 
 vi.mock("@/components/SummaryView/SummaryView", () => ({
   default: () => <div data-testid="summary-view" />,
+  useTopDate: () => null,
 }));
 
 vi.mock("@/components/BestDay/BestDay", () => ({
