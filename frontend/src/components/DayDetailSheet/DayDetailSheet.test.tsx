@@ -103,7 +103,8 @@ describe("DayDetailSheet", () => {
   });
 
   it("input longer than 140 code points is capped on entry", async () => {
-    const user = userEvent.setup();
+    // 145 keystrokes: skip the per-key timer so this stays fast under parallel load.
+    const user = userEvent.setup({ delay: null });
     const me = makeParticipant("me", "Me");
     render(
       <DayDetailSheet
