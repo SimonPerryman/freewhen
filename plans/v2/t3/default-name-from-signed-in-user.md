@@ -1,7 +1,3 @@
----
-Status: done
----
-
 # Default Name From Signed-In User
 
 Status: done

@@ -140,7 +140,7 @@ UPDATE users SET is_admin = true WHERE email = 'you@example.com';
 5. **(Optional) Map a custom domain:**
    ```
    gcloud run domain-mappings create --service freewhen-api \
-     --domain api.freewhen.app --region europe-west2
+     --domain api.freewhen.simonperryman.co.uk --region europe-west1
    ```
    DNS propagation can take a few minutes; the `*.run.app` URL works immediately.
 6. **Point the frontend at the backend:** set `NEXT_PUBLIC_API_URL` in Vercel

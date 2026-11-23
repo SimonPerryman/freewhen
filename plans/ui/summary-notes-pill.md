@@ -13,7 +13,7 @@ Add a per-row notes affordance that echoes the preference pill visually (so the 
 
 The pill is intentionally count-only at every scale, even n=1 short. Inline preview was prototyped (spike Variant 2) and rejected: at 320px with a prefer pill already on the row, an inline `Sam: after 6pm` shoves the row to a second line, while the count pill keeps the row bounded. Notes earn the action affordance via the popover row → day sheet jump (the asymmetry vs. prefer, which is identity-only).
 
-Design spike: `/tmp/freewhen-summary-notes-pill.html` — three scenarios (1 short, 1 long, 3 notes) plus a 320px row-test. Inline-preview variant (Variant 2) prototyped and rejected; count-only ships at every scale.
+Design spike: a temporary HTML mock (not kept in the repo) — three scenarios (1 short, 1 long, 3 notes) plus a 320px row-test. Inline-preview variant (Variant 2) prototyped and rejected; count-only ships at every scale.
 
 ## Plan
 
@@ -92,5 +92,5 @@ Design spike: `/tmp/freewhen-summary-notes-pill.html` — three scenarios (1 sho
 ## Log
 
 - 2026-05-09 — Created plan, mirrored from `plans/ui/summary-preference-pill.md`. Data plumbing already exists (`noteAuthorsByDate` in `CalendarPageClient`); needs a parallel `notesByDateAndAuthor` map for the text payload.
-- 2026-05-09 — Spike at `/tmp/freewhen-summary-notes-pill.html` covers three scenarios (1 short, 1 long, 3 notes) plus a 320px row test. Reviewed with Simon: count-only pill wins at every scale. Inline-preview variant rejected because the second line at 320px isn't worth the inline text saving one tap.
+- 2026-05-09 — Spike (temporary HTML mock, not kept) covers three scenarios (1 short, 1 long, 3 notes) plus a 320px row test. Reviewed with Simon: count-only pill wins at every scale. Inline-preview variant rejected because the second line at 320px isn't worth the inline text saving one tap.
 - 2026-05-09 — Implemented. Added `--note-accent` / `--note-accent-subtle` tokens (slate-blue, distinct from terra accent). New `NotesPill` component with count-only trigger, `❝` glyph, popover rows that jump to `DayDetailSheet` via `onOpenDay`. `CalendarPageClient` now builds `notesByDateAndAuthor` parallel to `noteAuthorsByDate` and passes it + `handleOpenDay` to `SummaryView`. Analytics: `notes_popover_opened` + `notes_popover_row_clicked`. Tests in `NotesPill.test.tsx` + extended `SummaryView.test.tsx`.

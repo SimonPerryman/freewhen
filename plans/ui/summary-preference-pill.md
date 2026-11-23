@@ -12,7 +12,7 @@ Add a per-row pill that shows who preferred each day, sized to the count:
 - **n > 1** — interactive pill, count in-line, name list on tap: `●●● 4 prefer` → popover with `[swatch] Sam`, `[swatch] Tess`, etc.
 - **n = 0** — no pill rendered
 
-Design spike: `/tmp/freewhen-summary-pill-detail.html` (variants 1 + 2, conditional popover).
+Design spike: a temporary HTML mock, not kept in the repo (variants 1 + 2, conditional popover).
 
 ## Plan
 
@@ -77,7 +77,7 @@ Design spike: `/tmp/freewhen-summary-pill-detail.html` (variants 1 + 2, conditio
 
 ## Log
 
-- 2026-05-09 — Created plan. Design spike at `/tmp/freewhen-summary-pill-detail.html` covers three variants (named-at-small, count+swatches, no-popover fallback). Decision: ship the conditional rule (static pill at n=1, popover at n>1).
+- 2026-05-09 — Created plan. Design spike (temporary HTML mock, not kept) covers three variants (named-at-small, count+swatches, no-popover fallback). Decision: ship the conditional rule (static pill at n=1, popover at n>1).
 - 2026-05-09 — Added Accessibility section. Resolved: popover is a non-modal `role="group"` (not a dialog), swatches are `aria-hidden`, count button has explicit `aria-label`, long names fall through to the popover path.
 - 2026-05-09 — Decided: no "See full day →" link in the popover. Compared side-by-side in the spike; identity-only wins on clarity, and the date row already opens the day sheet.
 - 2026-05-09 18:03 — Implemented. New `PreferencePill` component (folder-per-component with module CSS + tests). `SummaryView` accepts `preferredByDate` + `calendarId` and renders the pill in a `.rowEnd` container alongside the finalise button. n=1 short names render as a static inline pill; n>1 (and long-name n=1 fallthrough) renders a button-pill with a non-modal `role="group"` popover, Esc/outside-click dismiss, swatches `aria-hidden`. `analytics.capture("preference_popover_opened", { calendar_id, voter_count, date })` fires on open. Wired in `CalendarPageClient`. Tests + lint green.

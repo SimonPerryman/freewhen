@@ -165,6 +165,6 @@ Note: we only know about people who've joined — we don't track "invited but ha
 
 ## Log
 
-- 2025-04-18 — Created plan
-- 2025-04-18 20:36 — Implemented all three phases. Lint clean (0 errors), 71 tests passing, build succeeds with no warnings.
+- 2026-04-18 — Created plan
+- 2026-04-18 20:36 — Implemented all three phases. Lint clean (0 errors), 71 tests passing, build succeeds with no warnings.
 - 2026-04-18 — Fixed regression where clicking a day caused the cell to vanish and fade back in. `.toggle` was replacing `.cellEntrance`'s animation shorthand, so removing the toggle class restarted the entrance animation. Fix: `.toggle` now carries both animations (`cellEntrance, toggle`) in its `animation` list, and the per-cell stagger delay is now passed through a `--entrance-delay` custom property instead of the inline `animationDelay` style so it only affects the entrance. See Gotcha note in 2b.

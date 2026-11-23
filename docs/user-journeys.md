@@ -15,7 +15,7 @@ No auth, no accounts — just a shareable link.
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  ◀ ▶  freewhen.com/calendars/abc123                 │
+│  ◀ ▶  freewhen.simonperryman.co.uk/calendars/abc123 │
 ├─────────────────────────────────────────────────────┤
 │                                                     │
 │   Weekend trip                        [ Copy link ] │
@@ -54,7 +54,7 @@ No auth, no accounts — just a shareable link.
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  ◀ ▶  freewhen.com/calendars/abc123                 │
+│  ◀ ▶  freewhen.simonperryman.co.uk/calendars/abc123 │
 ├─────────────────────────────────────────────────────┤
 │                                                     │
 │   Weekend trip                      [ Copied! ✓ ]   │
@@ -90,7 +90,7 @@ No auth, no accounts — just a shareable link.
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  ◀ ▶  freewhen.com/calendars/abc123                 │
+│  ◀ ▶  freewhen.simonperryman.co.uk/calendars/abc123 │
 ├─────────────────────────────────────────────────────┤
 │                                                     │
 │   Weekend trip                        [ Copy link ] │
@@ -151,7 +151,7 @@ No auth, no accounts — just a shareable link.
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  ◀ ▶  freewhen.com/calendars/abc123                 │
+│  ◀ ▶  freewhen.simonperryman.co.uk/calendars/abc123 │
 ├─────────────────────────────────────────────────────┤
 │                                                     │
 │   Weekend trip                        [ Copy link ] │
@@ -199,7 +199,7 @@ No auth, no accounts — just a shareable link.
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  ◀ ▶  freewhen.com/calendars/abc123                 │
+│  ◀ ▶  freewhen.simonperryman.co.uk/calendars/abc123 │
 ├─────────────────────────────────────────────────────┤
 │                                                     │
 │   Weekend trip                        [ Copy link ] │
@@ -240,7 +240,7 @@ No auth, no accounts — just a shareable link.
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  ◀ ▶  freewhen.com/calendars/abc123                 │
+│  ◀ ▶  freewhen.simonperryman.co.uk/calendars/abc123 │
 ├─────────────────────────────────────────────────────┤
 │                                                     │
 │   Weekend trip                        [ Copy link ] │
@@ -294,7 +294,7 @@ No auth, no accounts — just a shareable link.
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  ◀ ▶  freewhen.com/calendars/abc123                 │
+│  ◀ ▶  freewhen.simonperryman.co.uk/calendars/abc123 │
 ├─────────────────────────────────────────────────────┤
 │                                                     │
 │   Weekend trip                                      │
