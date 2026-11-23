@@ -62,3 +62,8 @@ Run `make lint` and `make test` before every commit. For changes that touch back
 - `docs/api.md` — API endpoint reference
 - `docs/infra-notes.md` — hosting, deploy, first-time setup
 - `docs/v2-priorities.md`, `docs/v3-priorities.md` — roadmap
+- `SECURITY.md` — how to report a vulnerability
+
+## License
+
+FreeWhen is open source under the [MIT License](LICENSE).
