@@ -126,6 +126,7 @@ Status: pending | in-progress | done
 - Frontend uses vitest with happy-dom; `@` alias maps to `src/`
 - Single test file: `cd frontend && pnpm exec vitest run path/to/file`
 - Single Go test: `cd backend && go test ./internal/store/ -run TestName`
+- Line endings are forced to LF by `.gitattributes` (gofmt/oxfmt reject CRLF). If an older Windows checkout still has CRLF files, refresh it (commit/stash first): `git rm --cached -r -q . && git reset --hard`.
 
 ## Before committing
 

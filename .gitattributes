@@ -1,0 +1,13 @@
+# Normalise line endings: LF in the repo AND in working trees, regardless of
+# core.autocrlf. gofmt and oxfmt --check both reject CRLF.
+* text=auto eol=lf
+
+# Binary files: never touch.
+*.png binary
+*.ico binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.woff binary
+*.woff2 binary
