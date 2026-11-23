@@ -3,11 +3,30 @@
   margin-top: var(--space-5);
 }
 
+.quickFill {
+  margin-bottom: var(--space-2-5);
+}
+
+.quickFillSummary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.quickFill[open] > .quickFillSummary {
+  color: var(--text-primary);
+}
+
 .toolbar {
   display: flex;
-  justify-content: center;
+  flex-wrap: wrap;
+  justify-content: flex-start;
   gap: var(--space-1-5);
-  margin-bottom: var(--space-2-5);
+  margin-bottom: 0;
 }
 
 .toolbarButton {
@@ -392,7 +411,13 @@
 .slotFaint {
   border-radius: 1px;
   min-height: 4px;
-  opacity: 0.2;
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-secondary);
+}
+
+.slotFaint .slotInitial {
+  opacity: 0.6;
 }
 
 .slotEmpty {

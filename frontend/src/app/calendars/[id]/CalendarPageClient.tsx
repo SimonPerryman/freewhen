@@ -374,10 +374,10 @@ function CalendarPageContent({
           />
         ) : null}
 
-        {!finalisedDate && currentParticipant ? <div>{importView.entry}</div> : null}
         {importView.chrome}
         {importView.interstitial}
         <CalendarGrid
+          quickFillExtra={!finalisedDate && currentParticipant ? importView.entry : null}
           calendarId={calendarId}
           participants={calendar.participants}
           freeByDate={freeByDate}
