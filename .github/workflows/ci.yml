@@ -189,9 +189,13 @@ jobs:
     needs: [changes]
     # Skip fork PRs: they get no secrets or OIDC token, so the plan would fail,
     # and we never want untrusted code running with WIF credentials.
+    # Dependabot PRs are skipped for the same reason (they get no Actions
+    # secrets); review provider bumps with a local `make tf-plan` instead.
     if: |
       needs.changes.outputs.infra == 'true' &&
-      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+      (github.event_name != 'pull_request' || (
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.user.login != 'dependabot[bot]'))
     runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
