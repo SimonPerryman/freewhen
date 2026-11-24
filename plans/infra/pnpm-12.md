@@ -1,6 +1,6 @@
 # pnpm 12
 
-Status: in-progress
+Status: done
 
 ## Goal
 
@@ -26,3 +26,6 @@ Move the frontend's pinned pnpm from 10.34.9 to the latest pnpm 12 (12.23.0). St
 - 2026-11-24 19:35 — The install then failed twice. First on `minimumReleaseAge`: `posthog-js@1.454.2` and `@posthog/browser-common@0.13.1` were published on 2026-11-23 around 22:00 UTC, less than a day ago. They pass from around 22:00 UTC today. Kept the policy; local installs used `--config.minimumReleaseAge=0` until then. Second on `ERR_PNPM_IGNORED_BUILDS` for `core-js` (its postinstall only prints a funding banner, and pnpm 10 skipped it too). Added `frontend/pnpm-workspace.yaml` with `allowBuilds: { core-js: false }`.
 - 2026-11-24 19:45 — `pnpm/action-setup` v6.1.1 (the current pin and its latest release) says it supports pnpm 12 and reads `packageManager`, so CI needs no edits. `pnpm dlx vercel@65.8.0` works under pnpm 12. It warns that it ignored build scripts for `esbuild` and `koffi`, which pnpm 10 also skipped. Vercel's package-manager docs list pnpm 6–12 as supported.
 - 2026-11-24 19:55 — `make lint` and `make test` pass (528 frontend tests), and the e2e suite passes (19 tests). Until the posthog releases age out, they ran with `pnpm_config_minimum_release_age=0`. Without it, pnpm 12's pre-run install (`verifyDepsBeforeRun`) prints the policy error and a warning before each `pnpm run`, but the script still runs. Updated AGENTS.md, README.md, frontend/README.md, docs/infra-notes.md and docs/stack.md (which still said Node 24 and Corepack). docs/onboarding.html doesn't mention the pnpm version, so it's unchanged.
+- 2026-11-24 19:38 — #130 merged (squashed) while this was in progress and its branch was deleted, so the PR (#132) targets `main`, and `main` was merged in rather than force-pushing a rebase. The only conflicts were the doc lines this PR edits.
+- 2026-11-24 19:39 — First CI run failed at `pnpm install --frozen-lockfile` with `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION` on the two posthog packages, as expected. pnpm 12.23.0 itself installed fine through `pnpm/action-setup`. This repo hasn't had a Vercel preview deployment since May, so there is no preview build to check the Vercel side before merge.
+- 2026-11-24 22:05 — The posthog releases passed the one-day age, and the re-run went green (`ci`, `e2e`; CI install reports `pnpm v12.23.0`). The production `vercel build`/`deploy` path runs only on main, so the first deploy after merge is its check.
