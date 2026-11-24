@@ -173,7 +173,9 @@ Checklist:
    - Settings → Advanced Security → **Secret scanning** on, and **Push
      protection** on.
    - Optional: Settings → Advanced Security → **Dependabot security updates**
-     (auto-PRs; alerts are already on via Terraform).
+     (auto-PRs; alerts are already on via Terraform). Routine version-update
+     PRs come from `.github/dependabot.yml` (weekly, minor+patch grouped per
+     ecosystem) and need no console setting.
 5. Watch the first CI run on `main` and the deploy (`deploy.yml`: tf-apply,
    backend, frontend) go green. Open a throwaway PR and confirm `changes` and
    `ci` show as required and a direct push to `main` is rejected for
