@@ -29,6 +29,7 @@ type mockService struct {
 	unfinaliseCalendar       func(ctx context.Context, calendarID string) (model.Calendar, error)
 	claimParticipant         func(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error)
 	renameCalendar           func(ctx context.Context, calendarID, name string) (model.Calendar, error)
+	setCalendarEmoji         func(ctx context.Context, calendarID, emoji string) (model.Calendar, error)
 	removeParticipant        func(ctx context.Context, calendarID, participantID string) error
 	renameParticipant        func(ctx context.Context, calendarID, targetParticipantID string, caller service.ParticipantCaller, name string) (model.Participant, error)
 	listUserCalendars        func(ctx context.Context, userID string) ([]model.CalendarListItem, bool, error)
@@ -140,6 +141,13 @@ func (m *mockService) UnfinaliseCalendar(ctx context.Context, calendarID, userID
 		return model.Calendar{}, err
 	}
 	return m.unfinaliseCalendar(ctx, calendarID)
+}
+
+func (m *mockService) SetCalendarEmoji(ctx context.Context, calendarID, userID, emoji string) (model.Calendar, error) {
+	if err := m.requireOwner(ctx, calendarID, userID); err != nil {
+		return model.Calendar{}, err
+	}
+	return m.setCalendarEmoji(ctx, calendarID, emoji)
 }
 
 func (m *mockService) RenameCalendar(ctx context.Context, calendarID, userID, name string) (model.Calendar, error) {

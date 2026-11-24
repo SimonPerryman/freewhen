@@ -285,25 +285,41 @@ func (h *Handler) UpdateCalendar(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
 	var req struct {
-		Name *string `json:"name"`
+		Name  *string `json:"name"`
+		Emoji *string `json:"emoji"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if req.Name == nil {
+	if req.Name == nil && req.Emoji == nil {
 		respondError(w, http.StatusBadRequest, "invalid_request", "no updatable fields provided")
 		return
 	}
-	if strings.TrimSpace(*req.Name) == "" {
-		respondError(w, http.StatusBadRequest, "invalid_request", "name is required")
-		return
+	// Validate every field before writing any, so a bad emoji can't leave a
+	// half-applied rename behind.
+	if req.Name != nil {
+		if strings.TrimSpace(*req.Name) == "" {
+			respondError(w, http.StatusBadRequest, "invalid_request", "name is required")
+			return
+		}
+		if len(*req.Name) > limits.MaxCalendarNameLength {
+			respondError(w, http.StatusBadRequest, "name_too_long", "calendar name is too long")
+			return
+		}
 	}
-	if len(*req.Name) > limits.MaxCalendarNameLength {
-		respondError(w, http.StatusBadRequest, "name_too_long", "calendar name is too long")
+	if req.Emoji != nil && !service.IsPickableEmoji(*req.Emoji) {
+		respondError(w, http.StatusBadRequest, "invalid_emoji", "emoji is not one of the available options")
 		return
 	}
 
-	cal, err := h.service.RenameCalendar(r.Context(), id, user.ID, *req.Name)
+	var cal model.Calendar
+	var err error
+	if req.Name != nil {
+		cal, err = h.service.RenameCalendar(r.Context(), id, user.ID, *req.Name)
+	}
+	if err == nil && req.Emoji != nil {
+		cal, err = h.service.SetCalendarEmoji(r.Context(), id, user.ID, *req.Emoji)
+	}
 	if err != nil {
 		if respondOwnerError(r, w, h.service, id, err, "only the owner can update this calendar") {
 			return
@@ -312,7 +328,10 @@ func (h *Handler) UpdateCalendar(w http.ResponseWriter, r *http.Request) {
 			respondCalendarMissing(r, w, h.service, id)
 			return
 		}
-		respondInternalError(r, w, err, "internal_error", "failed to rename calendar")
+		if respondValidationError(w, err) {
+			return
+		}
+		respondInternalError(r, w, err, "internal_error", "failed to update calendar")
 		return
 	}
 	respondJSON(w, http.StatusOK, cal)

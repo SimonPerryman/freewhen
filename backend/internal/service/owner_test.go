@@ -32,6 +32,10 @@ func ownerOps(s *Service, callerID string) map[string]func() error {
 			_, err := s.RenameCalendar(ctx, "cal1", callerID, "New")
 			return err
 		},
+		"SetCalendarEmoji": func() error {
+			_, err := s.SetCalendarEmoji(ctx, "cal1", callerID, "🎉")
+			return err
+		},
 		"RemoveParticipant": func() error {
 			return s.RemoveParticipant(ctx, "cal1", callerID, "p1")
 		},

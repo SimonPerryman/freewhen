@@ -25,6 +25,7 @@ type mockStore struct {
 	addParticipant                 func(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
 	countCalendarParticipants      func(ctx context.Context, calendarID string) (int, error)
 	countCalendarsForOwner         func(ctx context.Context, ownerID string) (int, error)
+	updateCalendarEmoji            func(calendarID, emoji string) (model.Calendar, error)
 	listEmojiUsageForOwner         func(ctx context.Context, ownerID string) ([]model.EmojiUse, error)
 	getCalendarOnly                func(ctx context.Context, id string) (model.Calendar, error)
 	updateParticipantName          func(ctx context.Context, calendarID, participantID, name string) (model.Participant, error)
@@ -148,6 +149,13 @@ func (m *mockStore) MergeAvailabilityDates(_ context.Context, participantID stri
 
 func (m *mockStore) UpdateCalendarName(_ context.Context, _, _ string) (model.Calendar, error) {
 	panic("unexpected call to UpdateCalendarName")
+}
+
+func (m *mockStore) UpdateCalendarEmoji(_ context.Context, calendarID, emoji string) (model.Calendar, error) {
+	if m.updateCalendarEmoji != nil {
+		return m.updateCalendarEmoji(calendarID, emoji)
+	}
+	panic("unexpected call to UpdateCalendarEmoji")
 }
 
 func (m *mockStore) DeleteParticipant(_ context.Context, _, _ string) error {

@@ -70,6 +70,29 @@ func TestUpdateCalendar(t *testing.T) {
 	}
 }
 
+// An owner can choose any pickable emoji, including one another of their
+// calendars already uses; anything outside the set is rejected.
+func TestUpdateCalendar_Emoji(t *testing.T) {
+	ts := setupTestServer(t)
+	first, _ := createCalendarAuth(t, ts, "First")
+	second, _ := createCalendarAuth(t, ts, "Second")
+
+	resp, body := doJSONAuth(t, ts, http.MethodPatch, "/calendars/"+second.ID, map[string]string{"emoji": first.Emoji})
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("repeat emoji: status %d, body %s", resp.StatusCode, body)
+	}
+	var updated model.Calendar
+	decodeJSON(t, body, &updated)
+	if updated.Emoji != first.Emoji || updated.Name != "Second" {
+		t.Errorf("got emoji %q name %q, want %q and the name unchanged", updated.Emoji, updated.Name, first.Emoji)
+	}
+
+	resp, _ = doJSONAuth(t, ts, http.MethodPatch, "/calendars/"+second.ID, map[string]string{"emoji": "📅"})
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("unlisted emoji: expected 400, got %d", resp.StatusCode)
+	}
+}
+
 // The auto-picker avoids the owner's existing emojis, so the first 12
 // calendars (the size of the curated set) never repeat.
 func TestCreateCalendar_EmojisDistinctPerOwner(t *testing.T) {

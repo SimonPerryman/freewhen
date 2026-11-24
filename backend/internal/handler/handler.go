@@ -37,6 +37,7 @@ type CalendarService interface {
 	UnfinaliseCalendar(ctx context.Context, calendarID, userID string) (model.Calendar, error)
 	ClaimParticipant(ctx context.Context, calendarID, participantID string, caller service.ParticipantCaller) (model.Participant, error)
 	RenameCalendar(ctx context.Context, calendarID, userID, name string) (model.Calendar, error)
+	SetCalendarEmoji(ctx context.Context, calendarID, userID, emoji string) (model.Calendar, error)
 	RemoveParticipant(ctx context.Context, calendarID, userID, participantID string) error
 	RenameParticipant(ctx context.Context, calendarID, targetParticipantID string, caller service.ParticipantCaller, name string, email *string) (model.Participant, error)
 	ListUserCalendars(ctx context.Context, userID string) ([]model.CalendarListItem, bool, error)

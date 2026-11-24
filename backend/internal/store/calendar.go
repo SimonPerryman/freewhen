@@ -211,6 +211,26 @@ func (s *Store) UpdateCalendarName(ctx context.Context, calendarID, name string)
 	return s.getCalendarRow(ctx, calendarID)
 }
 
+// UpdateCalendarEmoji sets the calendar's emoji. Returns ErrNotFound if the
+// calendar does not exist. Validation (the pickable set) is the service's job.
+func (s *Store) UpdateCalendarEmoji(ctx context.Context, calendarID, emoji string) (model.Calendar, error) {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE calendars SET emoji = $1, updated_at = now() WHERE id = $2 AND deleted_at IS NULL`,
+		emoji, calendarID,
+	)
+	if err != nil {
+		return model.Calendar{}, fmt.Errorf("update calendar emoji: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return model.Calendar{}, fmt.Errorf("rows affected: %w", err)
+	}
+	if rows == 0 {
+		return model.Calendar{}, ErrNotFound
+	}
+	return s.getCalendarRow(ctx, calendarID)
+}
+
 // SetFinalisedDate locks the calendar to a single date. Replaces any previous value.
 // Returns ErrNotFound if the calendar does not exist.
 func (s *Store) SetFinalisedDate(ctx context.Context, calendarID, date string) (model.Calendar, error) {

@@ -3,6 +3,69 @@
   margin-top: var(--space-6);
 }
 
+.emojiFieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.emojiFieldset > .sectionLabel {
+  padding: 0;
+}
+
+/* Six per row at 375px; each option is a 44px+ tap target. */
+.emojiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: var(--space-1-5);
+}
+
+.emojiOption {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: var(--tile-bg);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
+}
+
+.emojiOption:hover {
+  border-color: var(--border);
+}
+
+/* The native radio stays for keyboard and screen readers (arrow keys move
+ * the choice); the tile is its visible face. */
+.emojiInput {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.emojiOption:has(.emojiInput:checked) {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.emojiOption:has(.emojiInput:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.emojiGlyph {
+  font-size: var(--text-3xl);
+  line-height: var(--leading-none);
+}
+
 .sectionLabel {
   margin: 0 0 var(--space-2);
   font-size: var(--text-xs);

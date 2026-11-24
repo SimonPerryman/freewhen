@@ -1,6 +1,8 @@
 package service
 
 import (
+	"context"
+	"errors"
 	"math/rand/v2"
 	"slices"
 	"testing"
@@ -151,5 +153,57 @@ func TestPickEmoji_NilRandUsesGlobalSource(t *testing.T) {
 	got := pickEmoji(nil, emojiTestNow, nil)
 	if !slices.Contains(defaultEmojis, got) {
 		t.Fatalf("pickEmoji = %q, not in curated set", got)
+	}
+}
+
+func TestPickableEmojis(t *testing.T) {
+	seen := map[string]bool{}
+	for _, e := range pickableEmojis {
+		if seen[e] {
+			t.Fatalf("duplicate pickable emoji %q", e)
+		}
+		seen[e] = true
+	}
+	// Every auto-pick emoji can also be chosen by hand.
+	for _, e := range defaultEmojis {
+		if !IsPickableEmoji(e) {
+			t.Fatalf("default emoji %q is not pickable", e)
+		}
+	}
+	for _, e := range []string{"", "x", "📅", "🎉🎉", "☕️"} {
+		if IsPickableEmoji(e) {
+			t.Fatalf("IsPickableEmoji(%q) = true, want false", e)
+		}
+	}
+}
+
+func TestSetCalendarEmoji(t *testing.T) {
+	var stored string
+	ms := &mockStore{
+		updateCalendarEmoji: func(calendarID, emoji string) (model.Calendar, error) {
+			stored = emoji
+			return model.Calendar{ID: calendarID, Emoji: emoji}, nil
+		},
+	}
+	s := newSvc(t, ms)
+	ctx := context.Background()
+
+	// A repeat of an emoji the owner already uses is fine when chosen by hand.
+	cal, err := s.SetCalendarEmoji(ctx, "cal1", "owner1", defaultEmojis[0])
+	if err != nil {
+		t.Fatalf("SetCalendarEmoji: %v", err)
+	}
+	if stored != defaultEmojis[0] || cal.Emoji != defaultEmojis[0] {
+		t.Fatalf("stored %q, returned %q; want %q", stored, cal.Emoji, defaultEmojis[0])
+	}
+
+	stored = ""
+	_, err = s.SetCalendarEmoji(ctx, "cal1", "owner1", "📅")
+	var ve *ValidationError
+	if !errors.As(err, &ve) || ve.Code != "invalid_emoji" {
+		t.Fatalf("err = %v, want ValidationError invalid_emoji", err)
+	}
+	if stored != "" {
+		t.Fatal("store must not be called for an invalid emoji")
 	}
 }

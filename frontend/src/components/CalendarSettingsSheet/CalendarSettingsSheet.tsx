@@ -2,9 +2,12 @@
 
 import Button from "@/components/Button/Button";
 import Sheet from "@/components/Sheet/Sheet";
+import { PICKABLE_EMOJIS } from "@/lib/emoji";
 import styles from "./CalendarSettingsSheet.module.css";
 
 interface Props {
+  emoji?: string;
+  onEmojiChange: (emoji: string) => void;
   hasPassphrase: boolean;
   passphrase?: string | null;
   onRename: () => void;
@@ -17,6 +20,8 @@ interface Props {
 }
 
 export default function CalendarSettingsSheet({
+  emoji,
+  onEmojiChange,
   hasPassphrase,
   passphrase,
   onRename,
@@ -29,6 +34,27 @@ export default function CalendarSettingsSheet({
 }: Props) {
   return (
     <Sheet title="Settings" onClose={onClose} closeLabel="Close settings">
+      <section className={styles.section}>
+        <fieldset className={styles.emojiFieldset}>
+          <legend className={styles.sectionLabel}>Emoji</legend>
+          <div className={styles.emojiGrid}>
+            {PICKABLE_EMOJIS.map((e) => (
+              <label key={e} className={styles.emojiOption}>
+                <input
+                  type="radio"
+                  name="calendar-emoji"
+                  value={e}
+                  checked={emoji === e}
+                  onChange={() => onEmojiChange(e)}
+                  className={styles.emojiInput}
+                />
+                <span className={styles.emojiGlyph}>{e}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      </section>
+
       <section className={styles.section}>
         <Button variant="secondary" onClick={onRename}>
           Rename calendar

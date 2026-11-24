@@ -456,7 +456,7 @@ erDiagram
       <tbody>
         <tr><td class="method">POST</td><td class="path">/calendars</td><td><span class="pill auth">auth</span></td><td>Create + auto-join owner</td></tr>
         <tr><td class="method">GET</td><td class="path">/calendars/{id}</td><td><span class="pill opt">opt</span></td><td>Read (passphrase-gated)</td></tr>
-        <tr><td class="method">PATCH</td><td class="path">/calendars/{id}</td><td><span class="pill owner">owner</span></td><td>Rename</td></tr>
+        <tr><td class="method">PATCH</td><td class="path">/calendars/{id}</td><td><span class="pill owner">owner</span></td><td>Rename / change emoji</td></tr>
         <tr><td class="method">DELETE</td><td class="path">/calendars/{id}</td><td><span class="pill owner">owner</span></td><td>Soft-delete</td></tr>
         <tr><td class="method">POST</td><td class="path">/calendars/{id}/duplicate</td><td><span class="pill owner">owner</span></td><td>Clone (optionally with participants)</td></tr>
         <tr><td class="method">POST</td><td class="path">/calendars/{id}/finalise</td><td><span class="pill owner">owner</span></td><td>Lock to a date + email participants</td></tr>
@@ -539,7 +539,7 @@ erDiagram
     │   useToday                        ← server "today" during hydration, local date after
     │   useParticipantIdentity          ← who "you" are: stored id · claim · join · rename
     │   useAvailabilitySave             ← optimistic dates/notes/votes · serialized keepalive PUT · flush on pagehide · undo
-    │   useCalendarRename / useCalendarOwnerActions
+    │   useCalendarRename / useCalendarEmoji / useCalendarOwnerActions
     │   useAvailabilityMaps             ← derived per-date maps (src/lib/availabilityMaps.ts)
     └── &lt;PassphraseGate&gt;              ← unlock UI if locked
         └── &lt;CalendarHeader&gt;          ← title / inline rename · settings cog · live dot · "N of M responded" avatar dots
@@ -555,7 +555,7 @@ erDiagram
             ├── &lt;SummaryView&gt; · &lt;ShareButton&gt; · &lt;InvitePrompt&gt;
             └── &lt;ParticipantList&gt;     ← sidebar w/ colours
         └── &lt;WhosMissingPanel&gt;        ← invite tracking
-        └── &lt;CalendarOwnerDialogs&gt;    ← settings sheet + confirm dialogs
+        └── &lt;CalendarOwnerDialogs&gt;    ← settings sheet (emoji picker, rename, passphrase…) + confirm dialogs
 &lt;Header&gt;              ← in root layout; title · user menu
 &lt;ToastProvider&gt;       ← in root layout
 &lt;AnalyticsProvider&gt;   ← in root layout (PostHog, lazy-loaded when idle)
