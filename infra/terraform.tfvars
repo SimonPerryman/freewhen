@@ -5,3 +5,4 @@ github_owner     = "SimonPerryman"
 github_repo      = "freewhen"
 service_name     = "freewhen-api"
 gcp_wif_provider = "projects/350910532607/locations/global/workloadIdentityPools/github/providers/freewhen"
+enable_branch_protection = true
