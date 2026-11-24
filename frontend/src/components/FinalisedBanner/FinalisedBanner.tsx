@@ -68,11 +68,13 @@ export default function FinalisedBanner({
                     style={{ backgroundColor: participant.colour }}
                     aria-hidden="true"
                   />
-                  <span className={styles.noteName}>{participant.name}</span>
-                  <span className={styles.noteDash} aria-hidden="true">
-                    —
+                  <span className={styles.noteBody}>
+                    <span className={styles.noteName}>{participant.name}</span>{" "}
+                    <span className={styles.noteDash} aria-hidden="true">
+                      —
+                    </span>{" "}
+                    <span className={styles.noteText}>{note}</span>
                   </span>
-                  <span className={styles.noteText}>{note}</span>
                 </li>
               ))}
             </ul>
