@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/posthog/posthog-go"
+	"github.com/posthog/posthog-go/v2"
 )
 
 // posthogClient is the subset of posthog.Client we use. Having it as an
@@ -45,7 +45,9 @@ type PostHogConfig struct {
 // fall back to Noop when APIKey is empty.
 func NewPostHog(cfg PostHogConfig, logger *slog.Logger) (*PostHogEvaluator, error) {
 	c := posthog.Config{
-		PersonalApiKey: cfg.PersonalAPIKey,
+		// SecretKey replaces the deprecated PersonalApiKey in posthog-go v2;
+		// it accepts the same personal (phx_) key.
+		SecretKey: cfg.PersonalAPIKey,
 	}
 	if cfg.Host != "" {
 		c.Endpoint = cfg.Host
