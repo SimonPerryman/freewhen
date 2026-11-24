@@ -5,40 +5,89 @@
 
 .quickFill {
   margin-bottom: var(--space-2-5);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
 }
 
+/* Open: summary + options join into one tray. */
+.quickFill[open] {
+  background: var(--tile-bg);
+  border-color: var(--border-soft);
+  padding: 0 var(--space-2-5) var(--space-2-5);
+}
+
+/* An outlined control with a chevron. `display: inline-flex` drops the native
+ * marker, so the chevron is the open/closed cue; hide the WebKit one too. */
 .quickFillSummary {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  gap: var(--space-1-5);
   min-height: 44px;
+  padding: 0 var(--space-2-5) 0 var(--space-3-5);
   font-size: var(--text-sm);
   font-weight: 500;
-  color: var(--text-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  list-style: none;
   cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s;
+}
+
+.quickFillSummary::-webkit-details-marker {
+  display: none;
+}
+
+.quickFillSummary:hover {
+  border-color: var(--accent);
+}
+
+.quickFillSummary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .quickFill[open] > .quickFillSummary {
-  color: var(--text-primary);
+  border-color: transparent;
+  padding-left: var(--space-1);
+  margin-left: calc(-1 * var(--space-1));
+}
+
+.quickFillChevron {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  transition: transform 0.15s;
+}
+
+.quickFill[open] .quickFillChevron {
+  transform: rotate(180deg);
 }
 
 .toolbar {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-start;
-  gap: var(--space-1-5);
+  gap: var(--space-2);
   margin-bottom: 0;
 }
 
+/* Options are chips on the tray. */
 .toolbarButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   min-height: 44px;
-  padding: var(--space-2) var(--space-3-5);
+  padding: 0 var(--space-4);
   font-family: inherit;
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--text-primary);
-  background: var(--tile-bg);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
   transition:
     border-color 0.15s,
@@ -49,17 +98,28 @@
   border-color: var(--accent);
 }
 
+.toolbarButton:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.weekGlyph {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
 .toolbarButtonSecondary {
   margin-left: auto;
-  padding: var(--space-2) var(--space-3);
+  padding: 0 var(--space-3);
   background: transparent;
+  border-color: transparent;
   color: var(--text-secondary);
   box-shadow: none;
 }
 
 .toolbarButtonSecondary:hover:not(:disabled) {
   color: var(--text-primary);
-  border-color: var(--accent);
+  border-color: var(--border);
 }
 
 .toolbarButtonSecondary:disabled {

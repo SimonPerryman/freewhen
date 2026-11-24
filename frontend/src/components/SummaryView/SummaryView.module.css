@@ -30,27 +30,56 @@
   gap: var(--space-0-5);
 }
 
-.dateItem {
-  white-space: nowrap;
+/* Two-column grid so a row can never be wider than the card: the date (and
+ * pills under it) shrink; the action keeps the right edge. */
+.dateItem,
+.dateItemAccent {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "date action"
+    "meta action";
+  column-gap: var(--space-2);
+  row-gap: var(--space-1);
+  align-items: center;
   font-size: var(--text-base);
   padding: var(--space-0-5) 0;
   color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
 }
 
 .dateItemAccent {
-  white-space: nowrap;
-  font-size: var(--text-base);
-  padding: var(--space-0-5) 0;
   color: var(--accent);
   font-weight: 500;
+}
+
+.oneLine {
+  grid-template-areas: "date action";
+}
+
+.date {
+  grid-area: date;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  grid-area: meta;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
+  flex-wrap: wrap;
+  gap: var(--space-1-5);
+  min-width: 0;
+}
+
+.meta > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.action {
+  grid-area: action;
+  justify-self: end;
 }
 
 .finaliseButton {
@@ -61,7 +90,8 @@
   background: transparent;
   border: 1px solid var(--accent);
   border-radius: var(--radius-sm);
-  padding: var(--space-1) var(--space-2-5);
+  min-height: 32px;
+  padding: 0 var(--space-3);
   cursor: pointer;
   transition:
     background-color 0.12s,
@@ -119,14 +149,6 @@
 .countLabel {
   color: var(--text-secondary);
   font-weight: 400;
-}
-
-.rowEnd {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: nowrap;
-  justify-content: flex-end;
 }
 
 .emptyState {

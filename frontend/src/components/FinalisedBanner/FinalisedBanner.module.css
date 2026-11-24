@@ -63,13 +63,17 @@
   min-width: 0;
 }
 
+/* Participant colours were picked for light cards and mostly fail 3:1 on the
+ * accent banner. An ink ring (same in both themes) is 6.0:1 on the dark
+ * banner and 3.2:1 on the light one, and every colour but charcoal clears
+ * 3:1 against the ring. */
 .swatch {
   flex: 0 0 auto;
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   align-self: center;
-  box-shadow: 0 0 0 1px color-mix(in srgb, white 30%, transparent);
+  box-shadow: 0 0 0 2px var(--paper-ink);
 }
 
 .noteName {
@@ -91,8 +95,10 @@
   align-items: center;
 }
 
+/* Inherit the banner's text colour: --text-secondary is ~1:1 on the accent.
+ * No opacity: 12px text needs the full 4.5:1. */
 .voteLine {
   margin: var(--space-1) 0 0;
   font-size: var(--text-xs);
-  color: var(--text-secondary);
+  color: inherit;
 }
