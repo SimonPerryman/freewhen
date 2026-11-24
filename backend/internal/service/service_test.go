@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/freewhen/backend/internal/limits"
 	"github.com/freewhen/backend/internal/model"
@@ -24,6 +25,7 @@ type mockStore struct {
 	addParticipant                 func(ctx context.Context, calendarID, name string, userID *string) (model.Participant, error)
 	countCalendarParticipants      func(ctx context.Context, calendarID string) (int, error)
 	countCalendarsForOwner         func(ctx context.Context, ownerID string) (int, error)
+	listEmojiUsageForOwner         func(ctx context.Context, ownerID string) ([]model.EmojiUse, error)
 	getCalendarOnly                func(ctx context.Context, id string) (model.Calendar, error)
 	updateParticipantName          func(ctx context.Context, calendarID, participantID, name string) (model.Participant, error)
 	listInvites                    func() ([]model.Invite, error)
@@ -191,6 +193,13 @@ func (m *mockStore) CountCalendarsForOwner(ctx context.Context, ownerID string) 
 	return m.countCalendarsForOwner(ctx, ownerID)
 }
 
+func (m *mockStore) ListEmojiUsageForOwner(ctx context.Context, ownerID string) ([]model.EmojiUse, error) {
+	if m.listEmojiUsageForOwner == nil {
+		return nil, nil
+	}
+	return m.listEmojiUsageForOwner(ctx, ownerID)
+}
+
 func (m *mockStore) TouchCalendar(ctx context.Context, calendarID string) error {
 	if m.touchCalendar == nil {
 		return nil
@@ -323,20 +332,6 @@ func TestSetAvailability_ParticipantWrongCalendar(t *testing.T) {
 	}
 }
 
-func TestPickRandomEmoji_ReturnsFromCuratedSet(t *testing.T) {
-	allowed := make(map[string]bool, len(defaultEmojis))
-	for _, e := range defaultEmojis {
-		allowed[e] = true
-	}
-	// Run a handful of iterations to make sure every result is in the set.
-	for i := 0; i < 50; i++ {
-		got := pickRandomEmoji()
-		if !allowed[got] {
-			t.Fatalf("pickRandomEmoji returned %q, not in curated set", got)
-		}
-	}
-}
-
 func TestCreateCalendar_PassesEmojiToStore(t *testing.T) {
 	var gotEmoji string
 	ms := &mockStore{
@@ -356,6 +351,55 @@ func TestCreateCalendar_PassesEmojiToStore(t *testing.T) {
 	}
 	if cal.Emoji != gotEmoji {
 		t.Errorf("returned emoji %q, want %q", cal.Emoji, gotEmoji)
+	}
+}
+
+func TestCreateCalendar_AvoidsOwnersExistingEmojis(t *testing.T) {
+	free := defaultEmojis[5]
+	var gotOwner, gotEmoji string
+	ms := &mockStore{
+		listEmojiUsageForOwner: func(_ context.Context, ownerID string) ([]model.EmojiUse, error) {
+			gotOwner = ownerID
+			var usage []model.EmojiUse
+			for _, e := range defaultEmojis {
+				if e != free {
+					usage = append(usage, model.EmojiUse{Emoji: e, LastActive: time.Now()})
+				}
+			}
+			return usage, nil
+		},
+		createCalendar: func(_, emoji, _ string) (model.Calendar, error) {
+			gotEmoji = emoji
+			return model.Calendar{ID: "c1", Emoji: emoji}, nil
+		},
+	}
+
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
+	if _, err := s.CreateCalendar(context.Background(), "x", "owner1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotOwner != "owner1" {
+		t.Errorf("usage looked up for %q, want owner1", gotOwner)
+	}
+	if gotEmoji != free {
+		t.Errorf("emoji = %q, want the only unused one %q", gotEmoji, free)
+	}
+}
+
+func TestCreateCalendar_EmojiUsageError(t *testing.T) {
+	ms := &mockStore{
+		listEmojiUsageForOwner: func(context.Context, string) ([]model.EmojiUse, error) {
+			return nil, errors.New("db down")
+		},
+		createCalendar: func(_, _, _ string) (model.Calendar, error) {
+			t.Fatal("CreateCalendar called after usage lookup failed")
+			return model.Calendar{}, nil
+		},
+	}
+
+	s := New(ms, nil, AccessConfig{Secret: "test-secret-at-least-32-bytes-long", TTL: 0})
+	if _, err := s.CreateCalendar(context.Background(), "x", "owner1"); err == nil {
+		t.Fatal("expected error, got nil")
 	}
 }
 

@@ -67,6 +67,7 @@ type Store interface {
 	CountCalendarParticipants(ctx context.Context, calendarID string) (int, error)
 	CountDuplicableParticipants(ctx context.Context, calendarID, newOwnerID string) (int, error)
 	CountCalendarsForOwner(ctx context.Context, ownerID string) (int, error)
+	ListEmojiUsageForOwner(ctx context.Context, ownerID string) ([]model.EmojiUse, error)
 	TouchCalendar(ctx context.Context, calendarID string) error
 	ListCalendarsForUser(ctx context.Context, userID string, limit int) ([]model.CalendarListItem, error)
 	ListInvites(ctx context.Context, calendarID string) ([]model.Invite, error)
@@ -125,7 +126,11 @@ func (s *Service) CreateCalendar(ctx context.Context, name, ownerID string) (mod
 	if count >= limits.MaxCalendarsPerUser {
 		return model.Calendar{}, store.ErrCalendarLimitReached
 	}
-	return s.store.CreateCalendar(ctx, name, pickRandomEmoji(), ownerID)
+	usage, err := s.store.ListEmojiUsageForOwner(ctx, ownerID)
+	if err != nil {
+		return model.Calendar{}, err
+	}
+	return s.store.CreateCalendar(ctx, name, pickEmoji(usage, time.Now(), nil), ownerID)
 }
 
 // DuplicateCalendar creates a new calendar derived from sourceID. Owner-only:
