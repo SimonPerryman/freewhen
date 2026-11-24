@@ -48,6 +48,52 @@ describe("DayDetailSheet", () => {
     expect(screen.getByText("you")).toBeInTheDocument();
   });
 
+  it("focuses the close button on open, not the note field (no keyboard pop)", () => {
+    const me = makeParticipant("me", "Me");
+    render(
+      <DayDetailSheet
+        date={date}
+        participants={[me]}
+        availability={[makeAvailability("me", date, "existing note")]}
+        currentParticipantId="me"
+        currentNote="existing note"
+        isSelected={true}
+        finalised={false}
+        onSaveNote={() => {}}
+        onRemoveAvailability={() => {}}
+        onClose={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole("textbox")).not.toHaveFocus();
+    expect(screen.getByRole("button", { name: "Close day details" })).toHaveFocus();
+    // The dialog is still named by its date for screen readers.
+    expect(screen.getByRole("dialog", { name: /1 May/ })).toBeInTheDocument();
+  });
+
+  it("focuses the note field when the user taps it", async () => {
+    const user = userEvent.setup();
+    const me = makeParticipant("me", "Me");
+    render(
+      <DayDetailSheet
+        date={date}
+        participants={[me]}
+        availability={[makeAvailability("me", date)]}
+        currentParticipantId="me"
+        currentNote=""
+        isSelected={true}
+        finalised={false}
+        onSaveNote={() => {}}
+        onRemoveAvailability={() => {}}
+        onClose={() => {}}
+      />,
+    );
+
+    const textarea = screen.getByRole("textbox");
+    await user.click(textarea);
+    expect(textarea).toHaveFocus();
+  });
+
   it("counter reflects code-point length — emoji count as 1", async () => {
     const user = userEvent.setup();
     const me = makeParticipant("me", "Me");
