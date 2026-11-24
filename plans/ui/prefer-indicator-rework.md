@@ -44,8 +44,8 @@ Why:
 
 ## Demo
 
-Interactive HTML POC: [`prefer-indicator-poc.html`](./prefer-indicator-poc.html) — open
-in a browser. Shows:
+Interactive HTML POC: `prefer-indicator-poc.html` (mock, not kept in the repo).
+It showed:
 
 1. A 4-state matrix (`note × preferred`) at 2× zoom so the combinations are easy to inspect
 2. A real-mobile-scale (375px viewport) baseline-vs-preferred week strip for each of: current ★ star, heat-only (recommended), bottom stripe, italic serif date

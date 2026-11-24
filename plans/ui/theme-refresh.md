@@ -5,7 +5,7 @@ Status: done
 ## Goal
 
 Replace the current **light** palette with the warmer, more editorial "Paper"
-palette from `plans/v2/t3/mocks/calendar-integrations-cell-states.html`, and ship a
+palette from `calendar-integrations-cell-states.html` (mock, not kept in the repo), and ship a
 user-facing light/dark toggle instead of only following `prefers-color-scheme`.
 
 Two themes: **Paper (new light)** and **current dark (unchanged)**. The dark
@@ -14,8 +14,8 @@ theme library beyond that.
 
 Comparison mocks:
 
-- `plans/ui/mocks/theme-before-after.html` — current light vs Paper light, with dark for reference and a diff strip of what's changing.
-- `plans/ui/mocks/themes-compare.html` — Paper light next to current dark.
+- `theme-before-after.html` (mock, not kept in the repo) — current light vs Paper light, with dark for reference and a diff strip of what's changing.
+- `themes-compare.html` (mock, not kept in the repo) — Paper light next to current dark.
 
 ## Context
 
