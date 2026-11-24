@@ -1,0 +1,65 @@
+# Automated dependency updates. Weekly, one grouped PR per ecosystem for
+# minor+patch bumps; majors stay as individual PRs so breaking changes get
+# their own review. See plans/infra/actions-upgrade-and-dependabot.md.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    # Let new releases bake a few days before we pick them up (supply-chain
+    # hygiene: most malicious publishes are yanked within hours).
+    cooldown:
+      default-days: 3
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: gomod
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 3
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      gomod-minor-patch:
+        update-types: [minor, patch]
+
+  # Workflow actions are pinned to commit SHAs with a `# vX.Y.Z` comment;
+  # Dependabot bumps both the SHA and the comment.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 3
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      actions-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: terraform
+    directory: /infra
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 3
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      terraform-minor-patch:
+        update-types: [minor, patch]

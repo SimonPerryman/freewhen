@@ -697,7 +697,7 @@ flowchart TB
     <li><strong>Cost cap</strong> — Cloud Run capped at 3 instances + £5/month budget alerts (50/90/100/150%).</li>
     <li><strong>Migrations</strong> — <code>store.Migrate()</code> runs on boot from <code>backend/internal/store/migrations/</code>.</li>
     <li><strong>Plans</strong> — <code>make tf-plan</code> posts the Terraform plan as a PR comment.</li>
-    <li><strong>Repo hardening</strong> — <code>infra/github.tf</code> sets a read-only default <code>GITHUB_TOKEN</code>, Dependabot alerts, and a <code>main</code> ruleset (PR + <code>changes</code>/<code>ci</code> checks, squash only, admin bypass) gated by <code>enable_branch_protection</code> until the repo is public. See “Going public” in <code>docs/infra-notes.md</code>.</li>
+    <li><strong>Repo hardening</strong> — <code>infra/github.tf</code> sets a read-only default <code>GITHUB_TOKEN</code>, Dependabot alerts, and a <code>main</code> ruleset (PR + <code>changes</code>/<code>ci</code> checks, squash only, admin bypass) gated by <code>enable_branch_protection</code> until the repo is public. See “Going public” in <code>docs/infra-notes.md</code>. Workflow actions are pinned to commit SHAs, and <code>.github/dependabot.yml</code> opens weekly update PRs for npm, Go modules, actions and Terraform providers.</li>
   </ul>
 </section>
 
