@@ -3,6 +3,9 @@ name: Deploy
 on:
   push:
     branches: [main]
+  # Manual "deploy everything": the push path only ships what that push
+  # changed, so commits that landed while CI couldn't run never deployed.
+  workflow_dispatch:
 
 # Don't cancel an in-flight rollout when a new merge lands — let the prior
 # Cloud Run / Vercel deploy finish, then run the next one. Different from CI's
@@ -59,9 +62,9 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      backend: ${{ steps.filter.outputs.backend }}
-      frontend: ${{ steps.filter.outputs.frontend }}
-      infra: ${{ steps.filter.outputs.infra }}
+      backend: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.backend == 'true' }}
+      frontend: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.frontend == 'true' }}
+      infra: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.infra == 'true' }}
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
