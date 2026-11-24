@@ -1,6 +1,6 @@
 # Upgrade GitHub Actions + add Dependabot
 
-Status: in-progress
+Status: done
 
 ## Goal
 
@@ -84,3 +84,5 @@ Release-note review (no input changes were needed):
   changes" on Terraform 1.17). Fixed the setup-go "Restore cache failed"
   warning (it looked for go.sum at the repo root) with
   `cache-dependency-path: backend/go.sum`.
+- 2026-11-24 10:00 — Second CI run green with no cache warnings. Marked done
+  (deploy.yml pins are only exercised after merge).
