@@ -82,3 +82,7 @@ creates the ruleset.
 - 2026-11-23 21:12 — Done. Remaining: owner adds Administration to the PAT,
   flips visibility, sets `enable_branch_protection = true`, does the manual
   steps in the checklist.
+- 2026-11-24 09:50 — Repo is public; set `enable_branch_protection = true` in
+  `infra/terraform.tfvars`. Merging this runs `tf-apply`, which creates the
+  ruleset. Allow auto-merge is a repo setting outside Terraform (no
+  `github_repository` import), so it's set once with `gh` after the ruleset exists.
