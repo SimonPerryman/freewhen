@@ -1,6 +1,6 @@
 # Frontend dependency refresh (2026-11)
 
-Status: in-progress
+Status: done
 
 ## Goal
 
@@ -65,3 +65,5 @@ needed.
   TypeScript 7 skipped (see Majors). pnpm 10.30.3 → 10.34.9.
 - 2026-11-24 10:01 — Both audits report no known vulnerabilities; oxlint,
   typecheck, oxfmt check, 505 tests, `next build`, backend lint + tests pass.
+- 2026-11-24 10:06 — PR #116 opened; CI `ci` and `e2e` (Playwright 1.65)
+  green.
