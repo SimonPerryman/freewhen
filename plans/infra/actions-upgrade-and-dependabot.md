@@ -86,3 +86,4 @@ Release-note review (no input changes were needed):
   `cache-dependency-path: backend/go.sum`.
 - 2026-11-24 10:00 — Second CI run green with no cache warnings. Marked done
   (deploy.yml pins are only exercised after merge).
+- 2026-11-24 10:54 — First Dependabot run: #117 (google provider ~> 6.0 → ~> 8.12) failed tf-plan because Dependabot PRs get no Actions secrets, and #118 duplicated #114. Closed both. tf-plan now skips Dependabot PRs, and the terraform ecosystem ignores semver-major bumps (do those as planned upgrades with a reviewed plan).

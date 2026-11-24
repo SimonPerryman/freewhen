@@ -63,3 +63,8 @@ updates:
     groups:
       terraform-minor-patch:
         update-types: [minor, patch]
+    # Major provider bumps change live GCP/GitHub resources and get no plan in
+    # CI (Dependabot PRs have no secrets), so do them as planned upgrades.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
