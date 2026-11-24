@@ -3,6 +3,7 @@ package service
 import (
 	"math"
 	"math/rand/v2"
+	"slices"
 	"time"
 
 	"github.com/freewhen/backend/internal/model"
@@ -25,6 +26,31 @@ var defaultEmojis = []string{
 	"\U0001F98A", // 🦊 fox
 	"\U0001F6FC", // 🛼 roller skate
 	"\U0001FAA9", // 🪩 mirror ball
+}
+
+// pickableEmojis is what an owner can choose from in calendar settings: the
+// auto-pick set plus a few topical ones. A chosen emoji may repeat one the
+// owner already uses; only the auto-pick avoids repeats. Mirrored in
+// frontend/src/lib/emoji.ts. All single code points with default emoji
+// presentation, so they render the same everywhere without a VS16.
+var pickableEmojis = append(append([]string{}, defaultEmojis...),
+	"\U0001F389", // 🎉 party popper
+	"\U0001F382", // 🎂 birthday cake
+	"\U0001F384", // 🎄 christmas tree
+	"\U0001F37B", // 🍻 clinking beer mugs
+	"\u2615",     // ☕ hot beverage
+	"\U0001F355", // 🍕 pizza
+	"\U0001F3B2", // 🎲 game die
+	"\U0001F3B8", // 🎸 guitar
+	"\U0001F4DA", // 📚 books
+	"\U0001F3BE", // 🎾 tennis
+	"\U0001F6B2", // 🚲 bicycle
+	"\U0001F9D7", // 🧗 person climbing
+)
+
+// IsPickableEmoji reports whether e is one of the emojis an owner may set.
+func IsPickableEmoji(e string) bool {
+	return slices.Contains(pickableEmojis, e)
 }
 
 // emojiHalfLife is how long it takes a calendar's claim on its emoji to halve.

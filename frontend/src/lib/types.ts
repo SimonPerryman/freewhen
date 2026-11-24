@@ -54,6 +54,8 @@ export interface DuplicateCalendarRequest {
 
 export interface UpdateCalendarRequest {
   name?: string;
+  // One of PICKABLE_EMOJIS (lib/emoji.ts); the server rejects anything else.
+  emoji?: string;
 }
 
 export interface AddParticipantRequest {

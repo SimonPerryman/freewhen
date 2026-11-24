@@ -5,6 +5,8 @@ import ConfirmDialog from "@/components/ConfirmDialog/ConfirmDialog";
 import type { UseCalendarOwnerActionsResult } from "@/lib/useCalendarOwnerActions";
 
 interface Props {
+  emoji?: string;
+  onEmojiChange: (emoji: string) => void;
   hasPassphrase: boolean;
   passphrase: string | null;
   actions: UseCalendarOwnerActionsResult;
@@ -18,6 +20,8 @@ interface Props {
 // The owner's overlays: settings sheet and the confirm dialogs
 // for destructive actions. Each renders only while open.
 export default function CalendarOwnerDialogs({
+  emoji,
+  onEmojiChange,
   hasPassphrase,
   passphrase,
   actions,
@@ -67,6 +71,8 @@ export default function CalendarOwnerDialogs({
 
       {settingsOpen ? (
         <CalendarSettingsSheet
+          emoji={emoji}
+          onEmojiChange={onEmojiChange}
           hasPassphrase={hasPassphrase}
           passphrase={passphrase}
           onRename={() => {

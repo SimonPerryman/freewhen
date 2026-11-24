@@ -60,6 +60,7 @@ type Store interface {
 	ClearFinalisedDate(ctx context.Context, calendarID string) (model.Calendar, error)
 	ClaimParticipant(ctx context.Context, calendarID, participantID, userID string) (model.Participant, error)
 	UpdateCalendarName(ctx context.Context, calendarID, name string) (model.Calendar, error)
+	UpdateCalendarEmoji(ctx context.Context, calendarID, emoji string) (model.Calendar, error)
 	SetCalendarPassphrase(ctx context.Context, calendarID string, passphrase *string) (model.Calendar, error)
 	DeleteParticipant(ctx context.Context, calendarID, participantID string) error
 	UpdateParticipantName(ctx context.Context, calendarID, participantID, name string) (model.Participant, error)
@@ -438,6 +439,25 @@ func (s *Service) RenameCalendar(ctx context.Context, calendarID, userID, name s
 		return model.Calendar{}, err
 	}
 	cal, err := s.store.UpdateCalendarName(ctx, calendarID, name)
+	if err != nil {
+		return model.Calendar{}, err
+	}
+	s.pub.Publish(calendarID, realtime.EventCalendarUpdated)
+	return cal, nil
+}
+
+// SetCalendarEmoji sets the calendar's emoji to one the owner picked. Owner-only.
+// Any emoji from the pickable set is allowed, including one the owner already
+// uses on another calendar. Anything else is a *ValidationError
+// (invalid_emoji).
+func (s *Service) SetCalendarEmoji(ctx context.Context, calendarID, userID, emoji string) (model.Calendar, error) {
+	if !IsPickableEmoji(emoji) {
+		return model.Calendar{}, invalid("invalid_emoji", "emoji is not one of the available options")
+	}
+	if _, err := s.requireOwner(ctx, calendarID, userID); err != nil {
+		return model.Calendar{}, err
+	}
+	cal, err := s.store.UpdateCalendarEmoji(ctx, calendarID, emoji)
 	if err != nil {
 		return model.Calendar{}, err
 	}

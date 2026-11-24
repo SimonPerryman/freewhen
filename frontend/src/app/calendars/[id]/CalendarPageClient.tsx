@@ -15,6 +15,7 @@ import { useCalendarData, type LoadError } from "@/lib/useCalendarData";
 import { useParticipantIdentity } from "@/lib/useParticipantIdentity";
 import { useAvailabilitySave } from "@/lib/useAvailabilitySave";
 import { useCalendarRename } from "@/lib/useCalendarRename";
+import { useCalendarEmoji } from "@/lib/useCalendarEmoji";
 import { useCalendarOwnerActions } from "@/lib/useCalendarOwnerActions";
 import { respondedParticipantIds, useAvailabilityMaps } from "@/lib/availabilityMaps";
 import { useToast } from "@/lib/toast";
@@ -124,6 +125,7 @@ function CalendarPageContent({
   const { selectedDates, notesByDate, votesByDate, handleToggle } = availability;
 
   const rename = useCalendarRename({ calendarId, calendar, setCalendar, markLocalMutation });
+  const setEmoji = useCalendarEmoji({ calendarId, calendar, setCalendar, markLocalMutation });
   const owner = useCalendarOwnerActions({ calendarId, calendar, setCalendar, markLocalMutation });
 
   // Wait for identity so the stream opens once, already tagged with our
@@ -460,6 +462,8 @@ function CalendarPageContent({
 
         {ownerOverlayOpen ? (
           <CalendarOwnerDialogs
+            emoji={calendarEmoji || undefined}
+            onEmojiChange={setEmoji}
             hasPassphrase={calendar.calendar.hasPassphrase ?? false}
             passphrase={passphrase}
             actions={owner}

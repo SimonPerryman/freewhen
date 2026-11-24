@@ -295,14 +295,17 @@ Update presentation fields on a calendar. Owner only.
 **Request**
 
 ```json
-{"name": "Tennis Fridays"}
+{"name": "Tennis Fridays", "emoji": "🎾"}
 ```
 
+Send either field or both. Every field is validated before anything is written.
+
 - `name` — new display name.
+- `emoji` — one of the 24 pickable emojis (`pickableEmojis` in `backend/internal/service/emoji.go`, mirrored in `frontend/src/lib/emoji.ts`). It may repeat an emoji the owner's other calendars use; only the automatic pick at create time avoids repeats.
 
 **Response 200** — the updated calendar.
 
-**Errors:** 400 (invalid JSON, no fields supplied, name too long) | 401 (not authenticated) | 403 (not owner) | 404 (calendar not found)
+**Errors:** 400 (invalid JSON, no fields supplied, name too long, `invalid_emoji`) | 401 (not authenticated) | 403 (not owner) | 404 (calendar not found)
 
 ---
 

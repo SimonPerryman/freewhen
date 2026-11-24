@@ -174,6 +174,32 @@ func TestUpdateCalendarName(t *testing.T) {
 	}
 }
 
+func TestUpdateCalendarEmoji(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	owner := createTestUser(t, s, "Owner")
+
+	cal, err := s.CreateCalendar(ctx, "Book club", "🌿", owner.ID)
+	if err != nil {
+		t.Fatalf("create calendar: %v", err)
+	}
+
+	updated, err := s.UpdateCalendarEmoji(ctx, cal.ID, "📚")
+	if err != nil {
+		t.Fatalf("update emoji: %v", err)
+	}
+	if updated.Emoji != "📚" || updated.Name != "Book club" {
+		t.Errorf("got emoji %q name %q, want 📚 and the name unchanged", updated.Emoji, updated.Name)
+	}
+	if !updated.UpdatedAt.After(cal.UpdatedAt) {
+		t.Errorf("updated_at not bumped: %v -> %v", cal.UpdatedAt, updated.UpdatedAt)
+	}
+
+	if _, err := s.UpdateCalendarEmoji(ctx, "nonexistent", "📚"); err != ErrNotFound {
+		t.Errorf("missing calendar: expected ErrNotFound, got %v", err)
+	}
+}
+
 func TestUpdateCalendarNameNotFound(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
