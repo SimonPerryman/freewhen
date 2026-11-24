@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { computeSummary } from "@/lib/summary";
 import { parseLocalDate } from "@/lib/localDate";
 import { useToday } from "@/lib/useToday";
@@ -84,6 +84,32 @@ function FinaliseButton({ date, onFinalise }: FinaliseButtonProps) {
         ✕
       </button>
     </span>
+  );
+}
+
+interface SummaryRowProps {
+  label: ReactNode;
+  meta: ReactNode;
+  action: ReactNode;
+  accent?: boolean;
+}
+
+// Two-column grid: date on line 1, pills on line 2 (only when there are any),
+// the action centred on the right across both. Nothing in the row can push it
+// wider than the card.
+function SummaryRow({ label, meta, action, accent }: SummaryRowProps) {
+  const classes = [accent ? styles.dateItemAccent : styles.dateItem];
+  if (!meta) classes.push(styles.oneLine);
+  return (
+    <li className={classes.join(" ")}>
+      <span className={styles.date}>{label}</span>
+      {meta ? (
+        <span className={styles.meta} data-testid="summary-row-meta">
+          {meta}
+        </span>
+      ) : null}
+      {action ? <span className={styles.action}>{action}</span> : null}
+    </li>
   );
 }
 
@@ -191,6 +217,10 @@ export default function SummaryView({
 
   const showFinalise = canFinalise && !!onFinalise;
   const topDate = summary.everyoneFree[0]?.date ?? summary.mostFree[0]?.date ?? null;
+  const finaliseFor = (date: string) =>
+    showFinalise && date !== topDate ? (
+      <FinaliseButton date={date} onFinalise={onFinalise!} />
+    ) : null;
 
   return (
     <div className={styles.section}>
@@ -199,23 +229,31 @@ export default function SummaryView({
       <h4 className={styles.subHeading}>Days everyone is free</h4>
       {summary.everyoneFree.length > 0 ? (
         <ul className={styles.dateList}>
-          {summary.everyoneFree.map((d) => (
-            <li key={d.date} className={styles.dateItemAccent}>
-              <span>{formatDate(d.date)}</span>
-              <span className={styles.rowEnd}>
-                {showFinalise && d.date !== topDate ? (
-                  <FinaliseButton date={d.date} onFinalise={onFinalise!} />
-                ) : null}
-                <PreferencePill voters={votersFor(d.date)} calendarId={calendarId} date={d.date} />
-                <NotesPill
-                  notes={notesFor(d.date)}
-                  calendarId={calendarId}
-                  date={d.date}
-                  onOpenDay={onOpenDay}
-                />
-              </span>
-            </li>
-          ))}
+          {summary.everyoneFree.map((d) => {
+            const voters = votersFor(d.date);
+            const notes = notesFor(d.date);
+            return (
+              <SummaryRow
+                key={d.date}
+                accent
+                label={formatDate(d.date)}
+                action={finaliseFor(d.date)}
+                meta={
+                  voters.length > 0 || notes.length > 0 ? (
+                    <>
+                      <PreferencePill voters={voters} calendarId={calendarId} date={d.date} />
+                      <NotesPill
+                        notes={notes}
+                        calendarId={calendarId}
+                        date={d.date}
+                        onOpenDay={onOpenDay}
+                      />
+                    </>
+                  ) : null
+                }
+              />
+            );
+          })}
         </ul>
       ) : (
         <p className={styles.emptyState}>No days yet</p>
@@ -225,26 +263,28 @@ export default function SummaryView({
         <>
           <h4 className={styles.subHeading}>Days most people are free</h4>
           <ul className={styles.dateList}>
-            {summary.mostFree.map((d) => (
-              <li key={d.date} className={styles.dateItem}>
-                <span>
-                  {formatDate(d.date)}{" "}
-                  <span className={styles.countLabel}>
-                    — {d.freeCount}/{d.totalCount} free
-                  </span>
-                </span>
-                <span className={styles.rowEnd}>
-                  {showFinalise && d.date !== topDate ? (
-                    <FinaliseButton date={d.date} onFinalise={onFinalise!} />
-                  ) : null}
-                  <PreferencePill
-                    voters={votersFor(d.date)}
-                    calendarId={calendarId}
-                    date={d.date}
-                  />
-                </span>
-              </li>
-            ))}
+            {summary.mostFree.map((d) => {
+              const voters = votersFor(d.date);
+              return (
+                <SummaryRow
+                  key={d.date}
+                  label={
+                    <>
+                      {formatDate(d.date)}{" "}
+                      <span className={styles.countLabel}>
+                        — {d.freeCount}/{d.totalCount} free
+                      </span>
+                    </>
+                  }
+                  action={finaliseFor(d.date)}
+                  meta={
+                    voters.length > 0 ? (
+                      <PreferencePill voters={voters} calendarId={calendarId} date={d.date} />
+                    ) : null
+                  }
+                />
+              );
+            })}
           </ul>
         </>
       )}

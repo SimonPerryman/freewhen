@@ -122,6 +122,27 @@ describe("CalendarGrid", () => {
     expect(details).toContainElement(screen.getByRole("button", { name: "Import extra" }));
   });
 
+  it("Quick fill summary has a decorative chevron and option names stay plain", () => {
+    const ps = makeParticipants(1);
+    render(
+      <CalendarGrid
+        participants={ps}
+        freeByDate={new Map()}
+        currentParticipantId={ps[0].id}
+        onToggle={onToggle}
+        onRangeToggle={vi.fn()}
+        joined={true}
+      />,
+    );
+    const summary = screen.getByText("Quick fill").closest("summary")!;
+    expect(summary.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    // The week glyphs are aria-hidden, so the accessible names don't change.
+    for (const name of ["Weekends", "Weekdays"]) {
+      const button = screen.getByRole("button", { name });
+      expect(button.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    }
+  });
+
   it("n=1: no everyone-free highlight even when sole participant is free", () => {
     const ps = makeParticipants(1);
     const futureDate = futureDateStr(3);

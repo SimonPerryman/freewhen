@@ -74,6 +74,38 @@ const MONTH_SHORT = [
 ];
 const WEEKS_VISIBLE = 5;
 
+// A seven-square Mon–Sun strip with the matching days filled, so the Quick
+// fill options read as "this pattern of days" rather than plain words.
+function WeekGlyph({ days }: { days: "weekends" | "weekdays" }) {
+  return (
+    <svg
+      className={styles.weekGlyph}
+      width="27"
+      height="8"
+      viewBox="0 0 27 8"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {DAY_NAMES.map((name, i) => {
+        const weekend = i >= 5;
+        const on = days === "weekends" ? weekend : !weekend;
+        return (
+          <rect
+            key={name}
+            x={i * 4}
+            y="1"
+            width="3"
+            height="6"
+            rx="1"
+            fill="currentColor"
+            opacity={on ? 1 : 0.25}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
 interface CalendarGridProps {
   calendarId?: string;
   participants: Participant[];
@@ -396,13 +428,33 @@ export default function CalendarGrid({
     >
       {toolbarAvailable ? (
         <details className={styles.quickFill}>
-          <summary className={styles.quickFillSummary}>Quick fill</summary>
+          <summary className={styles.quickFillSummary}>
+            <span>Quick fill</span>
+            <svg
+              className={styles.quickFillChevron}
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                d="M4 6l4 4 4-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </summary>
           <div className={styles.toolbar} role="toolbar" aria-label="Bulk availability tools">
             <button
               type="button"
               className={styles.toolbarButton}
               onClick={() => handleQuickAction("weekends")}
             >
+              <WeekGlyph days="weekends" />
               Weekends
             </button>
             <button
@@ -410,6 +462,7 @@ export default function CalendarGrid({
               className={styles.toolbarButton}
               onClick={() => handleQuickAction("weekdays")}
             >
+              <WeekGlyph days="weekdays" />
               Weekdays
             </button>
             {quickFillExtra}

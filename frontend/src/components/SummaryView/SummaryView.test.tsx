@@ -178,6 +178,41 @@ describe("SummaryView", () => {
     expect(screen.queryByRole("button", { name: /prefer/ })).not.toBeInTheDocument();
   });
 
+  it("puts pills on their own line in the row, apart from Finalise", () => {
+    const participants = [makeParticipant("a"), makeParticipant("b"), makeParticipant("c")];
+    const top = futureDateStr(1); // Mon 16 Jun, everyone free
+    const mostFree = futureDateStr(2); // Tue 17 Jun
+    const plain = futureDateStr(3); // Wed 18 Jun
+    const freeByDate = new Map([
+      [top, new Set(["a", "b", "c"])],
+      [mostFree, new Set(["a", "b"])],
+      [plain, new Set(["a", "b"])],
+    ]);
+    const preferredByDate = new Map<string, Set<string>>([[mostFree, new Set(["a"])]]);
+
+    render(
+      <SummaryView
+        participants={participants}
+        freeByDate={freeByDate}
+        preferredByDate={preferredByDate}
+        canFinalise
+        onFinalise={() => {}}
+      />,
+    );
+
+    // Only the row with a pill renders a meta line; the pill is inside it and
+    // the Finalise chip is not.
+    const metas = screen.getAllByTestId("summary-row-meta");
+    expect(metas).toHaveLength(1);
+    expect(metas[0]).toContainElement(screen.getByText("P-a"));
+    const finalise = screen.getByRole("button", { name: "Finalise Tue 17 Jun" });
+    expect(metas[0]).not.toContainElement(finalise);
+    expect(metas[0].closest("li")).toContainElement(finalise);
+    // The pill-less row stays one line.
+    const plainRow = screen.getByText("Wed 18 Jun").closest("li")!;
+    expect(plainRow.className).toMatch(/oneLine/);
+  });
+
   it("renders a count-pill button when more than one voter prefers a date", () => {
     const participants = [makeParticipant("a"), makeParticipant("b"), makeParticipant("c")];
     const date = futureDateStr(1);
