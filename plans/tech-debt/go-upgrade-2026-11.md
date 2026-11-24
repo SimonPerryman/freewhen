@@ -86,3 +86,8 @@ equivalent of `.nvmrc`:
   embedded-postgres v2 (supervisor/process-model rewrite).
 - 2026-11-24 10:30 — golangci-lint clean, govulncheck clean, `make lint`,
   `make test` (frontend under Node 24) and `make test-integration` pass.
+- 2026-11-24 10:50 — CI `ci` job fails at golangci-lint: the workflow pins
+  `golangci-lint-action` `version: v2.11`, built with go1.26, which refuses a
+  `go 1.27.4` module. Needs `version: v2.15` (matches local, built with
+  go1.27) in `.github/workflows/ci.yml` — handed to the owner of `.github/`.
+  `changes` and `e2e` jobs pass.
