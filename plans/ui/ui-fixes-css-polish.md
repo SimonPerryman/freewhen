@@ -38,3 +38,4 @@ Three CSS-first fixes from the 2026-11-24 UI review (first PR of the UI-fixes st
 - 2026-11-24 12:26 — Quick fill: outlined summary with a chevron, a tray when open, and chip options with a Mon–Sun week glyph. Import from Google uses the same chip styling (`ImportFromGoogle.module.css`). No closed-state hint.
 - 2026-11-24 12:27 — Banner: 10px swatches with a 2px ink ring. The vote line inherits the banner colour.
 - 2026-11-24 12:30 — Tests: a SummaryView structure test, a CalendarGrid chevron/glyph a11y test, and the e2e `summary-layout.test.ts` (row and pill inside the list at 375px). `make lint` and `make test` pass.
+- 2026-11-24 13:30 — CI only triggered for PRs into `main`, so the stacked PRs above this one got no checks. Dropped the `branches` filter from `pull_request` in `ci.yml` (separate commit). Push-to-main deploys are unchanged.

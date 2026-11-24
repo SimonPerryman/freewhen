@@ -3,8 +3,10 @@ name: CI
 on:
   push:
     branches: [main]
+  # Every PR, not just ones into main: stacked PRs (base = another feature
+  # branch) need green checks before their base merges. paths-filter diffs
+  # against the PR's own base, so each PR only runs the stacks it touches.
   pull_request:
-    branches: [main]
 
 # Dedup duplicate webhook deliveries (e.g. double-click on Merge) so we
 # don't burn CI minutes running the same SHA twice. Per-SHA group key
