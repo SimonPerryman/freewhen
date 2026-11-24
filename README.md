@@ -26,7 +26,7 @@ Four friends picking a date for Christmas drinks (demo data): create, mark your 
 ## Prerequisites
 
 - Go 1.27+ (see `backend/go.mod`)
-- Node 24 LTS (see `.nvmrc`) with pnpm via Corepack
+- Node 26 LTS (see `frontend/.nvmrc`) and pnpm (`npm install -g pnpm`; it switches itself to the version pinned in `frontend/package.json`)
 - A hosted Postgres database (Neon, Supabase, Railway, etc.)
 
 ## Setup
@@ -34,7 +34,6 @@ Four friends picking a date for Christmas drinks (demo data): create, mark your 
 ```bash
 cp .env.example .env
 # Edit .env with your DATABASE_URL
-corepack enable
 ```
 
 ## Run
