@@ -9,6 +9,10 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 export const alt = "FreeWhen calendar";
 
+// One image serves every viewer of a shared link, and the crawler that fetches
+// it has no meaningful locale, so its date uses a fixed one.
+const OG_DATE_LOCALE = "en-GB";
+
 interface Props {
   params: Promise<{ id: string }>;
 }
@@ -207,7 +211,7 @@ export default async function Image({ params }: Props) {
       const summary = computeSummary(data.participants, freeByDate, new Date());
       const best =
         summary.everyoneFree[0] ?? (summary.mostFree.length > 0 ? summary.mostFree[0] : null);
-      if (best) bestLabel = formatShortDay(best.date);
+      if (best) bestLabel = formatShortDay(best.date, OG_DATE_LOCALE);
     }
   } catch {
     return GenericFallback();

@@ -7,6 +7,7 @@ import CharCounter, { isAtLimit } from "@/components/CharCounter/CharCounter";
 import Button from "@/components/Button/Button";
 import Sheet from "@/components/Sheet/Sheet";
 import { formatLongDay } from "@/lib/dates";
+import { useDateLocale } from "@/lib/dateLocale";
 import styles from "./DayDetailSheet.module.css";
 
 interface DayDetailSheetProps {
@@ -83,6 +84,7 @@ export default function DayDetailSheet({
   onRemoveAvailability,
   onClose,
 }: DayDetailSheetProps) {
+  const locale = useDateLocale();
   const [draft, setDraft] = useState(currentNote);
   // Starts true so server and first client render match; the effect below
   // reveals the hint for people who haven't preferred a date yet.
@@ -168,7 +170,7 @@ export default function DayDetailSheet({
 
   return (
     <Sheet
-      title={<span className={styles.title}>{formatLongDay(date)}</span>}
+      title={<span className={styles.title}>{formatLongDay(date, locale)}</span>}
       onClose={onClose}
       closeLabel="Close day details"
       // No initialFocus: the close button (first focusable) gets focus, so

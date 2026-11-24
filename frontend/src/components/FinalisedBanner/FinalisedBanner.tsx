@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { Availability, Participant } from "@/lib/types";
 import ExportButtons from "@/components/ExportButtons/ExportButtons";
 import { formatLongDay } from "@/lib/dates";
+import { useDateLocale } from "@/lib/dateLocale";
 import styles from "./FinalisedBanner.module.css";
 
 interface FinalisedBannerProps {
@@ -31,6 +32,7 @@ export default function FinalisedBanner({
   availability,
   voteCount = 0,
 }: FinalisedBannerProps) {
+  const locale = useDateLocale();
   const notes = useMemo(() => {
     if (!participants || !availability) return [];
     const byId = new Map(participants.map((p) => [p.id, p]));
@@ -49,7 +51,7 @@ export default function FinalisedBanner({
         </span>
         <div className={styles.details}>
           <p className={styles.label}>Confirmed</p>
-          <p className={styles.date}>{formatLongDay(date)}</p>
+          <p className={styles.date}>{formatLongDay(date, locale)}</p>
           {voteCount > 0 ? (
             <p className={styles.voteLine}>
               {voteCount === 1

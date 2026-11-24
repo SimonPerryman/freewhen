@@ -9,6 +9,7 @@ import PreferencePill, {
 } from "@/components/PreferencePill/PreferencePill";
 import NotesPill, { type NotesPillNote } from "@/components/NotesPill/NotesPill";
 import { formatShortDay } from "@/lib/dates";
+import { useDateLocale } from "@/lib/dateLocale";
 import styles from "./SummaryView.module.css";
 
 interface SummaryViewProps {
@@ -28,6 +29,7 @@ interface FinaliseButtonProps {
 }
 
 function FinaliseButton({ date, onFinalise }: FinaliseButtonProps) {
+  const locale = useDateLocale();
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -47,7 +49,7 @@ function FinaliseButton({ date, onFinalise }: FinaliseButtonProps) {
         type="button"
         className={styles.finaliseButton}
         onClick={() => setConfirming(true)}
-        aria-label={`Finalise ${formatShortDay(date)}`}
+        aria-label={`Finalise ${formatShortDay(date, locale)}`}
       >
         Finalise
       </button>
@@ -105,6 +107,7 @@ function SummaryRow({ label, meta, action, accent }: SummaryRowProps) {
 
 // The best date gets one full-width primary action; the date is in the label.
 function PrimaryFinalise({ date, onFinalise }: FinaliseButtonProps) {
+  const locale = useDateLocale();
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -121,7 +124,7 @@ function PrimaryFinalise({ date, onFinalise }: FinaliseButtonProps) {
   if (!confirming) {
     return (
       <Button variant="primary" size="lg" fullWidth onClick={() => setConfirming(true)}>
-        Finalise {formatShortDay(date)}
+        Finalise {formatShortDay(date, locale)}
       </Button>
     );
   }
@@ -129,7 +132,7 @@ function PrimaryFinalise({ date, onFinalise }: FinaliseButtonProps) {
   return (
     <div className={styles.primaryConfirm}>
       <Button variant="primary" size="lg" fullWidth loading={submitting} onClick={handleCommit}>
-        {submitting ? "Confirming…" : `Confirm ${formatShortDay(date)}?`}
+        {submitting ? "Confirming…" : `Confirm ${formatShortDay(date, locale)}?`}
       </Button>
       <Button
         variant="secondary"
@@ -166,6 +169,7 @@ export default function SummaryView({
   onFinalise,
   onOpenDay,
 }: SummaryViewProps) {
+  const locale = useDateLocale();
   const today = useToday();
   const summary = useMemo(
     () => computeSummary(participants, freeByDate, parseLocalDate(today)),
@@ -226,7 +230,7 @@ export default function SummaryView({
               <SummaryRow
                 key={d.date}
                 accent
-                label={formatShortDay(d.date)}
+                label={formatShortDay(d.date, locale)}
                 action={finaliseFor(d.date)}
                 meta={
                   voters.length > 0 || notes.length > 0 ? (
@@ -260,7 +264,7 @@ export default function SummaryView({
                   key={d.date}
                   label={
                     <>
-                      {formatShortDay(d.date)}{" "}
+                      {formatShortDay(d.date, locale)}{" "}
                       <span className={styles.countLabel}>
                         — {d.freeCount}/{d.totalCount} free
                       </span>

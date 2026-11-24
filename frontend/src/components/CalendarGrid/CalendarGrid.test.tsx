@@ -330,7 +330,7 @@ describe("CalendarGrid", () => {
     // Find the button containing the future date's day number
     const d = new Date();
     d.setDate(d.getDate() + 3);
-    const labelPattern = new RegExp(`^${formatLocalDate(d)}`);
+    const labelPattern = new RegExp(`^${formatLocalDate(d, "en-GB")}`);
     const button = screen.getByRole("button", { name: labelPattern });
     await user.click(button);
     expect(onToggle).toHaveBeenCalledWith(futureDate);
@@ -650,7 +650,7 @@ describe("CalendarGrid", () => {
     const d = new Date();
     d.setDate(d.getDate() + 3);
     const cell = screen.getByRole("button", {
-      name: new RegExp(`^${formatLocalDate(d)}`),
+      name: new RegExp(`^${formatLocalDate(d, "en-GB")}`),
     });
     await user.click(cell);
     expect(onToggle).toHaveBeenCalledWith(futureDate);
@@ -828,7 +828,7 @@ describe("CalendarGrid", () => {
     const d = new Date();
     d.setDate(d.getDate() + 3);
     const cell = screen.getByRole("button", {
-      name: new RegExp(`^${formatLocalDate(d)}`),
+      name: new RegExp(`^${formatLocalDate(d, "en-GB")}`),
     });
     await user.click(cell);
     expect(onOpenDay).toHaveBeenCalledWith(futureDate);
@@ -839,7 +839,7 @@ describe("CalendarGrid", () => {
     function findCell(date: string): HTMLElement {
       const d = new Date(`${date}T00:00:00`);
       return screen.getByRole("button", {
-        name: new RegExp(`^${formatLocalDate(d)}`),
+        name: new RegExp(`^${formatLocalDate(d, "en-GB")}`),
       });
     }
 

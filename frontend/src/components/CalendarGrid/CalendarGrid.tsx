@@ -14,6 +14,7 @@ import { parseLocalDate } from "@/lib/localDate";
 import { useToday } from "@/lib/useToday";
 import CoachmarkPreferNote from "./CoachmarkPreferNote";
 import { formatLocalDate, formatLocalRange } from "@/lib/dates";
+import { useDateLocale } from "@/lib/dateLocale";
 import styles from "./CalendarGrid.module.css";
 
 const COACHMARK_STORAGE_PREFIX = "freewhen.coachmark.detailSheet.";
@@ -217,6 +218,7 @@ export default function CalendarGrid({
   joined,
   finalisedDate = null,
 }: CalendarGridProps) {
+  const locale = useDateLocale();
   const locked = finalisedDate !== null;
   const [weekOffset, setWeekOffset] = useState(0);
   const [pulsing, setPulsing] = useState<string | null>(null);
@@ -339,7 +341,10 @@ export default function CalendarGrid({
     return idx === -1 ? 0 : idx;
   }, [days, today]);
 
-  const rangeLabel = useMemo(() => formatLocalRange(days[0], days[days.length - 1]), [days]);
+  const rangeLabel = useMemo(
+    () => formatLocalRange(days[0], days[days.length - 1], locale),
+    [days, locale],
+  );
 
   const isSelectedForCurrent = useCallback(
     (dateStr: string): boolean => {
@@ -547,7 +552,7 @@ export default function CalendarGrid({
           if (isSuggestedFree) classNames.push(styles.suggestedFree);
           if (isSuggestedBusy) classNames.push(styles.suggestedBusy);
 
-          const dateLabel = formatLocalDate(date);
+          const dateLabel = formatLocalDate(date, locale);
           const ariaLabel = buildAriaLabel(dateLabel, sorted, freeIds, voteCount);
 
           const visibleIndex = i - firstVisibleIdx;

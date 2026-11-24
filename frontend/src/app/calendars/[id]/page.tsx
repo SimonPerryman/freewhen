@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { countResponded } from "@/lib/availabilityMaps";
+import { localeFromAcceptLanguage } from "@/lib/dates";
+import { DateLocaleProvider } from "@/lib/dateLocale";
 import { getCalendarForServer, initialCalendarData, serverToday } from "@/lib/serverCalendar";
 import { titlePlain } from "@/lib/title";
 import CalendarPageClient from "./CalendarPageClient";
@@ -60,12 +63,17 @@ export default async function CalendarPage({ params }: Props) {
   // anything gated or failing falls back to the client fetch, which carries
   // the viewer's own credentials. See plans/ui/calendar-page-server-render.md.
   const initialData = initialCalendarData(await getCalendarForServer(id));
+  // Dates render in the viewer's locale. The server only knows it from
+  // Accept-Language; the client reuses the same value so hydration matches.
+  const locale = localeFromAcceptLanguage((await headers()).get("accept-language"));
   return (
-    <CalendarPageClient
-      key={id}
-      calendarId={id}
-      initialData={initialData}
-      initialToday={initialData ? serverToday() : null}
-    />
+    <DateLocaleProvider locale={locale}>
+      <CalendarPageClient
+        key={id}
+        calendarId={id}
+        initialData={initialData}
+        initialToday={initialData ? serverToday() : null}
+      />
+    </DateLocaleProvider>
   );
 }

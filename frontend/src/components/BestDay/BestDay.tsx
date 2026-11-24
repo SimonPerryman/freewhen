@@ -5,6 +5,7 @@ import analytics from "@/lib/analytics";
 import { parseLocalDate } from "@/lib/localDate";
 import { useToday } from "@/lib/useToday";
 import { formatWeekdayDay } from "@/lib/dates";
+import { useDateLocale } from "@/lib/dateLocale";
 import styles from "./BestDay.module.css";
 
 interface BestDayProps {
@@ -14,6 +15,7 @@ interface BestDayProps {
 }
 
 export default function BestDay({ participants, freeByDate, voteCountsByDate }: BestDayProps) {
+  const locale = useDateLocale();
   const today = useToday();
   const bestDay = useMemo(() => {
     if (participants.length < 2) return null;
@@ -93,7 +95,7 @@ export default function BestDay({ participants, freeByDate, voteCountsByDate }: 
     <div className={styles.card}>
       <div className={styles.content}>
         <span className={styles.label}>Best so far</span>
-        <span className={styles.date}>{formatWeekdayDay(bestDay.date)}</span>
+        <span className={styles.date}>{formatWeekdayDay(bestDay.date, locale)}</span>
       </div>
       <span className={styles.subtitle}>{bestDay.label}</span>
     </div>

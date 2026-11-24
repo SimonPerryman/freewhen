@@ -24,7 +24,8 @@ describe("formatRelative", () => {
     expect(formatRelative("2026-04-06T12:00:00Z", now)).toBe("2w ago");
   });
 
-  it("falls back to a day-first date for older timestamps", () => {
-    expect(formatRelative("2025-12-01T12:00:00Z", now)).toBe("1 Dec 2025");
+  it("falls back to a date in the viewer's locale for older timestamps", () => {
+    expect(formatRelative("2025-12-01T12:00:00Z", now, "en-GB")).toBe("1 Dec 2025");
+    expect(formatRelative("2025-12-01T12:00:00Z", now, "en-US")).toBe("Dec 1, 2025");
   });
 });

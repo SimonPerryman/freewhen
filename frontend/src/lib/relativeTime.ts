@@ -5,7 +5,7 @@ const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 const WEEK = 7 * DAY;
 
-export function formatRelative(iso: string, now: Date = new Date()): string {
+export function formatRelative(iso: string, now: Date = new Date(), locale?: string): string {
   const then = new Date(iso);
   const diffSec = Math.max(0, Math.floor((now.getTime() - then.getTime()) / 1000));
 
@@ -15,5 +15,5 @@ export function formatRelative(iso: string, now: Date = new Date()): string {
   if (diffSec < WEEK) return `${Math.floor(diffSec / DAY)}d ago`;
   if (diffSec < 4 * WEEK) return `${Math.floor(diffSec / WEEK)}w ago`;
 
-  return formatLocalDate(then);
+  return formatLocalDate(then, locale);
 }

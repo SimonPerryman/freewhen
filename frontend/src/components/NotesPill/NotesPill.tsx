@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import analytics from "@/lib/analytics";
 import { formatShortDay } from "@/lib/dates";
+import { useDateLocale } from "@/lib/dateLocale";
 import styles from "./NotesPill.module.css";
 
 export interface NotesPillNote {
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export default function NotesPill({ notes, calendarId, date, onOpenDay }: Props) {
+  const locale = useDateLocale();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
@@ -132,7 +134,7 @@ export default function NotesPill({ notes, calendarId, date, onOpenDay }: Props)
               );
 
               if (onOpenDay && date) {
-                const rowLabel = `Open ${formatShortDay(date)} to read ${n.name}'s note`;
+                const rowLabel = `Open ${formatShortDay(date, locale)} to read ${n.name}'s note`;
                 return (
                   <li key={n.id}>
                     <button
