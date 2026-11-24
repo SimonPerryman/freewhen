@@ -19,8 +19,8 @@ Group availability coordination tool. Go backend + Next.js frontend + Postgres.
 
 ## Runtime & Tooling
 
-- **Node 24 LTS** via `.nvmrc` — engines pinned to `>=24 <25` in `package.json`
-- **pnpm** via Corepack — version pinned in `packageManager` field
+- **Node 26 LTS** via `.nvmrc` — engines pinned to `>=26 <27` in `package.json`
+- **pnpm** — version pinned in the `packageManager` field; a global pnpm switches to it (Node 26 no longer ships Corepack)
 - **Bun** is an optional speedup only (e.g. `bunx vitest`), not a runtime or package manager dependency
 - Backend uses structured logging with `log/slog` (JSON to stdout everywhere; pipe through `jq` locally if you want pretty output)
 - Every response includes an `X-Request-ID` header
