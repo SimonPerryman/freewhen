@@ -4,7 +4,7 @@ Status: done
 
 ## Goal
 
-`plans/ui/design-mockups.html` is a hand-built explorations page with several
+`design-mockups.html` (mock, not kept in the repo) is a hand-built explorations page with several
 distinct directions for FreeWhen's visual identity. The palette tokens (cream
 `#faf9f7`, terra `#e06449`) are already in `frontend/src/app/globals.css`, but
 none of the typography, layout, or surface treatments from the mockup have

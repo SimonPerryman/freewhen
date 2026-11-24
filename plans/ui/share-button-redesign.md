@@ -37,8 +37,7 @@ standalone change needed; it inherits the hero update.
 
 ## Design spec
 
-Demo: [`share-button-redesign.demo.html`](./share-button-redesign.demo.html)
-(open in a browser; theme toggle in the top-right).
+Demo: `share-button-redesign.demo.html` (mock, not kept in the repo).
 
 **Structure** — card-as-button, no separate inner target.
 

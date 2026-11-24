@@ -18,7 +18,7 @@ The homepage Create button currently uses a near-white fill that pulls focus fro
 
 ## Plan
 
-1. **POC mock** — `plans/ui/mocks/create-cta-variants.html`. Compared coral/outline/cream × no-icon/`↗`/`→` in light + dark hero contexts. ✅
+1. **POC mock** — `create-cta-variants.html` (mock, not kept in the repo). Compared coral/outline/cream × no-icon/`↗`/`→` in light + dark hero contexts. ✅
 2. **Pick winners** — coral · no icon (above). ✅
 3. **Implement** in `frontend/src/app/page.tsx` + `page.module.css`:
    - Drop the auth-conditional label. Button always says `Create` (or `Creating…` while submitting). Existing 401 → `/login` flow in `handleSubmit` already covers the unauth case, so no behavioral change is needed.
