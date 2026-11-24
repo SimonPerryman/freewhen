@@ -13,7 +13,7 @@ and email.
 ## Plan
 
 1. Map the components from the code: `backend/internal/*`, `frontend/src/lib`, `infra/`.
-2. Draw them in the hand-drawn rough.js style used for rdm's diagram: frontend, Go API layers and
+2. Draw them in a hand-drawn rough.js style: frontend, Go API layers and
    seams, outside services, deploy.
 3. Write each flow's steps from the code (handlers, service, providers, notifications), not from
    memory.
