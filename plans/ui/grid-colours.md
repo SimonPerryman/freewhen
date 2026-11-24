@@ -1,6 +1,6 @@
 # Grid colours and Quick fill
 
-Status: in-progress
+Status: done
 
 ## Goal
 
@@ -19,3 +19,4 @@ Make colour mean something on the calendar grid (Refactoring UI review, PR C): o
 - 2026-11-23 21:30 — Created plan
 - 2026-11-23 21:45 — Implemented dashed empty slots, palette change (frontend + backend), Quick fill disclosure; vitest 505 pass, backend unit tests pass; no storage change so integration not run
 - Existing participants keep their stored colour (including red); no migration, as there are no production users.
+- 2026-11-24 19:40 — Audit: shipped in #101 (dashed empty slots, red removed from both palettes, Quick fill disclosure). Marked done.
