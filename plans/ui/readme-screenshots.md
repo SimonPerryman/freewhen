@@ -1,0 +1,23 @@
+# README screenshots
+
+Status: done
+
+## Goal
+
+The repo is public; give visitors a look at the app before they clone it. Add a short "Screenshots" section to `README.md` with real, current screenshots.
+
+## Plan
+
+- Run the e2e backend (`backend/cmd/e2e-server`, embedded Postgres) and a production build of the frontend locally.
+- Seed obviously fake demo data through the API (`/test/login` with `example.com` emails): "Summer BBQ" with Alex, Sam, Priya and Jordan marking dates (a few notes and preferred votes), a finalised calendar, so "My calendars" has more than one row.
+- Capture Playwright screenshots, light mode, at 375px (mobile first) plus one desktop shot: landing, calendar grid, day sheet, finalised view, my calendars. Wait for fades before capturing.
+- Save optimised PNGs (each well under 300 KB) to `docs/screenshots/`; add a heading, one line and a small image table to `README.md`.
+- The capture script is throwaway (kept out of the repo); re-shoot by hand when the UI changes.
+
+## Log
+
+- 2026-11-24 09:40 — Created plan
+- 2026-11-24 09:46 — Seeded demo data (Summer BBQ, Book club: December finalised on 3 Dec, Climbing trip) via `/test/login` + API against e2e-server and a production `next build`; captured light-mode shots at 375px (2x) and 1280px (2x)
+- 2026-11-24 09:55 — Picked landing, calendar, day sheet, finalised, my calendars (mobile) + calendar (desktop); 108–230 KB each, no re-compression needed. Dark variants skipped to keep the README tidy
+- 2026-11-24 10:05 — README section added; `make lint` and `make test` pass; servers, embedded Postgres and its temp dir cleaned up
+- Spotted while capturing: on 375px the Summary card's "Sam prefers" pill (Sun 13 Dec row) overflows the card's right edge; the day sheet autofocuses the note field (pops the keyboard on phones)

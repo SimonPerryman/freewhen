@@ -4,6 +4,18 @@ A dead-simple shared calendar for finding when a group is free.
 
 Create a calendar, share the link, mark your available days. See everyone's availability at a glance.
 
+## Screenshots
+
+Mobile first: four friends picking a date for a BBQ (demo data).
+
+| Landing | Calendar | Day sheet |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/landing-mobile.png" width="240" alt="Landing page on a phone: 'Find when everyone's free' headline, an animated availability grid, and an event name field with a Create button"> | <img src="docs/screenshots/calendar-mobile.png" width="240" alt="Summer BBQ calendar on a phone: 4 of 4 responded, 'Best so far: Saturday 12 Dec', and a five-week grid with each person's free days as coloured initials"> | <img src="docs/screenshots/day-sheet-mobile.png" width="240" alt="Day sheet for Saturday 12 December listing the four people free, their preferred-date stars and notes, with a 'Prefer this date' checkbox and a note field"> |
+| **Finalised** | **My calendars** | |
+| <img src="docs/screenshots/finalised-mobile.png" width="240" alt="Finalised book club calendar: a green 'Confirmed: Thursday 3 December' banner with a note and Add to Google Calendar / Download .ics buttons above the grid"> | <img src="docs/screenshots/my-calendars-mobile.png" width="240" alt="My calendars list with three calendars, people counts, last updated times, and the confirmed date on the finalised one"> | |
+
+<img src="docs/screenshots/calendar-desktop.png" width="720" alt="The Summer BBQ calendar on a desktop browser: the same grid laid out wider, with full day names and the best date highlighted">
+
 ## Stack
 
 - **Backend:** Go (standard library `net/http`, `log/slog`)
