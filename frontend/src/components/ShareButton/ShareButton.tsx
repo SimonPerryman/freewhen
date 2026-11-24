@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import analytics from "@/lib/analytics";
 import { buildShareMessage } from "@/lib/share";
 import styles from "./ShareButton.module.css";
+import { useDateLocale } from "@/lib/dateLocale";
 
 interface ShareButtonProps {
   calendarName: string;
@@ -25,6 +26,7 @@ export default function ShareButton({
   secondary = false,
   state = "pre-finalisation",
 }: ShareButtonProps) {
+  const locale = useDateLocale();
   const [canShare, setCanShare] = useState(false);
   const [canCopy, setCanCopy] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -50,6 +52,7 @@ export default function ShareButton({
             name: calendarName,
             emoji: calendarEmoji,
             finalisedDate,
+            locale,
           }),
           url,
         });
@@ -70,7 +73,7 @@ export default function ShareButton({
         // clipboard write failed — ignore silently
       }
     }
-  }, [canShare, canCopy, calendarName, calendarEmoji, finalisedDate, passphrase, state]);
+  }, [canShare, canCopy, calendarName, calendarEmoji, finalisedDate, locale, passphrase, state]);
 
   if (!canShare && !canCopy) return null;
 

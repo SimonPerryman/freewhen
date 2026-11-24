@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { MyCalendarListItem } from "@/lib/types";
-import { formatFinalisedDate, formatRelative } from "@/lib/relativeTime";
+import { formatRelative } from "@/lib/relativeTime";
+import { formatShortDay } from "@/lib/dates";
+import { useDateLocale } from "@/lib/dateLocale";
 import { deleteCalendar, leaveCalendar } from "@/lib/api";
 import { useToast } from "@/lib/toast";
 import log from "@/lib/log";
@@ -28,6 +30,7 @@ interface Props {
 }
 
 export default function MyCalendarsList({ status, calendars, hasMore, onRetry }: Props) {
+  const locale = useDateLocale();
   const router = useRouter();
   const { showToast } = useToast();
   const [duplicating, setDuplicating] = useState<MyCalendarListItem | null>(null);
@@ -179,11 +182,11 @@ export default function MyCalendarsList({ status, calendars, hasMore, onRetry }:
                     </span>
                     {cal.finalisedDate ? (
                       <span className={styles.finalisedBadge}>
-                        📅 {formatFinalisedDate(cal.finalisedDate)}
+                        📅 {formatShortDay(cal.finalisedDate, locale)}
                       </span>
                     ) : null}
                   </div>
-                  <span>Updated {formatRelative(cal.updatedAt)}</span>
+                  <span>Updated {formatRelative(cal.updatedAt, undefined, locale)}</span>
                 </div>
               </Link>
               {items.length > 0 ? (

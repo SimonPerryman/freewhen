@@ -3,6 +3,7 @@ import type { ComponentProps } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import CalendarGrid, { computeHeatPercent } from "./CalendarGrid";
+import { formatLocalDate } from "@/lib/dates";
 import { COLOUR_PALETTE, textOnColour } from "@/lib/overlap";
 import type { Participant } from "@/lib/types";
 
@@ -325,27 +326,11 @@ describe("CalendarGrid", () => {
       />,
     );
 
-    // aria-label format is "Apr 20, 2026 Not free: P0, P1, P2."
+    // aria-label format is "20 Apr 2026 Not free: P0, P1, P2."
     // Find the button containing the future date's day number
     const d = new Date();
     d.setDate(d.getDate() + 3);
-    const dayNum = d.getDate();
-    const monthName = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ][d.getMonth()];
-    const year = d.getFullYear();
-    const labelPattern = new RegExp(`${monthName} ${dayNum}, ${year}`);
+    const labelPattern = new RegExp(`^${formatLocalDate(d, "en-GB")}`);
     const button = screen.getByRole("button", { name: labelPattern });
     await user.click(button);
     expect(onToggle).toHaveBeenCalledWith(futureDate);
@@ -362,7 +347,7 @@ describe("CalendarGrid", () => {
       />,
     );
 
-    const buttons = screen.getAllByRole("button", { name: /\w+ \d+, \d{4}/ });
+    const buttons = screen.getAllByRole("button", { name: /^\d{1,2} \w{3,4} \d{4}/ });
     for (const button of buttons) {
       expect(button).toBeDisabled();
     }
@@ -426,7 +411,7 @@ describe("CalendarGrid", () => {
       />,
     );
 
-    const buttons = screen.getAllByRole("button", { name: /\w+ \d+, \d{4}/ });
+    const buttons = screen.getAllByRole("button", { name: /^\d{1,2} \w{3,4} \d{4}/ });
     for (const button of buttons) {
       expect(button).toBeDisabled();
     }
@@ -664,22 +649,8 @@ describe("CalendarGrid", () => {
 
     const d = new Date();
     d.setDate(d.getDate() + 3);
-    const monthName = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ][d.getMonth()];
     const cell = screen.getByRole("button", {
-      name: new RegExp(`${monthName} ${d.getDate()}, ${d.getFullYear()}`),
+      name: new RegExp(`^${formatLocalDate(d, "en-GB")}`),
     });
     await user.click(cell);
     expect(onToggle).toHaveBeenCalledWith(futureDate);
@@ -856,22 +827,8 @@ describe("CalendarGrid", () => {
 
     const d = new Date();
     d.setDate(d.getDate() + 3);
-    const monthName = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ][d.getMonth()];
     const cell = screen.getByRole("button", {
-      name: new RegExp(`${monthName} ${d.getDate()}, ${d.getFullYear()}`),
+      name: new RegExp(`^${formatLocalDate(d, "en-GB")}`),
     });
     await user.click(cell);
     expect(onOpenDay).toHaveBeenCalledWith(futureDate);
@@ -881,22 +838,8 @@ describe("CalendarGrid", () => {
   describe("preference heat", () => {
     function findCell(date: string): HTMLElement {
       const d = new Date(`${date}T00:00:00`);
-      const monthName = [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-      ][d.getMonth()];
       return screen.getByRole("button", {
-        name: new RegExp(`${monthName} ${d.getDate()}, ${d.getFullYear()}`),
+        name: new RegExp(`^${formatLocalDate(d, "en-GB")}`),
       });
     }
 

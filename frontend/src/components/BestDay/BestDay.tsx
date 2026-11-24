@@ -4,6 +4,8 @@ import { computeSummary } from "@/lib/summary";
 import analytics from "@/lib/analytics";
 import { parseLocalDate } from "@/lib/localDate";
 import { useToday } from "@/lib/useToday";
+import { formatWeekdayDay } from "@/lib/dates";
+import { useDateLocale } from "@/lib/dateLocale";
 import styles from "./BestDay.module.css";
 
 interface BestDayProps {
@@ -12,18 +14,8 @@ interface BestDayProps {
   voteCountsByDate?: Map<string, number>;
 }
 
-const dateFormatter = new Intl.DateTimeFormat("en-GB", {
-  weekday: "long",
-  day: "numeric",
-  month: "short",
-});
-
-function formatDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return dateFormatter.format(new Date(y, m - 1, d));
-}
-
 export default function BestDay({ participants, freeByDate, voteCountsByDate }: BestDayProps) {
+  const locale = useDateLocale();
   const today = useToday();
   const bestDay = useMemo(() => {
     if (participants.length < 2) return null;
@@ -103,7 +95,7 @@ export default function BestDay({ participants, freeByDate, voteCountsByDate }: 
     <div className={styles.card}>
       <div className={styles.content}>
         <span className={styles.label}>Best so far</span>
-        <span className={styles.date}>{formatDate(bestDay.date)}</span>
+        <span className={styles.date}>{formatWeekdayDay(bestDay.date, locale)}</span>
       </div>
       <span className={styles.subtitle}>{bestDay.label}</span>
     </div>

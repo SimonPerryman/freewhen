@@ -15,14 +15,19 @@ describe("buildShareMessage", () => {
   });
 
   it("builds a finalised-state message with the formatted date", () => {
-    expect(buildShareMessage({ name: "Weekend trip", finalisedDate: "2026-05-01" })).toBe(
-      "Weekend trip is on Friday 1 May — add it to your calendar:",
-    );
+    expect(
+      buildShareMessage({ name: "Weekend trip", finalisedDate: "2026-05-01", locale: "en-GB" }),
+    ).toBe("Weekend trip is on Friday 1 May — add it to your calendar:");
   });
 
   it("combines emoji and finalised date", () => {
     expect(
-      buildShareMessage({ name: "Weekend trip", emoji: "🏕️", finalisedDate: "2026-05-01" }),
+      buildShareMessage({
+        name: "Weekend trip",
+        emoji: "🏕️",
+        finalisedDate: "2026-05-01",
+        locale: "en-GB",
+      }),
     ).toBe("🏕️ Weekend trip is on Friday 1 May — add it to your calendar:");
   });
 

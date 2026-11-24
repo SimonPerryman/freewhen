@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import analytics from "@/lib/analytics";
+import { formatShortDay } from "@/lib/dates";
+import { useDateLocale } from "@/lib/dateLocale";
 import styles from "./NotesPill.module.css";
 
 export interface NotesPillNote {
@@ -18,18 +20,8 @@ interface Props {
   onOpenDay?: (date: string) => void;
 }
 
-const dateFormatter = new Intl.DateTimeFormat("en-GB", {
-  weekday: "short",
-  day: "numeric",
-  month: "short",
-});
-
-function formatDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return dateFormatter.format(new Date(y, m - 1, d));
-}
-
 export default function NotesPill({ notes, calendarId, date, onOpenDay }: Props) {
+  const locale = useDateLocale();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
@@ -142,7 +134,7 @@ export default function NotesPill({ notes, calendarId, date, onOpenDay }: Props)
               );
 
               if (onOpenDay && date) {
-                const rowLabel = `Open ${formatDate(date)} to read ${n.name}'s note`;
+                const rowLabel = `Open ${formatShortDay(date, locale)} to read ${n.name}'s note`;
                 return (
                   <li key={n.id}>
                     <button

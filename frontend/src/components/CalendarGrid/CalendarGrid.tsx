@@ -13,6 +13,8 @@ import analytics from "@/lib/analytics";
 import { parseLocalDate } from "@/lib/localDate";
 import { useToday } from "@/lib/useToday";
 import CoachmarkPreferNote from "./CoachmarkPreferNote";
+import { formatLocalDate, formatLocalRange } from "@/lib/dates";
+import { useDateLocale } from "@/lib/dateLocale";
 import styles from "./CalendarGrid.module.css";
 
 const COACHMARK_STORAGE_PREFIX = "freewhen.coachmark.detailSheet.";
@@ -146,10 +148,6 @@ function formatDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-function formatDateLabel(d: Date): string {
-  return `${MONTH_SHORT[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
-}
-
 function getMonday(date: Date): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
@@ -220,6 +218,7 @@ export default function CalendarGrid({
   joined,
   finalisedDate = null,
 }: CalendarGridProps) {
+  const locale = useDateLocale();
   const locked = finalisedDate !== null;
   const [weekOffset, setWeekOffset] = useState(0);
   const [pulsing, setPulsing] = useState<string | null>(null);
@@ -342,22 +341,10 @@ export default function CalendarGrid({
     return idx === -1 ? 0 : idx;
   }, [days, today]);
 
-  const rangeLabel = useMemo(() => {
-    const first = days[0];
-    const last = days[days.length - 1];
-    const fMonth = MONTH_SHORT[first.getMonth()];
-    const lMonth = MONTH_SHORT[last.getMonth()];
-    const fYear = first.getFullYear();
-    const lYear = last.getFullYear();
-
-    if (fYear !== lYear) {
-      return `${fMonth} ${first.getDate()}, ${fYear} – ${lMonth} ${last.getDate()}, ${lYear}`;
-    }
-    if (fMonth !== lMonth) {
-      return `${fMonth} ${first.getDate()} – ${lMonth} ${last.getDate()}, ${fYear}`;
-    }
-    return `${fMonth} ${first.getDate()} – ${last.getDate()}, ${fYear}`;
-  }, [days]);
+  const rangeLabel = useMemo(
+    () => formatLocalRange(days[0], days[days.length - 1], locale),
+    [days, locale],
+  );
 
   const isSelectedForCurrent = useCallback(
     (dateStr: string): boolean => {
@@ -565,7 +552,7 @@ export default function CalendarGrid({
           if (isSuggestedFree) classNames.push(styles.suggestedFree);
           if (isSuggestedBusy) classNames.push(styles.suggestedBusy);
 
-          const dateLabel = formatDateLabel(date);
+          const dateLabel = formatLocalDate(date, locale);
           const ariaLabel = buildAriaLabel(dateLabel, sorted, freeIds, voteCount);
 
           const visibleIndex = i - firstVisibleIdx;

@@ -3,10 +3,15 @@ import { getCalendar } from "@/lib/api";
 import { titlePlain } from "@/lib/title";
 import { computeSummary } from "@/lib/summary";
 import type { Availability, Participant } from "@/lib/types";
+import { formatShortDay } from "@/lib/dates";
 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 export const alt = "FreeWhen calendar";
+
+// One image serves every viewer of a shared link, and the crawler that fetches
+// it has no meaningful locale, so its date uses a fixed one.
+const OG_DATE_LOCALE = "en-GB";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -29,17 +34,6 @@ const CREAM = "#faf9f7";
 const INK = "#221f1c";
 const INK_2 = "#6b6058";
 const BORDER = "#e8e2d8";
-
-const DAY_FORMATTER = new Intl.DateTimeFormat("en-GB", {
-  weekday: "short",
-  day: "numeric",
-  month: "short",
-});
-
-function formatBestDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return DAY_FORMATTER.format(new Date(y, m - 1, d));
-}
 
 function buildFreeByDate(availability: Availability[]): Map<string, Set<string>> {
   const m = new Map<string, Set<string>>();
@@ -217,7 +211,7 @@ export default async function Image({ params }: Props) {
       const summary = computeSummary(data.participants, freeByDate, new Date());
       const best =
         summary.everyoneFree[0] ?? (summary.mostFree.length > 0 ? summary.mostFree[0] : null);
-      if (best) bestLabel = formatBestDate(best.date);
+      if (best) bestLabel = formatShortDay(best.date, OG_DATE_LOCALE);
     }
   } catch {
     return GenericFallback();

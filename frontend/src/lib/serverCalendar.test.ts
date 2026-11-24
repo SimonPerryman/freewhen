@@ -18,6 +18,9 @@ vi.mock("react", async () => {
   };
 });
 
+const requestHeaders = new Headers();
+vi.mock("next/headers", () => ({ headers: async () => requestHeaders }));
+
 import { API_BASE_URL } from "./config";
 import { getCalendarForServer, initialCalendarData } from "./serverCalendar";
 import CalendarPage, { generateMetadata } from "@/app/calendars/[id]/page";
@@ -106,6 +109,11 @@ describe("initialCalendarData", () => {
   });
 });
 
+// The page wraps CalendarPageClient in a DateLocaleProvider.
+function page(element: Awaited<ReturnType<typeof CalendarPage>>) {
+  return element.props.children.props;
+}
+
 describe("/calendars/[id] server component", () => {
   it("metadata and page share a single API fetch per request", async () => {
     fetchMock.mockResolvedValue(respond(apiCalendar));
@@ -115,8 +123,8 @@ describe("/calendars/[id] server component", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(metadata.title).toBe("Trip — FreeWhen");
-    expect(element.props.initialData.calendar.name).toBe("Trip");
-    expect(element.props.initialToday).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(page(element).initialData.calendar.name).toBe("Trip");
+    expect(page(element).initialToday).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
   it("passes no initial data for a passphrase-protected calendar", async () => {
@@ -126,15 +134,26 @@ describe("/calendars/[id] server component", () => {
     const element = await CalendarPage({ params });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(element.props.initialData).toBeNull();
-    expect(element.props.initialToday).toBeNull();
+    expect(page(element).initialData).toBeNull();
+    expect(page(element).initialToday).toBeNull();
     // Metadata reveals nothing beyond the generic fallback.
     expect(metadata.title).toBe("FreeWhen");
+  });
+
+  it("formats dates in the request's Accept-Language locale", async () => {
+    fetchMock.mockResolvedValue(respond(apiCalendar));
+    requestHeaders.set("accept-language", "en-US,en;q=0.9");
+    try {
+      const element = await CalendarPage({ params });
+      expect(element.props.locale).toBe("en-US");
+    } finally {
+      requestHeaders.delete("accept-language");
+    }
   });
 
   it("passes no initial data when the API fails", async () => {
     fetchMock.mockResolvedValue(respond({ error: "boom" }, 500));
     const element = await CalendarPage({ params });
-    expect(element.props.initialData).toBeNull();
+    expect(page(element).initialData).toBeNull();
   });
 });

@@ -6,6 +6,8 @@ import { MAX_NOTE_LENGTH, codePointCount } from "@/lib/limits";
 import CharCounter, { isAtLimit } from "@/components/CharCounter/CharCounter";
 import Button from "@/components/Button/Button";
 import Sheet from "@/components/Sheet/Sheet";
+import { formatLongDay } from "@/lib/dates";
+import { useDateLocale } from "@/lib/dateLocale";
 import styles from "./DayDetailSheet.module.css";
 
 interface DayDetailSheetProps {
@@ -47,17 +49,6 @@ function writePreferHintSeen() {
   }
 }
 
-const dateFormatter = new Intl.DateTimeFormat("en-GB", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-});
-
-function formatFullDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return dateFormatter.format(new Date(y, m - 1, d));
-}
-
 // Strip CR/LF so the cell preview can't wrap and the server doesn't reject
 // on submit. Matches the "newlines rejected entirely" rule.
 function stripNewlines(s: string): string {
@@ -93,6 +84,7 @@ export default function DayDetailSheet({
   onRemoveAvailability,
   onClose,
 }: DayDetailSheetProps) {
+  const locale = useDateLocale();
   const [draft, setDraft] = useState(currentNote);
   // Starts true so server and first client render match; the effect below
   // reveals the hint for people who haven't preferred a date yet.
@@ -178,7 +170,7 @@ export default function DayDetailSheet({
 
   return (
     <Sheet
-      title={<span className={styles.title}>{formatFullDate(date)}</span>}
+      title={<span className={styles.title}>{formatLongDay(date, locale)}</span>}
       onClose={onClose}
       closeLabel="Close day details"
       // No initialFocus: the close button (first focusable) gets focus, so
