@@ -13,7 +13,14 @@ import analytics from "@/lib/analytics";
 import { parseLocalDate } from "@/lib/localDate";
 import { useToday } from "@/lib/useToday";
 import CoachmarkPreferNote from "./CoachmarkPreferNote";
-import { formatLocalDate, formatLocalRange } from "@/lib/dates";
+import {
+  firstDayOfWeek,
+  formatLocalDate,
+  formatLocalRange,
+  formatMonthShort,
+  startOfWeek,
+  weekdayLabels,
+} from "@/lib/dates";
 import { useDateLocale } from "@/lib/dateLocale";
 import styles from "./CalendarGrid.module.css";
 
@@ -58,27 +65,12 @@ function writeInstructionStripDismissed(): void {
   }
 }
 
-const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const DAY_LETTERS = ["M", "T", "W", "T", "F", "S", "S"];
-const MONTH_SHORT = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
 const WEEKS_VISIBLE = 5;
 
-// A seven-square Mon–Sun strip with the matching days filled, so the Quick
-// fill options read as "this pattern of days" rather than plain words.
-function WeekGlyph({ days }: { days: "weekends" | "weekdays" }) {
+// A seven-square week strip with the matching days filled, so the Quick fill
+// options read as "this pattern of days" rather than plain words. It starts on
+// the same day as the grid's columns.
+function WeekGlyph({ days, firstDay }: { days: "weekends" | "weekdays"; firstDay: number }) {
   return (
     <svg
       className={styles.weekGlyph}
@@ -88,12 +80,13 @@ function WeekGlyph({ days }: { days: "weekends" | "weekdays" }) {
       aria-hidden="true"
       focusable="false"
     >
-      {DAY_NAMES.map((name, i) => {
-        const weekend = i >= 5;
+      {Array.from({ length: 7 }, (_, i) => {
+        const dow = (firstDay + i) % 7;
+        const weekend = dow === 0 || dow === 6;
         const on = days === "weekends" ? weekend : !weekend;
         return (
           <rect
-            key={name}
+            key={dow}
             x={i * 4}
             y="1"
             width="3"
@@ -146,15 +139,6 @@ function formatDate(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
-}
-
-function getMonday(date: Date): Date {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  return d;
 }
 
 function addDays(date: Date, days: number): Date {
@@ -322,19 +306,23 @@ export default function CalendarGrid({
   // From useToday() rather than `new Date()` so a server-rendered grid
   // hydrates with the same week the server picked (see useToday).
   const today = useToday();
-  const baseMonday = getMonday(parseLocalDate(today));
+  // The locale decides which day each week, and so each grid row, starts on:
+  // Monday for en-GB, Sunday for en-US.
+  const firstDay = firstDayOfWeek(locale);
+  const dayLabels = useMemo(() => weekdayLabels(locale, firstDay), [locale, firstDay]);
+  const baseWeekStart = startOfWeek(parseLocalDate(today), firstDay);
 
   const sorted = useMemo(() => sortParticipants(participants), [participants]);
   const layout = useMemo(() => layoutSlots(sorted.length), [sorted.length]);
 
   const days = useMemo(() => {
-    const start = addDays(baseMonday, weekOffset * 7);
+    const start = addDays(baseWeekStart, weekOffset * 7);
     const result: Date[] = [];
     for (let i = 0; i < WEEKS_VISIBLE * 7; i++) {
       result.push(addDays(start, i));
     }
     return result;
-  }, [weekOffset, baseMonday.getTime()]);
+  }, [weekOffset, baseWeekStart.getTime()]);
 
   const firstVisibleIdx = useMemo(() => {
     const idx = days.findIndex((d) => formatDate(d) >= today);
@@ -441,7 +429,7 @@ export default function CalendarGrid({
               className={styles.toolbarButton}
               onClick={() => handleQuickAction("weekends")}
             >
-              <WeekGlyph days="weekends" />
+              <WeekGlyph days="weekends" firstDay={firstDay} />
               Weekends
             </button>
             <button
@@ -449,7 +437,7 @@ export default function CalendarGrid({
               className={styles.toolbarButton}
               onClick={() => handleQuickAction("weekdays")}
             >
-              <WeekGlyph days="weekdays" />
+              <WeekGlyph days="weekdays" firstDay={firstDay} />
               Weekdays
             </button>
             {quickFillExtra}
@@ -510,10 +498,10 @@ export default function CalendarGrid({
       ) : null}
 
       <div className={styles.grid} key={weekOffset}>
-        {DAY_NAMES.map((name, i) => (
-          <div key={name} className={styles.dayHeader}>
-            <span className={styles.dayHeaderShort}>{DAY_LETTERS[i]}</span>
-            <span className={styles.dayHeaderFull}>{name}</span>
+        {dayLabels.map(({ narrow, short }, i) => (
+          <div key={i} className={styles.dayHeader}>
+            <span className={styles.dayHeaderShort}>{narrow}</span>
+            <span className={styles.dayHeaderFull}>{short}</span>
           </div>
         ))}
 
@@ -607,7 +595,7 @@ export default function CalendarGrid({
               title={ariaLabel}
             >
               {showMonth ? (
-                <span className={styles.monthLabel}>{MONTH_SHORT[date.getMonth()]}</span>
+                <span className={styles.monthLabel}>{formatMonthShort(date, locale)}</span>
               ) : null}
               <span className={styles.dayNumber}>{date.getDate()}</span>
               {showNoteDot ? (
