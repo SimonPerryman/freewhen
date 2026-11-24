@@ -3,6 +3,7 @@
 package server_test
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -66,6 +67,23 @@ func TestUpdateCalendar(t *testing.T) {
 	resp, _ = doJSONAuth(t, ts, http.MethodPatch, "/calendars/doesnotexist", map[string]string{"name": "X"})
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("missing: expected 404, got %d", resp.StatusCode)
+	}
+}
+
+// The auto-picker avoids the owner's existing emojis, so the first 12
+// calendars (the size of the curated set) never repeat.
+func TestCreateCalendar_EmojisDistinctPerOwner(t *testing.T) {
+	ts := setupTestServer(t)
+	seen := map[string]string{}
+	for i := range 12 {
+		cal, _ := createCalendarAuth(t, ts, fmt.Sprintf("Calendar %d", i))
+		if cal.Emoji == "" {
+			t.Fatalf("calendar %d has no emoji", i)
+		}
+		if prev, ok := seen[cal.Emoji]; ok {
+			t.Fatalf("calendar %d repeated emoji %s from %s", i, cal.Emoji, prev)
+		}
+		seen[cal.Emoji] = cal.Name
 	}
 }
 

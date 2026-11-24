@@ -20,6 +20,14 @@ type Calendar struct {
 	AccessEpoch int `json:"-"`
 }
 
+// EmojiUse is one of an owner's live calendars as seen by the emoji
+// auto-picker: its emoji and when it last saw activity (calendars.updated_at,
+// which every child-table write bumps via TouchCalendar).
+type EmojiUse struct {
+	Emoji      string
+	LastActive time.Time
+}
+
 // HasPassphrase reports whether the calendar is gated by a passphrase.
 func (c Calendar) HasPassphrase() bool { return c.Passphrase != "" }
 

@@ -99,6 +99,34 @@ func (s *Store) CountCalendarsForOwner(ctx context.Context, ownerID string) (int
 	return count, nil
 }
 
+// ListEmojiUsageForOwner returns the emoji and last-activity time of every
+// live calendar the user owns that has an emoji. The service's emoji
+// auto-picker uses it to avoid repeating an emoji the owner already has.
+// Bounded by limits.MaxCalendarsPerUser rows.
+func (s *Store) ListEmojiUsageForOwner(ctx context.Context, ownerID string) ([]model.EmojiUse, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT emoji, updated_at FROM calendars
+		 WHERE owner_id = $1 AND emoji IS NOT NULL AND deleted_at IS NULL`, ownerID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list emoji usage for owner: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var usage []model.EmojiUse
+	for rows.Next() {
+		var u model.EmojiUse
+		if err := rows.Scan(&u.Emoji, &u.LastActive); err != nil {
+			return nil, fmt.Errorf("scan emoji usage: %w", err)
+		}
+		usage = append(usage, u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate emoji usage: %w", err)
+	}
+	return usage, nil
+}
+
 // GetCalendarOnly returns the calendar row without details. Used by handlers
 // that need ownership/finalised checks without paying for participants+availability.
 func (s *Store) GetCalendarOnly(ctx context.Context, id string) (model.Calendar, error) {
