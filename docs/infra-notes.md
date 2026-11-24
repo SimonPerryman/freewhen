@@ -17,7 +17,7 @@
 
 ## Runtime & Tooling
 
-- Node 26 LTS + pnpm (version pinned in `frontend/package.json`)
+- Node 26 LTS + pnpm 12 (version pinned in `frontend/package.json`; settings such as `allowBuilds` in `frontend/pnpm-workspace.yaml`)
 - Bun is opt-in speedup only, not a dependency
   - `bunx vitest` / `bun run script.ts` can shave seconds without committing the whole project to Bun
   - Do not add Bun to CI or `package.json` scripts without a real measured reason

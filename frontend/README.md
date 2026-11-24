@@ -15,7 +15,7 @@ The app expects the backend on `:8080` — start it with `make dev-backend` in a
 
 ## Tooling
 
-- **Node 26 LTS** via `.nvmrc`; pnpm pinned in `package.json` (a global pnpm switches to that version itself)
+- **Node 26 LTS** via `.nvmrc`; pnpm 12 pinned in `package.json` (a global pnpm switches to that version itself). pnpm settings go in `pnpm-workspace.yaml`, not `.npmrc`.
 - **oxlint** for linting, **oxfmt** for formatting
 - **vitest** with jsdom for tests; `@/` alias maps to `src/`
 - Optional **bun** as a speedup (e.g. `bunx vitest`) — not a runtime dependency

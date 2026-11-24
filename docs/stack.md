@@ -17,7 +17,7 @@ API server handling all business logic and data access.
 
 App Router with TypeScript. Mobile-first calendar UI.
 
-- Node 24 LTS via `.nvmrc`, pnpm via Corepack
+- Node 26 LTS via `.nvmrc`, pnpm 12 pinned in `package.json` (`packageManager`)
 - Bun is an optional speedup only (e.g. `bunx vitest`), not a runtime dependency
 - Lint with oxlint, format with oxfmt
 
