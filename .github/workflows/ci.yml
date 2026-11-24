@@ -229,6 +229,10 @@ jobs:
           set +e
           terraform -chdir=infra plan -no-color -detailed-exitcode -out=tfplan > plan.txt 2>&1
           echo "exitcode=$?" >> "$GITHUB_OUTPUT"
+          # `sensitive` hides the variable, not resource IDs built from it: the
+          # budget's ID embeds the billing account, and this text becomes a
+          # public PR comment.
+          sed -i -E 's#billingAccounts/[A-Za-z0-9-]+#billingAccounts/REDACTED#g' plan.txt
           {
             echo 'plan<<EOF'
             cat plan.txt
