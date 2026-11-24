@@ -40,6 +40,11 @@ Revisit only if a concrete use case surfaces; none did pre-launch.
 - RTL layout support
 - Timezone support for distributed groups
 
+## Sharing
+
+- QR code for the invite link — show it from the Share button so people
+  in the same room can scan to join instead of passing the link around
+
 ## Platform
 
 - Native mobile apps
