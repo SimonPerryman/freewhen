@@ -15,7 +15,7 @@ Tidy the plans and docs before the repo goes public. Nothing here blocks the rel
 5. Cosmetic: wrong-year log dates, literal `HH:MM` placeholders, a duplicated paragraph, stray YAML front matter.
 6. Change dead links to temporary mock files into plain text.
 
-Out of scope: `plans/infra/architecture-diagram.md` ("rdm"), `plans/infra/public-readiness.md`, LICENSE/README/SECURITY, `infra/*.tf`, `.github/`.
+Out of scope: `plans/infra/public-readiness.md`, LICENSE/README/SECURITY, `infra/*.tf`, `.github/`.
 
 ## Log
 
@@ -23,3 +23,4 @@ Out of scope: `plans/infra/architecture-diagram.md` ("rdm"), `plans/infra/public
 - 2026-11-23 20:51 — Replaced freewhen.app / freewhen.com: production domains in docs/infra-notes.md (also fixed its region to europe-west1), docs/user-journeys.md and calendar-export-richer-event.md; example.com placeholders in handler.go, design-mockups.html and auth.md
 - 2026-11-23 20:52 — Checked each fix against the code, then added Superseded log lines to six plans; marked backend-security-hardening done (shipped in #73); added the pre-launch note and europe-west1 region to calendar-integrations; fixed the wrong-year dates, HH:MM placeholders (times dropped, since each plan landed in a single commit), the duplicated paragraph, the YAML front matter and the dead mock links
 - 2026-11-23 20:55 — make lint: golangci gofmt and oxfmt flag CRLF-only noise on untouched files (the committed versions are clean); oxlint, typecheck and lint-pii pass. make test: all Go packages ok, vitest 474/474. Status → done
+- 2026-11-24 08:34 — Dropped the mention of an unrelated private project from architecture-diagram.md (and its out-of-scope note here)
