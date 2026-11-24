@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatFinalisedDate, formatRelative } from "./relativeTime";
+import { formatRelative } from "./relativeTime";
 
 describe("formatRelative", () => {
   const now = new Date("2026-04-20T12:00:00Z");
@@ -24,16 +24,7 @@ describe("formatRelative", () => {
     expect(formatRelative("2026-04-06T12:00:00Z", now)).toBe("2w ago");
   });
 
-  it("falls back to a date for older timestamps", () => {
-    const result = formatRelative("2025-12-01T12:00:00Z", now);
-    expect(result).toMatch(/2025/);
-  });
-});
-
-describe("formatFinalisedDate", () => {
-  it("formats an ISO date string in UTC", () => {
-    const out = formatFinalisedDate("2026-05-02");
-    expect(out).toContain("May");
-    expect(out).toContain("2");
+  it("falls back to a day-first date for older timestamps", () => {
+    expect(formatRelative("2025-12-01T12:00:00Z", now)).toBe("1 Dec 2025");
   });
 });

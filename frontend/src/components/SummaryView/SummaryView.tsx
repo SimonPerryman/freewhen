@@ -8,6 +8,7 @@ import PreferencePill, {
   type PreferencePillVoter,
 } from "@/components/PreferencePill/PreferencePill";
 import NotesPill, { type NotesPillNote } from "@/components/NotesPill/NotesPill";
+import { formatShortDay } from "@/lib/dates";
 import styles from "./SummaryView.module.css";
 
 interface SummaryViewProps {
@@ -19,17 +20,6 @@ interface SummaryViewProps {
   canFinalise?: boolean;
   onFinalise?: (date: string) => Promise<void> | void;
   onOpenDay?: (date: string) => void;
-}
-
-const dateFormatter = new Intl.DateTimeFormat("en-GB", {
-  weekday: "short",
-  day: "numeric",
-  month: "short",
-});
-
-function formatDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return dateFormatter.format(new Date(y, m - 1, d));
 }
 
 interface FinaliseButtonProps {
@@ -57,7 +47,7 @@ function FinaliseButton({ date, onFinalise }: FinaliseButtonProps) {
         type="button"
         className={styles.finaliseButton}
         onClick={() => setConfirming(true)}
-        aria-label={`Finalise ${formatDate(date)}`}
+        aria-label={`Finalise ${formatShortDay(date)}`}
       >
         Finalise
       </button>
@@ -131,7 +121,7 @@ function PrimaryFinalise({ date, onFinalise }: FinaliseButtonProps) {
   if (!confirming) {
     return (
       <Button variant="primary" size="lg" fullWidth onClick={() => setConfirming(true)}>
-        Finalise {formatDate(date)}
+        Finalise {formatShortDay(date)}
       </Button>
     );
   }
@@ -139,7 +129,7 @@ function PrimaryFinalise({ date, onFinalise }: FinaliseButtonProps) {
   return (
     <div className={styles.primaryConfirm}>
       <Button variant="primary" size="lg" fullWidth loading={submitting} onClick={handleCommit}>
-        {submitting ? "Confirming…" : `Confirm ${formatDate(date)}?`}
+        {submitting ? "Confirming…" : `Confirm ${formatShortDay(date)}?`}
       </Button>
       <Button
         variant="secondary"
@@ -236,7 +226,7 @@ export default function SummaryView({
               <SummaryRow
                 key={d.date}
                 accent
-                label={formatDate(d.date)}
+                label={formatShortDay(d.date)}
                 action={finaliseFor(d.date)}
                 meta={
                   voters.length > 0 || notes.length > 0 ? (
@@ -270,7 +260,7 @@ export default function SummaryView({
                   key={d.date}
                   label={
                     <>
-                      {formatDate(d.date)}{" "}
+                      {formatShortDay(d.date)}{" "}
                       <span className={styles.countLabel}>
                         — {d.freeCount}/{d.totalCount} free
                       </span>

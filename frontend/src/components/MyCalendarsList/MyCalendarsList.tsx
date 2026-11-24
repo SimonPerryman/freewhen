@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { MyCalendarListItem } from "@/lib/types";
-import { formatFinalisedDate, formatRelative } from "@/lib/relativeTime";
+import { formatRelative } from "@/lib/relativeTime";
+import { formatShortDay } from "@/lib/dates";
 import { deleteCalendar, leaveCalendar } from "@/lib/api";
 import { useToast } from "@/lib/toast";
 import log from "@/lib/log";
@@ -179,7 +180,7 @@ export default function MyCalendarsList({ status, calendars, hasMore, onRetry }:
                     </span>
                     {cal.finalisedDate ? (
                       <span className={styles.finalisedBadge}>
-                        📅 {formatFinalisedDate(cal.finalisedDate)}
+                        📅 {formatShortDay(cal.finalisedDate)}
                       </span>
                     ) : null}
                   </div>

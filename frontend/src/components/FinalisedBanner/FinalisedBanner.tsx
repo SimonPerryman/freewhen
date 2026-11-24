@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import type { Availability, Participant } from "@/lib/types";
 import ExportButtons from "@/components/ExportButtons/ExportButtons";
+import { formatLongDay } from "@/lib/dates";
 import styles from "./FinalisedBanner.module.css";
 
 interface FinalisedBannerProps {
@@ -20,17 +21,6 @@ interface FinalisedBannerProps {
   // Number of participants who preferred the finalised date. Zero omits the
   // line entirely; the sheet surfaces per-person stars.
   voteCount?: number;
-}
-
-const fullDateFormatter = new Intl.DateTimeFormat("en-GB", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-});
-
-function formatFullDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return fullDateFormatter.format(new Date(y, m - 1, d));
 }
 
 export default function FinalisedBanner({
@@ -59,7 +49,7 @@ export default function FinalisedBanner({
         </span>
         <div className={styles.details}>
           <p className={styles.label}>Confirmed</p>
-          <p className={styles.date}>{formatFullDate(date)}</p>
+          <p className={styles.date}>{formatLongDay(date)}</p>
           {voteCount > 0 ? (
             <p className={styles.voteLine}>
               {voteCount === 1
