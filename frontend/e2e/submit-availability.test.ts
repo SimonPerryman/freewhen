@@ -29,6 +29,10 @@ test("anonymous joiner picks a date, adds a note, marks it preferred, and reload
   await firstCell.click();
   const sheet = page.getByRole("dialog");
   await expect(sheet).toBeVisible();
+  // Opening a day must not focus the note (that raises the phone keyboard);
+  // focus lands on the close button instead.
+  await expect(sheet.getByRole("button", { name: "Close day details" })).toBeFocused();
+  await expect(sheet.getByLabel("Note (optional)")).not.toBeFocused();
 
   // Note + preferred. The "Save" button in the sheet only enables once the
   // textarea differs from the empty currentNote.

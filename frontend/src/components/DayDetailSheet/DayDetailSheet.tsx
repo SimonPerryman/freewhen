@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Availability, Participant } from "@/lib/types";
 import { MAX_NOTE_LENGTH, codePointCount } from "@/lib/limits";
 import CharCounter, { isAtLimit } from "@/components/CharCounter/CharCounter";
@@ -94,7 +94,6 @@ export default function DayDetailSheet({
   onClose,
 }: DayDetailSheetProps) {
   const [draft, setDraft] = useState(currentNote);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   // Starts true so server and first client render match; the effect below
   // reveals the hint for people who haven't preferred a date yet.
   const [preferHintSeen, setPreferHintSeen] = useState(true);
@@ -106,16 +105,6 @@ export default function DayDetailSheet({
   useEffect(() => {
     setDraft(currentNote);
   }, [currentNote, date]);
-
-  // After the trap focuses the textarea, push the caret to the end so
-  // editing an existing note doesn't force the user to Ctrl-End first.
-  useEffect(() => {
-    if (finalised) return;
-    const ta = textareaRef.current;
-    if (!ta) return;
-    const len = ta.value.length;
-    ta.setSelectionRange(len, len);
-  }, [finalised]);
 
   // Build the "who's free" list with notes. We overlay current-participant
   // state from the parent so the list is consistent with their unsaved
@@ -192,8 +181,9 @@ export default function DayDetailSheet({
       title={<span className={styles.title}>{formatFullDate(date)}</span>}
       onClose={onClose}
       closeLabel="Close day details"
-      // Without an editable note the close button (first focusable) gets focus.
-      initialFocus={finalised ? undefined : textareaRef}
+      // No initialFocus: the close button (first focusable) gets focus, so
+      // opening a day never raises the on-screen keyboard. The note field is
+      // focused only when the user taps it.
     >
       <section className={styles.section} aria-labelledby="day-sheet-free-label">
         <h3 id="day-sheet-free-label" className={styles.sectionLabel}>
@@ -266,7 +256,6 @@ export default function DayDetailSheet({
             Note (optional)
           </label>
           <textarea
-            ref={textareaRef}
             id="day-sheet-note"
             className={atLimit ? `${styles.textarea} ${styles.textareaAtLimit}` : styles.textarea}
             value={draft}
