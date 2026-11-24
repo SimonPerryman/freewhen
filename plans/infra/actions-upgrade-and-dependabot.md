@@ -80,3 +80,7 @@ Release-note review (no input changes were needed):
   to 1.17.x, added dependabot.yml (with a 3-day cooldown). Validated workflows
   with `@action-validator/cli` and dependabot.yml against the SchemaStore
   schema.
+- 2026-11-24 09:55 — First CI run green (changes, ci, e2e, tf-plan "no
+  changes" on Terraform 1.17). Fixed the setup-go "Restore cache failed"
+  warning (it looked for go.sum at the repo root) with
+  `cache-dependency-path: backend/go.sum`.
