@@ -132,3 +132,47 @@ test("passphrase gate: wrong passphrase is rejected, right one unlocks, and .ics
   expect(icsRes.ok(), `ics: ${icsRes.status()}`).toBeTruthy();
   expect(await icsRes.text()).toContain("BEGIN:VCALENDAR");
 });
+
+test("banner note dots line up with the name when a note wraps", async ({
+  page,
+  api,
+  signIn,
+  calendar,
+}) => {
+  const date = tomorrowISO();
+  const set = await api.put(`/calendars/${calendar.id}/availability`, {
+    data: {
+      participant_id: calendar.ownerParticipantId,
+      dates: [date],
+      notes: { [date]: "Halfway through the book, so please no spoilers for the ending" },
+    },
+  });
+  expect(set.ok(), `set availability: ${set.status()}`).toBeTruthy();
+  const fin = await api.post(`/calendars/${calendar.id}/finalise`, { data: { date } });
+  expect(fin.ok(), `finalise: ${fin.status()}`).toBeTruthy();
+
+  await page.setViewportSize({ width: 375, height: 800 });
+  await signIn(page, calendar.ownerEmail);
+  await page.goto(`/calendars/${calendar.id}`);
+
+  const item = page.getByRole("list", { name: "Notes for this date" }).getByRole("listitem");
+  await expect(item).toHaveCount(1);
+  const box = async (loc: ReturnType<typeof item.locator>, what: string) => {
+    const b = await loc.boundingBox();
+    expect(b, `${what} should be laid out`).not.toBeNull();
+    return b!;
+  };
+  const [row, dot, note] = await Promise.all([
+    box(item, "row"),
+    box(item.locator(":scope > span").first(), "dot"),
+    box(item.getByText(/no spoilers/), "note"),
+  ]);
+  const lineHeight = await item.evaluate((li) => parseFloat(getComputedStyle(li).lineHeight));
+
+  // The note wraps at 375px (the owner's e2e name is long, too).
+  expect(row.height).toBeGreaterThan(lineHeight * 1.5);
+  // The dot is centred on the first line, not on the whole wrapped row.
+  expect(Math.abs(dot.y + dot.height / 2 - (row.y + lineHeight / 2))).toBeLessThanOrEqual(2);
+  // The note gets the row's width instead of a sliver beside the name.
+  expect(note.width).toBeGreaterThan((row.width - dot.width) * 0.6);
+});
