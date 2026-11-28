@@ -1,6 +1,6 @@
 # Finalise as the primary action; quieter finalised state
 
-Status: in-progress
+Status: done
 
 ## Goal
 
@@ -16,3 +16,4 @@ Refactoring UI review, PR B (finalise half): the owner's best date gets one obvi
 
 - 2026-11-23 21:30 — Created plan
 - 2026-11-23 21:45 — Implemented primary Finalise, secondary Copy link, finalised-state cleanup, Change the date + Undo; vitest updated (504 pass); e2e finalise test extended (not run by this fork)
+- 2026-11-24 19:40 — Audit: shipped in #100 (primary Finalise, finalised banner, "Change the date" with Undo are on main). Marked done.

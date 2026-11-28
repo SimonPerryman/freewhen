@@ -1,6 +1,6 @@
 # Remove decorative arrows from the UI
 
-Status: in-progress
+Status: done
 
 ## Goal
 
@@ -15,3 +15,4 @@ Remove every decorative "→" from button labels and the settings section headin
 
 - 2026-11-23 10:00 — Created plan
 - 2026-11-23 10:05 — Removed arrows from 6 components and the settings CSS prefix
+- 2026-11-24 19:40 — Audit: shipped in #98; no decorative arrows left in UI labels or settings CSS. Marked done.

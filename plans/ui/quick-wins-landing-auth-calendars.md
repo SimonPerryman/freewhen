@@ -1,6 +1,6 @@
 # Quick wins: landing, sign-in, My calendars
 
-Status: in-progress
+Status: done
 
 ## Goal
 
@@ -17,3 +17,4 @@ Refactoring UI pass (PR A, part): calmer sign-in, no dead ends after it, and a u
 
 - 2026-11-23 10:30 — Created plan
 - 2026-11-23 11:10 — Implemented landing, login, check-email, header, My calendars + empty state; vitest added for each
+- 2026-11-24 19:40 — Audit: shipped in #99 (stacked landing form with signed-out hint, calmer login, My calendars). Marked done.

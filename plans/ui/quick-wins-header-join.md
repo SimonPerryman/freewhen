@@ -1,6 +1,6 @@
 # Quick wins: header readout and join form
 
-Status: in-progress
+Status: done
 
 ## Goal
 
@@ -18,3 +18,4 @@ Refactoring UI pass (PR A, header + join slices): say "who's responded" once, hi
 
 - 2026-11-23 10:30 — Created plan
 - 2026-11-23 10:50 — Implemented header readout, JoinForm, invite gating, strip dismissal, Who's missing gating; tests updated (vitest passes for components/lib/calendar page)
+- 2026-11-24 19:40 — Audit: shipped in #99 ("N of M responded" readout, one-field join, gated Who's missing). Marked done.
