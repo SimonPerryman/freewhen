@@ -1,0 +1,8 @@
+# pnpm settings. Since pnpm 11 they're read only from here, not from .npmrc
+# or the `pnpm` field of package.json. This is not a multi-package workspace.
+
+# Dependencies whose install scripts may run. pnpm fails the install when a
+# dependency has a build script that isn't listed here (strictDepBuilds).
+allowBuilds:
+  # Its postinstall only prints a funding banner. pnpm 10 skipped it too.
+  core-js: false

@@ -20,7 +20,7 @@ Group availability coordination tool. Go backend + Next.js frontend + Postgres.
 ## Runtime & Tooling
 
 - **Node 26 LTS** via `.nvmrc` — engines pinned to `>=26 <27` in `package.json`
-- **pnpm** — version pinned in the `packageManager` field; a global pnpm switches to it (Node 26 no longer ships Corepack)
+- **pnpm 12** — version pinned in the `packageManager` field; a global pnpm switches to it (Node 26 no longer ships Corepack). pnpm settings live in `frontend/pnpm-workspace.yaml` (pnpm ignores non-auth `.npmrc` settings and the `pnpm` field of `package.json`). A dependency with an install script must be listed in its `allowBuilds` or the install fails. pnpm won't install a release less than a day old (`minimumReleaseAge`), including one already in the lockfile.
 - **Bun** is an optional speedup only (e.g. `bunx vitest`), not a runtime or package manager dependency
 - Backend uses structured logging with `log/slog` (JSON to stdout everywhere; pipe through `jq` locally if you want pretty output)
 - Every response includes an `X-Request-ID` header
