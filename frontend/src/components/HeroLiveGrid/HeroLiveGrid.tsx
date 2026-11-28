@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+} from "react";
+import { firstDayOfWeek, formatLocalDayRange, startOfWeek, weekdayLabels } from "@/lib/dates";
 import styles from "./HeroLiveGrid.module.css";
 
 type Intensity = 0 | 1 | 2 | 3;
@@ -17,36 +25,32 @@ const INTENSITY_CLASS: Record<1 | 2 | 3, string> = {
   3: styles.cellH3,
 };
 
-const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"] as const;
-
-const MONTH_ABBR = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-] as const;
-
-const FALLBACK_RANGE = "Apr 28 — May 4";
-
-function formatWeekRange(now: Date): string {
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-  // Shift to Monday: getDay() returns 0=Sun..6=Sat; we want 0=Mon..6=Sun.
-  const dayFromMonday = (start.getDay() + 6) % 7;
-  start.setDate(start.getDate() - dayFromMonday);
+// The card's date text: this week's range ("23 – 29 Nov" / "Nov 23 – 29") and
+// the weekday row, in the browser's locale (locale undefined = the runtime
+// default) and starting on its first day of the week.
+function weekText(now: Date, locale: string | undefined) {
+  const firstDay = firstDayOfWeek(locale);
+  const start = startOfWeek(now, firstDay);
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
-  const startLabel = `${MONTH_ABBR[start.getMonth()]} ${start.getDate()}`;
-  const endLabel = `${MONTH_ABBR[end.getMonth()]} ${end.getDate()}`;
-  return `${startLabel} — ${endLabel}`;
+  return {
+    range: formatLocalDayRange(start, end, locale),
+    days: weekdayLabels(locale, firstDay).map((d) => d.narrow),
+  };
+}
+
+const EMPTY_DAYS: ReadonlyArray<string> = Array.from({ length: 7 }, () => "");
+
+// The landing page is prerendered at build time, with no request and so no
+// viewer locale. The date text renders only in the browser: false in the
+// server HTML and the hydration render, true straight after.
+const noopSubscribe = () => () => {};
+function useIsClient(): boolean {
+  return useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  );
 }
 
 const TICK_MS = 1800;
@@ -91,14 +95,12 @@ function pickCellIndex(length: number, recent: ReadonlyArray<number>): number {
   return candidates[Math.floor(Math.random() * candidates.length)]!;
 }
 
-export function HeroLiveGrid() {
+// `locale` is for tests; the page leaves it to the browser.
+export function HeroLiveGrid({ locale }: { locale?: string } = {}) {
   const [cells, setCells] = useState<ReadonlyArray<Intensity>>(PATTERN);
-  const [rangeLabel, setRangeLabel] = useState<string>(FALLBACK_RANGE);
+  const isClient = useIsClient();
+  const week = useMemo(() => (isClient ? weekText(new Date(), locale) : null), [isClient, locale]);
   const recentRef = useRef<number[]>([]);
-
-  useEffect(() => {
-    setRangeLabel(formatWeekRange(new Date()));
-  }, []);
 
   useEffect(() => {
     const reducedMotion =
@@ -163,10 +165,12 @@ export function HeroLiveGrid() {
   return (
     <div className={styles.card} aria-hidden="true">
       <div className={styles.head}>
-        <span className={styles.headRange}>{rangeLabel}</span>
+        <span className={styles.headRange} data-testid="hero-range">
+          {week?.range}
+        </span>
       </div>
-      <div className={styles.dow}>
-        {DAY_LABELS.map((label, i) => (
+      <div className={styles.dow} data-testid="hero-weekdays">
+        {(week?.days ?? EMPTY_DAYS).map((label, i) => (
           <span key={i} className={styles.dowCell}>
             {label}
           </span>

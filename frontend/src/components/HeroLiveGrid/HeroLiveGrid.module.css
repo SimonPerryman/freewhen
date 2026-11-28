@@ -33,8 +33,11 @@
   margin-bottom: var(--space-2-5);
 }
 
+/* The date text renders after hydration (it needs the browser's locale), so
+   the label and weekday cells hold a line's height while empty. */
 .headRange {
   font-weight: 500;
+  min-height: 1lh;
 }
 
 .dow {
@@ -51,6 +54,7 @@
   letter-spacing: 0.06em;
   color: var(--text-secondary);
   opacity: 0.7;
+  min-height: 1lh;
 }
 
 .grid {

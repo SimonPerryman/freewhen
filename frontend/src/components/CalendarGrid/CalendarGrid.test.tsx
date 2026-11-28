@@ -4,6 +4,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import CalendarGrid, { computeHeatPercent } from "./CalendarGrid";
 import { formatLocalDate } from "@/lib/dates";
+import { DateLocaleProvider } from "@/lib/dateLocale";
 import { COLOUR_PALETTE, textOnColour } from "@/lib/overlap";
 import type { Participant } from "@/lib/types";
 
@@ -60,6 +61,71 @@ describe("CalendarGrid", () => {
 
     const cells = screen.getAllByTestId("day-cell");
     expect(cells).toHaveLength(35);
+  });
+
+  describe("locale", () => {
+    // Wed 25 Nov 2026. The grid's five weeks cross into December.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date(2026, 10, 25, 12));
+      return () => vi.useRealTimers();
+    });
+
+    function renderIn(locale: string) {
+      return render(
+        <DateLocaleProvider locale={locale}>
+          <CalendarGrid
+            participants={[]}
+            freeByDate={new Map()}
+            currentParticipantId={null}
+            onToggle={onToggle}
+            joined={false}
+          />
+        </DateLocaleProvider>,
+      );
+    }
+
+    function headers() {
+      const grid = screen.getAllByTestId("day-cell")[0].parentElement!;
+      const cols = Array.from(grid.children).slice(0, 7);
+      return {
+        narrow: cols.map((c) => c.children[0].textContent).join(" "),
+        short: cols.map((c) => c.children[1].textContent).join(" "),
+      };
+    }
+
+    // Index of the first real (non-placeholder) cell: today's column.
+    function todayColumn() {
+      return screen.getAllByTestId("day-cell").findIndex((c) => c.tagName === "BUTTON");
+    }
+
+    it("en-GB: Monday-first header, rows and range", () => {
+      renderIn("en-GB");
+      expect(headers()).toEqual({
+        narrow: "M T W T F S S",
+        short: "Mon Tue Wed Thu Fri Sat Sun",
+      });
+      expect(todayColumn()).toBe(2);
+      expect(screen.getByText("23 Nov – 27 Dec 2026")).toBeInTheDocument();
+      expect(screen.getByLabelText("25 Nov 2026")).toBeInTheDocument();
+    });
+
+    it("en-US: Sunday-first header, rows and range", () => {
+      renderIn("en-US");
+      expect(headers()).toEqual({
+        narrow: "S M T W T F S",
+        short: "Sun Mon Tue Wed Thu Fri Sat",
+      });
+      expect(todayColumn()).toBe(3);
+      expect(screen.getByText("Nov 22 – Dec 26, 2026")).toBeInTheDocument();
+      expect(screen.getByLabelText("Nov 25, 2026")).toBeInTheDocument();
+    });
+
+    it("tags the 1st of a month in the locale", () => {
+      renderIn("de-DE");
+      const dec1 = screen.getByLabelText("1. Dez. 2026");
+      expect(dec1).toHaveTextContent(/^Dez1$/);
+    });
   });
 
   it("n=0: cells have no slot container", () => {
@@ -276,8 +342,9 @@ describe("CalendarGrid", () => {
   });
 
   it("past dates render as non-interactive placeholders", () => {
-    // Pin "today" to a non-Monday so the current week has at least one past
-    // cell (the grid always starts on the Monday of the current week).
+    // Pin "today" to a mid-week day so the current week has at least one past
+    // cell (the grid starts on the first day of the current week: Monday for
+    // the tests' default en-GB locale).
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2030-01-03T12:00:00Z")); // Thursday
     try {
