@@ -183,6 +183,13 @@ jobs:
       (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') &&
       needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-24.04-arm
+    # `vercel deploy --prebuilt` doesn't tell GitHub about the deploy, so the
+    # repo homepage's Deployments sidebar would show a stale Vercel-bot record.
+    # Declaring an environment makes Actions record this job as a Production
+    # deployment (success/failure follows the job result).
+    environment:
+      name: Production
+      url: https://freewhen.simonperryman.co.uk
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
